@@ -67,6 +67,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -78,6 +79,7 @@ import com.astelle.app.R
 import com.astelle.app.domain.model.Note
 import com.astelle.app.ui.components.AstelleIcons
 import com.astelle.app.ui.navigation.AstelleDestination
+import dev.jeziellago.compose.markdowntext.MarkdownText
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -559,7 +561,30 @@ private fun BodyPreview(content: String, modifier: Modifier = Modifier) {
         if (content.isBlank()) {
             Text("还没有内容", color = Ghost, fontSize = 14.sp)
         } else {
-            Text(content, fontSize = 16.sp, color = Ink, lineHeight = 28.sp)
+            // 真 Markdown 渲染。规格：正文 16sp / 行高 1.75（docs/ui/01-home-screen.md §2.2）
+            //
+            // 三个刻意的选择：
+            //  - linkColor = Accent
+            //        链接用品牌橙。下划线保留库默认的开启状态：只靠颜色区分链接，
+            //        对色盲用户不友好。
+            //  - syntaxHighlightColor
+            //        这个参数名有误导性，它实际就是 codeBackgroundColor
+            //        （见库的 MardownCorePlugin.configureTheme）。库默认浅灰，
+            //        和暖纸色板打架，故换成 PaperWarm。
+            //  - enableSoftBreakAddsNewLine
+            //        保持库默认的 true。笔记里按一次回车就该换行；若为 false，
+            //        多行正文会被 Markdown 规则并成一整段。
+            MarkdownText(
+                markdown = content,
+                modifier = Modifier.fillMaxWidth(),
+                linkColor = Accent,
+                style = TextStyle(
+                    color = Ink,
+                    fontSize = 16.sp,
+                    lineHeight = 28.sp,
+                ),
+                syntaxHighlightColor = PaperWarm,
+            )
         }
     }
 }
