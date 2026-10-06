@@ -154,12 +154,12 @@ private class FakeNoteRepository : NoteRepository {
         publish()
     }
 
-    override suspend fun setPinned(id: String, pinned: Boolean) {
-        stored[id]?.let { stored[id] = it.copy(isPinned = pinned); publish() }
+    override suspend fun togglePinned(id: String) {
+        stored[id]?.let { stored[id] = it.copy(isPinned = !it.isPinned); publish() }
     }
 
-    override suspend fun setFavorite(id: String, favorite: Boolean) {
-        stored[id]?.let { stored[id] = it.copy(isFavorite = favorite); publish() }
+    override suspend fun toggleFavorite(id: String) {
+        stored[id]?.let { stored[id] = it.copy(isFavorite = !it.isFavorite); publish() }
     }
 
     override suspend fun setArchived(id: String, archived: Boolean) {

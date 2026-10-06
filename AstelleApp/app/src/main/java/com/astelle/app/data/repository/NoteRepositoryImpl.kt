@@ -32,12 +32,12 @@ class NoteRepositoryImpl @Inject constructor(
         noteDao.deleteById(id)
     }
 
-    override suspend fun setPinned(id: String, pinned: Boolean) {
-        noteDao.setPinned(id, pinned, updatedAt = System.currentTimeMillis())
+    override suspend fun togglePinned(id: String) {
+        noteDao.togglePinned(id, updatedAt = System.currentTimeMillis())
     }
 
-    override suspend fun setFavorite(id: String, favorite: Boolean) {
-        noteDao.setFavorite(id, favorite, updatedAt = System.currentTimeMillis())
+    override suspend fun toggleFavorite(id: String) {
+        noteDao.toggleFavorite(id, updatedAt = System.currentTimeMillis())
     }
 
     override suspend fun setArchived(id: String, archived: Boolean) {

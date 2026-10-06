@@ -17,7 +17,10 @@ interface NoteRepository {
     suspend fun getNote(id: String): Note?
     suspend fun upsert(note: Note)
     suspend fun delete(id: String)
-    suspend fun setPinned(id: String, pinned: Boolean)
-    suspend fun setFavorite(id: String, favorite: Boolean)
+
+    /** 翻转置顶 / 收藏。不读全文，一条 UPDATE 搞定 */
+    suspend fun togglePinned(id: String)
+    suspend fun toggleFavorite(id: String)
+
     suspend fun setArchived(id: String, archived: Boolean)
 }

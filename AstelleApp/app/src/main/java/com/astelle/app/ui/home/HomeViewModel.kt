@@ -209,6 +209,9 @@ class HomeViewModel @Inject constructor(
                     noteRepository.delete(id)
                     if (_uiState.value.currentNoteId == id) {
                         activeNote = null
+                        // 历史必须跟着清空：否则在清空的编辑器上按一下撤销，
+                        // 会把刚删掉的笔记内容「复活」成一篇新笔记
+                        history.reset(EditSnapshot())
                         _uiState.update {
                             it.copy(
                                 currentNoteId = null,
@@ -216,6 +219,9 @@ class HomeViewModel @Inject constructor(
                                 content = "",
                                 savedAt = null,
                                 isDirty = false,
+                                isSaving = false,
+                                canUndo = false,
+                                canRedo = false,
                             )
                         }
                     }
@@ -223,19 +229,30 @@ class HomeViewModel @Inject constructor(
             }
             is HomeUiEvent.TogglePin -> {
                 viewModelScope.launch {
-                    val note = noteRepository.getNote(event.id) ?: return@launch
-                    noteRepository.setPinned(event.id, !note.isPinned)
+                    noteRepository.togglePinned(event.id)
+                    syncActiveNoteFlag(event.id) { it.copy(isPinned = !it.isPinned) }
                 }
             }
             is HomeUiEvent.ToggleFavorite -> {
                 viewModelScope.launch {
-                    val note = noteRepository.getNote(event.id) ?: return@launch
-                    noteRepository.setFavorite(event.id, !note.isFavorite)
+                    noteRepository.toggleFavorite(event.id)
+                    syncActiveNoteFlag(event.id) { it.copy(isFavorite = !it.isFavorite) }
                 }
             }
             is HomeUiEvent.SetMode ->
                 _uiState.update { it.copy(mode = event.mode) }
         }
+    }
+
+    /**
+     * 翻转标记之后同步内存里的 activeNote。
+     *
+     * 不同步的话，下一次 persist 会拿旧的 isPinned / isFavorite 整行回写，
+     * 把用户刚刚做的切换悄悄覆盖掉 —— 而且不会有任何报错。
+     */
+    private fun syncActiveNoteFlag(id: String, transform: (Note) -> Note) {
+        val current = activeNote ?: return
+        if (current.id == id) activeNote = transform(current)
     }
 
     private fun persist(title: String, content: String) {
@@ -256,8 +273,19 @@ class HomeViewModel @Inject constructor(
                         it.copy(currentNoteId = null, savedAt = null, isSaving = false, isDirty = false)
                     }
                 } else {
+                    val trimmed = title.trim()
+                    // 内容没变就别写库。
+                    // persist 会被「打开笔记」触发的防抖流水线再调一次 ——
+                    // 若无条件 upsert，updatedAt 会被刷新，笔记平白跳到抽屉最前，
+                    // 用户只是看了一眼却像改过一样。
+                    if (existing.title == trimmed && existing.content == content) {
+                        _uiState.update {
+                            it.copy(savedAt = existing.updatedAt, isSaving = false, isDirty = false)
+                        }
+                        return@launch
+                    }
                     val updated = existing.copy(
-                        title = title.trim(),
+                        title = trimmed,
                         content = content,
                         updatedAt = now,
                     )

@@ -1,6 +1,5 @@
 package com.astelle.app.ui.components
 
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
@@ -8,18 +7,18 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.PathBuilder
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
+// 色板统一取自 ui/theme，本文件不再自己抄一份
+import com.astelle.app.ui.theme.Ghost
+import com.astelle.app.ui.theme.Muted
 
 /**
  * 自绘图标库：对齐 index.html 原型 SVG。
  */
 object AstelleIcons {
 
-    private val MutedColor = Color(0xFF9C8B74)
-    private val GhostColor = Color(0xFFB8A992)
-
     val Sidebar: ImageVector by lazy {
         ImageVector.Builder("Sidebar", 24.dp, 24.dp, 24f, 24f).apply {
-            path(stroke = SolidColor(MutedColor), strokeLineWidth = 1.8f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
+            path(stroke = SolidColor(Muted), strokeLineWidth = 1.8f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
                 moveTo(8.5f, 3.2f)
                 lineTo(18.5f, 3.2f)
                 arcTo(3.2f, 3.2f, 0f, isMoreThanHalf = false, isPositiveArc = true, x1 = 21.7f, y1 = 6.4f)
@@ -38,7 +37,7 @@ object AstelleIcons {
     val NewNote: ImageVector by lazy {
         // Lucide FilePlus 官方 path，原样转换
         ImageVector.Builder("NewNote", 24.dp, 24.dp, 24f, 24f).apply {
-            path(stroke = SolidColor(MutedColor), strokeLineWidth = 1.8f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
+            path(stroke = SolidColor(Muted), strokeLineWidth = 1.8f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
                 // 文件 + 右上折角
                 moveTo(15f, 2f)
                 lineTo(6f, 2f)
@@ -64,7 +63,7 @@ object AstelleIcons {
 
     val Undo: ImageVector by lazy {
         ImageVector.Builder("Undo", 24.dp, 24.dp, 24f, 24f).apply {
-            path(stroke = SolidColor(MutedColor), strokeLineWidth = 1.8f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
+            path(stroke = SolidColor(Muted), strokeLineWidth = 1.8f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
                 moveTo(9f, 14f); lineTo(4f, 9f); lineTo(9f, 4f)
                 moveTo(4f, 9f); lineTo(14f, 9f)
                 arcTo(6f, 6f, 0f, false, true, 14f, 21f)
@@ -75,7 +74,7 @@ object AstelleIcons {
 
     val Redo: ImageVector by lazy {
         ImageVector.Builder("Redo", 24.dp, 24.dp, 24f, 24f).apply {
-            path(stroke = SolidColor(MutedColor), strokeLineWidth = 1.8f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
+            path(stroke = SolidColor(Muted), strokeLineWidth = 1.8f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
                 moveTo(15f, 14f); lineTo(20f, 9f); lineTo(15f, 4f)
                 moveTo(20f, 9f); lineTo(10f, 9f)
                 arcTo(6f, 6f, 0f, false, false, 10f, 21f)
@@ -86,7 +85,7 @@ object AstelleIcons {
 
     val More: ImageVector by lazy {
         ImageVector.Builder("More", 24.dp, 24.dp, 24f, 24f).apply {
-            path(fill = SolidColor(MutedColor)) {
+            path(fill = SolidColor(Muted)) {
                 addOval(3.2f, 10.2f, 6.8f, 13.8f)
                 addOval(10.2f, 10.2f, 13.8f, 13.8f)
                 addOval(17.2f, 10.2f, 20.8f, 13.8f)
@@ -96,7 +95,7 @@ object AstelleIcons {
 
     val Search: ImageVector by lazy {
         ImageVector.Builder("Search", 24.dp, 24.dp, 24f, 24f).apply {
-            path(stroke = SolidColor(GhostColor), strokeLineWidth = 2f, strokeLineCap = StrokeCap.Round) {
+            path(stroke = SolidColor(Ghost), strokeLineWidth = 2f, strokeLineCap = StrokeCap.Round) {
                 moveTo(18f, 11f)
                 arcTo(7f, 7f, 0f, true, true, 4f, 11f)
                 arcTo(7f, 7f, 0f, true, true, 18f, 11f)
@@ -107,7 +106,7 @@ object AstelleIcons {
 
     val Import: ImageVector by lazy {
         ImageVector.Builder("Import", 24.dp, 24.dp, 24f, 24f).apply {
-            path(stroke = SolidColor(MutedColor), strokeLineWidth = 1.8f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
+            path(stroke = SolidColor(Muted), strokeLineWidth = 1.8f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
                 moveTo(12f, 3f); lineTo(12f, 14f)
                 moveTo(7f, 10f); lineTo(12f, 15f); lineTo(17f, 10f)
                 moveTo(5f, 20f); lineTo(19f, 20f)
@@ -117,7 +116,7 @@ object AstelleIcons {
 
     val Plan: ImageVector by lazy {
         ImageVector.Builder("Plan", 24.dp, 24.dp, 24f, 24f).apply {
-            path(stroke = SolidColor(MutedColor), strokeLineWidth = 1.65f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
+            path(stroke = SolidColor(Muted), strokeLineWidth = 1.65f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
                 moveTo(6.4f, 5.2f); lineTo(17.6f, 5.2f)
                 arcTo(2.4f, 2.4f, 0f, false, true, 20f, 7.6f)
                 lineTo(20f, 17.4f)
@@ -136,7 +135,7 @@ object AstelleIcons {
 
     val Diary: ImageVector by lazy {
         ImageVector.Builder("Diary", 24.dp, 24.dp, 24f, 24f).apply {
-            path(stroke = SolidColor(MutedColor), strokeLineWidth = 1.55f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
+            path(stroke = SolidColor(Muted), strokeLineWidth = 1.55f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
                 moveTo(7.4f, 3.6f); lineTo(16.6f, 3.6f)
                 arcTo(2.2f, 2.2f, 0f, false, true, 18.8f, 5.8f)
                 lineTo(18.8f, 18.2f)
@@ -158,7 +157,7 @@ object AstelleIcons {
     val Sparkle: ImageVector by lazy {
         ImageVector.Builder("Sparkle", 24.dp, 24.dp, 24f, 24f).apply {
             // 主星
-            path(stroke = SolidColor(MutedColor), strokeLineWidth = 1.55f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
+            path(stroke = SolidColor(Muted), strokeLineWidth = 1.55f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
                 moveTo(11f, 3.2f)
                 lineTo(12.35f, 9.1f)
                 lineTo(18.2f, 10.5f)
@@ -170,7 +169,7 @@ object AstelleIcons {
                 close()
             }
             // 副星
-            path(stroke = SolidColor(MutedColor), strokeLineWidth = 1.4f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
+            path(stroke = SolidColor(Muted), strokeLineWidth = 1.4f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
                 moveTo(18.2f, 14.2f)
                 lineTo(18.85f, 16.55f)
                 lineTo(21.2f, 17.2f)
@@ -187,7 +186,7 @@ object AstelleIcons {
     /** 设置：双滑杆（Lucide settings-2，干净不像太阳） */
     val Settings: ImageVector by lazy {
         ImageVector.Builder("Settings", 24.dp, 24.dp, 24f, 24f).apply {
-            path(stroke = SolidColor(MutedColor), strokeLineWidth = 1.65f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
+            path(stroke = SolidColor(Muted), strokeLineWidth = 1.65f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
                 // 上滑杆
                 moveTo(3.5f, 7.5f)
                 lineTo(14.5f, 7.5f)

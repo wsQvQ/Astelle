@@ -67,11 +67,15 @@ interface NoteDao {
     @Query("UPDATE notes SET isArchived = :archived, updatedAt = :updatedAt WHERE id = :id")
     suspend fun setArchived(id: String, archived: Boolean, updatedAt: Long)
 
-    @Query("UPDATE notes SET isPinned = :pinned, updatedAt = :updatedAt WHERE id = :id")
-    suspend fun setPinned(id: String, pinned: Boolean, updatedAt: Long)
+    /**
+     * 原地翻转。原先是「getById 读全文 → 取反 → 回写」，
+     * 为了一个布尔值把整篇正文搬进内存，既浪费，也让置顶与正文大小无谓地绑在一起。
+     */
+    @Query("UPDATE notes SET isPinned = NOT isPinned, updatedAt = :updatedAt WHERE id = :id")
+    suspend fun togglePinned(id: String, updatedAt: Long)
 
-    @Query("UPDATE notes SET isFavorite = :favorite, updatedAt = :updatedAt WHERE id = :id")
-    suspend fun setFavorite(id: String, favorite: Boolean, updatedAt: Long)
+    @Query("UPDATE notes SET isFavorite = NOT isFavorite, updatedAt = :updatedAt WHERE id = :id")
+    suspend fun toggleFavorite(id: String, updatedAt: Long)
 
     /** 移入 / 移出分类：folderId 传 null 即移出到「未分类」 */
     @Query("UPDATE notes SET folderId = :folderId, updatedAt = :updatedAt WHERE id = :id")
