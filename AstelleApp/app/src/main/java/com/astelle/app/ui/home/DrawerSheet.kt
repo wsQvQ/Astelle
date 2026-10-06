@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -413,11 +414,12 @@ internal fun DrawerSheet(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 4.dp)
-                        .height(32.dp)
+                        // heightIn 而不是 height：写死高度的话，「新建」会被挤到
+                        // 框外去（大字体下必然发生）。这里让整条随内容长高
+                        .heightIn(min = 34.dp)
                         .clip(RoundedCornerShape(10.dp))
                         .background(PaperWarm.copy(alpha = 0.8f))
-                        .border(1.dp, Accent.copy(alpha = 0.25f), RoundedCornerShape(10.dp))
-                        .padding(start = 10.dp, end = 4.dp),
+                        .border(1.dp, Accent.copy(alpha = 0.25f), RoundedCornerShape(10.dp)),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     BasicTextField(
@@ -426,7 +428,7 @@ internal fun DrawerSheet(
                         singleLine = true,
                         textStyle = LocalTextStyle.current.copy(fontSize = 12.sp, color = Ink),
                         cursorBrush = SolidColor(Accent),
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).padding(start = 10.dp),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                         keyboardActions = KeyboardActions(onDone = { submitCategory() }),
                         decorationBox = { innerTextField: @Composable () -> Unit ->
@@ -441,12 +443,16 @@ internal fun DrawerSheet(
                     if (catName.isNotBlank()) {
                         Box(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(7.dp))
+                                // 这一圈 padding 保证按钮永远比输入框矮一档，
+                                // 不会顶到边框；曲率跟着同心走（外 10 − 内缩 4 = 6）
+                                .padding(end = 5.dp, top = 4.dp, bottom = 4.dp)
+                                .clip(RoundedCornerShape(6.dp))
                                 .background(Accent)
                                 .clickable(interactionSource = inputInteraction, indication = null) {
                                     submitCategory()
                                 }
-                                .padding(horizontal = 9.dp, vertical = 4.dp),
+                                .padding(horizontal = 10.dp, vertical = 3.dp),
+                            contentAlignment = Alignment.Center,
                         ) {
                             Text("新建", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Medium)
                         }
@@ -661,7 +667,9 @@ private fun FolderCard(
                     .fillMaxWidth()
                     // 只有下缘圆角，上缘接组头，于是两块拼成一张卡
                     .clip(RoundedCornerShape(bottomStart = 10.dp, bottomEnd = 10.dp))
-                    .background(Paper.copy(alpha = 0.5f))
+                    // 和独立卡片同一个纸白。之前用 Paper 半透明，压在抽屉底色上
+                    // 显得发灰发脏 —— 分类里装的也是同一批文章，底就不该比它暗
+                    .background(Paper)
                     .padding(vertical = 4.dp),
             ) {
                 if (group.notes.isEmpty()) {
