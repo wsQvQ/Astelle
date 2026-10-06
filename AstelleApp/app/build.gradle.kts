@@ -38,6 +38,9 @@ android {
     }
     buildFeatures {
         compose = true
+        // 让代码里能读到 BuildConfig.DEBUG：
+        // 示例笔记只在 debug 构建写入，release 包不会带上它
+        buildConfig = true
     }
 }
 

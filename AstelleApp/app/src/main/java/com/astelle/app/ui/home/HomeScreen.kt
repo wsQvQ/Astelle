@@ -955,9 +955,12 @@ private fun NoteCard(
                 Spacer(Modifier.width(10.dp))
             }
             Column(Modifier.weight(1f)) {
+                // 标题为空时 displayTitle 会回退成正文首行；
+                // 若摘要再显示同一行，卡片上就会出现肉眼可见的重复，故抽出来比对一次
+                val headline = note.displayTitle.ifBlank { "空白笔记" }
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text(
-                        note.displayTitle.ifBlank { "空白笔记" },
+                        headline,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium,
                         color = if (selected) Accent else InkSoft,
@@ -976,7 +979,8 @@ private fun NoteCard(
                     Text(dateLabel, fontFamily = mono, fontSize = 10.sp, color = Ghost)
                 }
                 val sum = note.content.trim().lineSequence().firstOrNull().orEmpty()
-                if (sum.isNotBlank()) {
+                // sum != headline：标题为空时 headline 就是正文首行，再显示一遍纯属重复
+                if (sum.isNotBlank() && sum != headline) {
                     Text(
                         sum,
                         fontSize = 12.sp,

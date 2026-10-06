@@ -2,6 +2,8 @@ package com.astelle.app.ui.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.astelle.app.BuildConfig
+import com.astelle.app.data.seed.SampleNote
 import com.astelle.app.domain.model.Note
 import com.astelle.app.domain.repository.NoteRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -61,12 +63,36 @@ class HomeViewModel @Inject constructor(
     private var saveJob: Job? = null
 
     init {
+        seedSampleNote()
         _uiState
             .map { it.title to it.content }
             .distinctUntilChanged()
             .debounce(SAVE_DEBOUNCE_MS)
             .onEach { (title, content) -> persist(title, content) }
             .launchIn(viewModelScope)
+    }
+
+    /**
+     * 测试期便利功能：把示例笔记刷新成当前构建里的最新内容。
+     *
+     * 固定 ID + upsert，所以不会越塞越多；只在 debug 构建里跑，release 包不会有这篇。
+     * 直接写库而不经过 _uiState，因此不会污染用户正在编辑的那份空白草稿。
+     */
+    private fun seedSampleNote() {
+        if (!BuildConfig.DEBUG) return
+        viewModelScope.launch {
+            val existing = noteRepository.getNote(SampleNote.ID)
+            val now = System.currentTimeMillis()
+            noteRepository.upsert(
+                Note(
+                    id = SampleNote.ID,
+                    title = SampleNote.TITLE,
+                    content = SampleNote.CONTENT,
+                    createdAt = existing?.createdAt ?: now,
+                    updatedAt = now,
+                )
+            )
+        }
     }
 
     fun onEvent(event: HomeUiEvent) {
