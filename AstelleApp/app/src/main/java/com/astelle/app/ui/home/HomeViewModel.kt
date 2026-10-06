@@ -62,13 +62,19 @@ class HomeViewModel @Inject constructor(
     private var activeNote: Note? = null
     private var saveJob: Job? = null
 
+    /** 撤销 / 重做。纯内存，不落库；切换笔记时整条重置 */
+    private val history = EditHistory()
+
     init {
         seedSampleNote()
         _uiState
-            .map { it.title to it.content }
+            .map { EditSnapshot(it.title, it.content) }
             .distinctUntilChanged()
             .debounce(SAVE_DEBOUNCE_MS)
-            .onEach { (title, content) -> persist(title, content) }
+            .onEach { snapshot ->
+                persist(snapshot.title, snapshot.content)
+                recordHistory(snapshot)
+            }
             .launchIn(viewModelScope)
     }
 
@@ -95,6 +101,27 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    /** 撤销 / 重做把快照写回界面。历史游标已由 EditHistory 内部移动完毕 */
+    private fun applySnapshot(snapshot: EditSnapshot) {
+        _uiState.update {
+            it.copy(
+                title = snapshot.title,
+                content = snapshot.content,
+                // 与手动输入一致：先置为「保存中」，让 500ms 后的去抖落库把状态收干净
+                isDirty = true,
+                isSaving = true,
+                canUndo = history.canUndo,
+                canRedo = history.canRedo,
+            )
+        }
+    }
+
+    /** 编辑停稳后记一笔历史；与游标相同的快照会被 EditHistory 自行忽略 */
+    private fun recordHistory(snapshot: EditSnapshot) {
+        history.record(snapshot)
+        _uiState.update { it.copy(canUndo = history.canUndo, canRedo = history.canRedo) }
+    }
+
     fun onEvent(event: HomeUiEvent) {
         when (event) {
             is HomeUiEvent.TitleChanged ->
@@ -109,10 +136,13 @@ class HomeViewModel @Inject constructor(
                 saveJob?.cancel()
                 persist(_uiState.value.title, _uiState.value.content)
             }
+            HomeUiEvent.Undo -> history.undo()?.let(::applySnapshot)
+            HomeUiEvent.Redo -> history.redo()?.let(::applySnapshot)
             HomeUiEvent.NewNote -> {
                 saveJob?.cancel()
                 persist(_uiState.value.title, _uiState.value.content)
                 activeNote = null
+                history.reset(EditSnapshot())
                 _uiState.update {
                     it.copy(
                         currentNoteId = null,
@@ -121,6 +151,8 @@ class HomeViewModel @Inject constructor(
                         savedAt = null,
                         isDirty = false,
                         isSaving = false,
+                        canUndo = false,
+                        canRedo = false,
                     )
                 }
             }
@@ -130,6 +162,8 @@ class HomeViewModel @Inject constructor(
                 viewModelScope.launch {
                     val note = noteRepository.getNote(event.id) ?: return@launch
                     activeNote = note
+                    // 换了一篇笔记，旧的历史对它没有意义
+                    history.reset(EditSnapshot(note.title, note.content))
                     _uiState.update {
                         it.copy(
                             currentNoteId = note.id,
@@ -138,6 +172,8 @@ class HomeViewModel @Inject constructor(
                             savedAt = note.updatedAt,
                             isDirty = false,
                             isSaving = false,
+                            canUndo = false,
+                            canRedo = false,
                         )
                     }
                 }

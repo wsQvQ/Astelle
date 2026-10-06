@@ -167,6 +167,8 @@ fun HomeRoute(
             onTitle = { viewModel.onEvent(HomeUiEvent.TitleChanged(it)) },
             onContent = { viewModel.onEvent(HomeUiEvent.ContentChanged(it)) },
             onNewNote = { viewModel.onEvent(HomeUiEvent.NewNote) },
+            onUndo = { viewModel.onEvent(HomeUiEvent.Undo) },
+            onRedo = { viewModel.onEvent(HomeUiEvent.Redo) },
             onMode = { viewModel.onEvent(HomeUiEvent.SetMode(it)) },
             onTogglePin = { id -> viewModel.onEvent(HomeUiEvent.TogglePin(id)) },
             onToggleFavorite = { id -> viewModel.onEvent(HomeUiEvent.ToggleFavorite(id)) },
@@ -203,6 +205,8 @@ private fun EditorScaffold(
     onTitle: (String) -> Unit,
     onContent: (String) -> Unit,
     onNewNote: () -> Unit,
+    onUndo: () -> Unit,
+    onRedo: () -> Unit,
     onMode: (EditorMode) -> Unit,
     onTogglePin: (String) -> Unit,
     onToggleFavorite: (String) -> Unit,
@@ -232,11 +236,22 @@ private fun EditorScaffold(
             IconBtn(onClick = onOpenDrawer, shape = CircleShape) {
                 Icon(AstelleIcons.Sidebar, contentDescription = "侧边栏", tint = Muted, modifier = Modifier.size(24.dp))
             }
-            IconBtn(onClick = {}, enabled = false) {
-                Icon(AstelleIcons.Undo, contentDescription = "撤销", tint = Muted.copy(alpha = 0.32f), modifier = Modifier.size(22.dp))
+            // 设计稿 §2.1：撤销 / 重做无历史时 32% 透明禁用
+            IconBtn(onClick = onUndo, enabled = state.canUndo) {
+                Icon(
+                    AstelleIcons.Undo,
+                    contentDescription = "撤销",
+                    tint = Muted.copy(alpha = if (state.canUndo) 1f else 0.32f),
+                    modifier = Modifier.size(22.dp),
+                )
             }
-            IconBtn(onClick = {}, enabled = false) {
-                Icon(AstelleIcons.Redo, contentDescription = "重做", tint = Muted.copy(alpha = 0.32f), modifier = Modifier.size(22.dp))
+            IconBtn(onClick = onRedo, enabled = state.canRedo) {
+                Icon(
+                    AstelleIcons.Redo,
+                    contentDescription = "重做",
+                    tint = Muted.copy(alpha = if (state.canRedo) 1f else 0.32f),
+                    modifier = Modifier.size(22.dp),
+                )
             }
             Spacer(Modifier.weight(1f))
             ViewPill(mode = state.mode, onMode = onMode)
