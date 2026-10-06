@@ -55,34 +55,40 @@ internal fun groupNotes(
 /**
  * 抽屉列表要画的一行。
  *
- * LazyColumn 需要一串扁平的行，而分组是树状的 —— 这个 sealed 就是那层压平，
- * 顺便把「折叠的组不吐出行」这件事收在纯函数里，好测。
+ * LazyColumn 要一串扁平的行，而分组是树状的 —— 这个 sealed 就是那层压平。
  */
 internal sealed interface DrawerRow {
     val key: String
 
-    data class Header(val group: NoteGroup) : DrawerRow {
-        override val key: String get() = "h:${group.key}"
+    /** 一个分类容器：组头 + 组内条目，两张共用一条圆角边框（见 `FolderCard`） */
+    data class FolderGroup(val group: NoteGroup, val collapsed: Boolean) : DrawerRow {
+        override val key: String get() = "g:${group.key}"
     }
 
-    data class Note(val summary: NoteSummary, val nested: Boolean = false) : DrawerRow {
+    /** 平铺的卡片：搜索态，以及「未分类」收件箱 */
+    data class FlatNote(val summary: NoteSummary) : DrawerRow {
         override val key: String get() = "n:${summary.id}"
     }
 }
 
 /**
- * 展开所有未折叠的组。折叠的组只吐组头，它的笔记不进入列表。
+ * 把分组摊平成列表要的行。
  *
- * [DrawerRow.Note.nested] 标出「这篇在某个分类里」：收件箱的卡片是平铺的，
- * 分类下的卡片要缩进一档，否则整组看上去只是一张张飘着的卡片，
- * 组头就成了摆设。
+ * 只有**真正的分类**才包成容器；「未分类」保持平铺卡片 —— 它是收件箱，
+ * 不是你自己建的分组，给它套一个文件夹壳反而像多了一层组织。
+ *
+ * [flat] 为 true（搜索态）时整个不分段，就是一张平铺的匹配结果。
  */
-internal fun buildRows(groups: List<NoteGroup>, collapsed: Set<String>): List<DrawerRow> = buildList {
+internal fun buildRows(
+    groups: List<NoteGroup>,
+    collapsed: Set<String>,
+    flat: Boolean = false,
+): List<DrawerRow> = buildList {
     groups.forEach { group ->
-        add(DrawerRow.Header(group))
-        if (group.key !in collapsed) {
-            val nested = group.folder != null
-            group.notes.forEach { add(DrawerRow.Note(it, nested = nested)) }
+        if (flat || group.folder == null) {
+            group.notes.forEach { add(DrawerRow.FlatNote(it)) }
+        } else {
+            add(DrawerRow.FolderGroup(group, collapsed = group.key in collapsed))
         }
     }
 }

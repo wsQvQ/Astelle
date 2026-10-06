@@ -70,7 +70,7 @@ fun AstelleTheme(content: @Composable () -> Unit) {
 
 ## 链接
 
-[Astelle 的仓库](https://github.com/wsq2024/Astelle)
+[Astelle 的仓库](https://github.com/wsQvQ/Astelle)
 
 ---
 

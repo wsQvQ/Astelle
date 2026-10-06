@@ -1,6 +1,7 @@
 package com.astelle.app.data.repository
 
 import com.astelle.app.data.local.dao.NoteDao
+import com.astelle.app.data.local.escapeLikePattern
 import com.astelle.app.data.local.toDomain
 import com.astelle.app.data.local.toEntity
 import com.astelle.app.domain.model.Note
@@ -17,10 +18,8 @@ class NoteRepositoryImpl @Inject constructor(
 ) : NoteRepository {
 
     override fun observeSummaries(query: String): Flow<List<NoteSummary>> =
-        noteDao.observeSummaries(query).map { list -> list.map { it.toDomain() } }
-
-    override fun observeNote(id: String): Flow<Note?> =
-        noteDao.observeById(id).map { it?.toDomain() }
+        // 转义放在这里：DAO 的 SQL 只管拿一个安全的模式去 LIKE
+        noteDao.observeSummaries(escapeLikePattern(query)).map { list -> list.map { it.toDomain() } }
 
     override suspend fun getNote(id: String): Note? = noteDao.getById(id)?.toDomain()
 
@@ -44,9 +43,5 @@ class NoteRepositoryImpl @Inject constructor(
         // 顺带刷新 updatedAt：移进新分类后笔记会浮到那一组的最前，
         // 用户能立刻看见「它确实过去了」——否则卡片纹丝不动，像没生效
         noteDao.moveToFolder(id, folderId, updatedAt = System.currentTimeMillis())
-    }
-
-    override suspend fun setArchived(id: String, archived: Boolean) {
-        noteDao.setArchived(id, archived, updatedAt = System.currentTimeMillis())
     }
 }

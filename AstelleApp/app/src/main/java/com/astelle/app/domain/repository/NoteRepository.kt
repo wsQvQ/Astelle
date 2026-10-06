@@ -13,7 +13,6 @@ interface NoteRepository {
      * [query] 为空表示不过滤，否则标题或正文命中即算匹配（在 SQL 里做）。
      */
     fun observeSummaries(query: String = ""): Flow<List<NoteSummary>>
-    fun observeNote(id: String): Flow<Note?>
     suspend fun getNote(id: String): Note?
     suspend fun upsert(note: Note)
     suspend fun delete(id: String)
@@ -24,6 +23,4 @@ interface NoteRepository {
 
     /** 移入 / 移出分类；[folderId] 传 null 即回到「未分类」。同样只走一条 UPDATE */
     suspend fun moveToFolder(id: String, folderId: String?)
-
-    suspend fun setArchived(id: String, archived: Boolean)
 }

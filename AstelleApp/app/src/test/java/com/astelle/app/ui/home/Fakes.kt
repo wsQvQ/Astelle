@@ -35,8 +35,6 @@ internal class FakeNoteRepository : NoteRepository {
             }
         }
 
-    override fun observeNote(id: String): Flow<Note?> = MutableStateFlow(stored[id])
-
     override suspend fun getNote(id: String): Note? = stored[id]
 
     override suspend fun upsert(note: Note) {
@@ -59,10 +57,6 @@ internal class FakeNoteRepository : NoteRepository {
 
     override suspend fun moveToFolder(id: String, folderId: String?) {
         stored[id]?.let { stored[id] = it.copy(folderId = folderId); publish() }
-    }
-
-    override suspend fun setArchived(id: String, archived: Boolean) {
-        stored[id]?.let { stored[id] = it.copy(isArchived = archived); publish() }
     }
 }
 

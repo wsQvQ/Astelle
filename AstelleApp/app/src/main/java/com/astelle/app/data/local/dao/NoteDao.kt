@@ -1,11 +1,9 @@
 package com.astelle.app.data.local.dao
 
 import androidx.room.Dao
-import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
-import androidx.room.Update
 import com.astelle.app.data.local.NoteSummaryRow
 import com.astelle.app.data.local.entity.NoteEntity
 import kotlinx.coroutines.flow.Flow
@@ -24,6 +22,9 @@ interface NoteDao {
      * 搜索也下推到 SQL：`:query` 为空时不过滤，否则标题或正文命中。
      * （SQLite 的 LIKE 对 ASCII 默认不区分大小写，与原先的
      * `contains(ignoreCase = true)` 行为一致。）
+     *
+     * `:query` 必须先用 [com.astelle.app.data.local.escapeLikePattern] 转义过，
+     * 否则用户输入 `%` 会匹配到所有笔记。`ESCAPE '\'` 与它是一对，别只改一边。
      */
     @Query(
         """
@@ -40,14 +41,15 @@ interface NoteDao {
                folderId
         FROM notes
         WHERE isArchived = 0
-          AND (:query = '' OR title LIKE '%' || :query || '%' OR content LIKE '%' || :query || '%')
+          AND (
+                :query = ''
+                OR title LIKE '%' || :query || '%' ESCAPE '\'
+                OR content LIKE '%' || :query || '%' ESCAPE '\'
+              )
         ORDER BY isPinned DESC, updatedAt DESC
         """
     )
     fun observeSummaries(query: String): Flow<List<NoteSummaryRow>>
-
-    @Query("SELECT * FROM notes WHERE id = :id LIMIT 1")
-    fun observeById(id: String): Flow<NoteEntity?>
 
     @Query("SELECT * FROM notes WHERE id = :id LIMIT 1")
     suspend fun getById(id: String): NoteEntity?
@@ -55,17 +57,8 @@ interface NoteDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(entity: NoteEntity)
 
-    @Update
-    suspend fun update(entity: NoteEntity)
-
-    @Delete
-    suspend fun delete(entity: NoteEntity)
-
     @Query("DELETE FROM notes WHERE id = :id")
     suspend fun deleteById(id: String)
-
-    @Query("UPDATE notes SET isArchived = :archived, updatedAt = :updatedAt WHERE id = :id")
-    suspend fun setArchived(id: String, archived: Boolean, updatedAt: Long)
 
     /**
      * 原地翻转。原先是「getById 读全文 → 取反 → 回写」，

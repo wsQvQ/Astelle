@@ -1,9 +1,17 @@
 package com.astelle.app.ui.home
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -27,6 +35,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -55,11 +64,14 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -196,11 +208,41 @@ internal fun DrawerSheet(
         )
     }
 
+    /* ---------- 新建分类的内联输入条 ---------- */
+
+    var showCatInput by remember { mutableStateOf(false) }
+    var catName by remember { mutableStateOf("") }
+
+    fun submitCategory() {
+        if (catName.isNotBlank()) onAddFolder(catName)
+        catName = ""
+        showCatInput = false
+    }
+
+    fun closeCategoryInput() {
+        catName = ""
+        showCatInput = false
+    }
+
     // 自绘容器：不用 ModalDrawerSheet（避免多余阴影/内边距）
     // 内容避开状态栏（背景仍可铺满到顶，边到边）
-    Column(Modifier.fillMaxSize().statusBarsPadding()) {
-            var showCatInput by remember { mutableStateOf(false) }
-            var catName by remember { mutableStateOf("") }
+    //
+    // 输入条开着时，点空白处也收起来。用「只看不拿」的手势检测实现：
+    // 全程不 consume 任何事件，所以滚动、点卡片都不受影响；而一旦有人
+    // 消费过事件（拖动滚动、点到按钮），waitForUpOrCancellation 会返回
+    // null，这里也就不会误关。
+    Column(
+        Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .pointerInput(showCatInput) {
+                if (!showCatInput) return@pointerInput
+                awaitEachGesture {
+                    awaitFirstDown(requireUnconsumed = true)
+                    if (waitForUpOrCancellation() != null) closeCategoryInput()
+                }
+            },
+    ) {
             // 品牌头：横线 + 名号 + 日期，加一点层次
             Column(
                 modifier = Modifier
@@ -259,7 +301,12 @@ internal fun DrawerSheet(
                         if (searchFocused) Accent.copy(alpha = 0.35f) else Divider.copy(alpha = 0.9f),
                         RoundedCornerShape(10.dp),
                     )
-                    .onFocusChanged { searchFocused = it.isFocused }
+                    .onFocusChanged {
+                        searchFocused = it.isFocused
+                        // 只能靠 isFocused == true 触发：这个回调在挂载时
+                        // 会先以 false 跑一次，无条件关会把刚打开的输出条立刻收掉
+                        if (it.isFocused) closeCategoryInput()
+                    }
                     .padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -296,7 +343,7 @@ internal fun DrawerSheet(
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
-                    ) { onImportMarkdown() }
+                    ) { closeCategoryInput(); onImportMarkdown() }
                     .padding(vertical = 8.dp),
                 contentAlignment = Alignment.Center,
             ) {
@@ -314,67 +361,97 @@ internal fun DrawerSheet(
                     .padding(horizontal = 16.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Chip("全部", selected = filter == NoteFilter.All) { onFilter(NoteFilter.All) }
+                Chip("全部", selected = filter == NoteFilter.All) {
+                    closeCategoryInput(); onFilter(NoteFilter.All)
+                }
                 Spacer(Modifier.width(8.dp))
-                Chip("置顶", selected = filter == NoteFilter.Pinned) { onFilter(NoteFilter.Pinned) }
+                Chip("置顶", selected = filter == NoteFilter.Pinned) {
+                    closeCategoryInput(); onFilter(NoteFilter.Pinned)
+                }
                 Spacer(Modifier.width(8.dp))
-                Chip("收藏", selected = filter == NoteFilter.Favorite) { onFilter(NoteFilter.Favorite) }
+                Chip("收藏", selected = filter == NoteFilter.Favorite) {
+                    closeCategoryInput(); onFilter(NoteFilter.Favorite)
+                }
                 Spacer(Modifier.weight(1f))
-                // 新增分类入口：点 + 在下方展开输入条（花笺做法）
+                // 新增分类入口。＋ 转 45° 就成了 ×，不用额外文案解释「再点一下能收起」
                 val folderInteraction = remember { MutableInteractionSource() }
                 val folderPressed by folderInteraction.collectIsPressedAsState()
+                val plusRotation by animateFloatAsState(
+                    targetValue = if (showCatInput) 45f else 0f,
+                    animationSpec = tween(200, easing = BrandCurve),
+                    label = "plusRotation",
+                )
                 Box(
                     modifier = Modifier
                         .size(28.dp)
                         .clip(RoundedCornerShape(8.dp))
                         .background(if (folderPressed || showCatInput) AccentMist else Color.Transparent)
                         .clickable(interactionSource = folderInteraction, indication = null) {
-                            // 输入条已经开着且写了字 → 这一下就是提交（设计稿 §3「再点加号 = 提交」）
-                            if (showCatInput && catName.isNotBlank()) {
-                                onAddFolder(catName)
-                                catName = ""
-                                showCatInput = false
-                            } else {
-                                showCatInput = true
+                            when {
+                                !showCatInput -> showCatInput = true
+                                // 开着且有字 → 这一下就是提交；开着但空着 → 收起来
+                                catName.isNotBlank() -> submitCategory()
+                                else -> closeCategoryInput()
                             }
                         },
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text("＋", fontSize = 16.sp, color = if (folderPressed || showCatInput) Accent else Ghost)
+                    Text(
+                        "＋",
+                        fontSize = 16.sp,
+                        color = if (folderPressed || showCatInput) Accent else Ghost,
+                        modifier = Modifier.rotate(plusRotation),
+                    )
                 }
             }
 
-            // 内联新建分类输入条（Enter 提交，Esc/失焦收起）
+            // 内联新建分类输入条。Enter 提交；右边那个「新建」是给不知道
+            // 回车能提交的人看的 —— 光靠键盘动作不算把功能做完整
             if (showCatInput) {
-                BasicTextField(
-                    value = catName,
-                    onValueChange = { catName = it },
-                    singleLine = true,
-                    textStyle = LocalTextStyle.current.copy(fontSize = 12.sp, color = Ink),
-                    cursorBrush = SolidColor(Accent),
+                val inputInteraction = remember { MutableInteractionSource() }
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 4.dp)
-                        .height(30.dp)
+                        .height(32.dp)
                         .clip(RoundedCornerShape(10.dp))
                         .background(PaperWarm.copy(alpha = 0.8f))
                         .border(1.dp, Accent.copy(alpha = 0.25f), RoundedCornerShape(10.dp))
-                        .padding(horizontal = 10.dp),
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                    keyboardActions = KeyboardActions(onDone = {
-                        if (catName.isNotBlank()) onAddFolder(catName)
-                        showCatInput = false
-                        catName = ""
-                    }),
-                    decorationBox = { innerTextField: @Composable () -> Unit ->
-                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.CenterStart) {
-                            if (catName.isEmpty()) {
-                                Text("输入分类名…", fontSize = 12.sp, color = Ghost.copy(alpha = 0.7f))
+                        .padding(start = 10.dp, end = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    BasicTextField(
+                        value = catName,
+                        onValueChange = { catName = it },
+                        singleLine = true,
+                        textStyle = LocalTextStyle.current.copy(fontSize = 12.sp, color = Ink),
+                        cursorBrush = SolidColor(Accent),
+                        modifier = Modifier.weight(1f),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = { submitCategory() }),
+                        decorationBox = { innerTextField: @Composable () -> Unit ->
+                            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
+                                if (catName.isEmpty()) {
+                                    Text("输入分类名…", fontSize = 12.sp, color = Ghost.copy(alpha = 0.7f))
+                                }
+                                innerTextField()
                             }
-                            innerTextField()
+                        },
+                    )
+                    if (catName.isNotBlank()) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(7.dp))
+                                .background(Accent)
+                                .clickable(interactionSource = inputInteraction, indication = null) {
+                                    submitCategory()
+                                }
+                                .padding(horizontal = 9.dp, vertical = 4.dp),
+                        ) {
+                            Text("新建", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Medium)
                         }
-                    },
-                )
+                    }
+                }
             }
 
             // 列表 + 上下渐隐
@@ -388,17 +465,19 @@ internal fun DrawerSheet(
             }
             val topFadeAlpha by animateFloatAsState(
                 targetValue = if (listScrolled) 1f else 0f,
-                animationSpec = tween(180, easing = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)),
+                animationSpec = tween(180, easing = BrandCurve),
                 label = "drawerTopFade",
             )
-            // 折叠态。默认全展开，所以只记「被折叠的」
+            // 折叠态。默认全展开，所以只记「被折叠的」。
+            // （花笺反过来：它默认全部收起。我们打开抽屉是为了看笔记，
+            //   默认收起等于先甩你一张目录，多一步。）
             val collapsed = remember { mutableStateMapOf<String, Boolean>() }
             val collapsedKeys = collapsed.filterValues { it }.keys
             // 搜索时压平列表：搜索是「我要那一篇」，此时还按分类铺开会把结果
             // 埋在一串组头里。筛选（置顶/收藏）则保留分组，只是空组不再占位
             val flat = searchQuery.isNotBlank()
             val groups = groupNotes(notes, folders, hideEmpty = filter != NoteFilter.All)
-            val rows = if (flat) notes.map { DrawerRow.Note(it) } else buildRows(groups, collapsedKeys)
+            val rows = buildRows(groups, collapsedKeys, flat = flat)
 
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 LazyColumn(
@@ -407,47 +486,36 @@ internal fun DrawerSheet(
                         .fillMaxSize()
                         .padding(horizontal = 10.dp),
                 ) {
-                    // 逐行发射而不是 items(rows)：只有这样才能对组头用 stickyHeader，
-                    // 让章节标签在滚动时停在眼前（设计稿 §3）
-                    rows.forEach { row ->
+                    items(rows, key = { it.key }) { row ->
                         when (row) {
-                            is DrawerRow.Header -> stickyHeader(key = row.key) {
-                                // 不透明底衬：不然卡片会从组头背后透出来
-                                Box(
-                                    Modifier
-                                        .fillMaxWidth()
-                                        // horizontal 4dp 与卡片同级，让组头和它下面的卡片左缘对齐
-                                        .padding(horizontal = 4.dp, vertical = 3.dp)
-                                        .background(DrawerBg),
-                                ) {
-                                    FolderHeader(
-                                        name = row.group.name,
-                                        count = row.group.notes.size,
-                                        collapsed = collapsed[row.group.key] == true,
-                                        isInbox = row.group.folder == null,
-                                        onToggle = {
-                                            collapsed[row.group.key] =
-                                                collapsed[row.group.key] != true
-                                        },
-                                        onRename = { renaming = row.group.folder },
-                                        onDelete = { deleting = row.group.folder },
-                                    )
-                                }
-                            }
-                            is DrawerRow.Note -> item(key = row.key) {
-                                NoteCard(
-                                    note = row.summary,
-                                    selected = row.summary.id == currentNoteId,
-                                    nested = row.nested,
-                                    folders = folders,
-                                    onClick = { onOpenNote(row.summary.id) },
-                                    onTogglePin = { onTogglePin(row.summary.id) },
-                                    onToggleFavorite = { onToggleFavorite(row.summary.id) },
-                                    onRequestDelete = { onRequestDelete(row.summary.id) },
-                                    onMoveToFolder = { onMoveNoteToFolder(row.summary.id, it) },
-                                    modifier = Modifier.animateItem(),
-                                )
-                            }
+                            is DrawerRow.FolderGroup -> FolderCard(
+                                group = row.group,
+                                collapsed = row.collapsed,
+                                currentNoteId = currentNoteId,
+                                allFolders = folders,
+                                onToggle = {
+                                    collapsed[row.group.key] = collapsed[row.group.key] != true
+                                },
+                                onRename = { renaming = row.group.folder },
+                                onDelete = { deleting = row.group.folder },
+                                onOpenNote = { closeCategoryInput(); onOpenNote(it) },
+                                onTogglePin = onTogglePin,
+                                onToggleFavorite = onToggleFavorite,
+                                onRequestDelete = onRequestDelete,
+                                onMoveToFolder = onMoveNoteToFolder,
+                            )
+                            is DrawerRow.FlatNote -> NoteItem(
+                                note = row.summary,
+                                selected = row.summary.id == currentNoteId,
+                                contained = false,
+                                folders = folders,
+                                onClick = { closeCategoryInput(); onOpenNote(row.summary.id) },
+                                onTogglePin = { onTogglePin(row.summary.id) },
+                                onToggleFavorite = { onToggleFavorite(row.summary.id) },
+                                onRequestDelete = { onRequestDelete(row.summary.id) },
+                                onMoveToFolder = { onMoveNoteToFolder(row.summary.id, it) },
+                                modifier = Modifier.animateItem(),
+                            )
                         }
                     }
                     if (rows.isEmpty()) {
@@ -505,13 +573,13 @@ internal fun DrawerSheet(
                     .navigationBarsPadding(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                DockBtn(AstelleIcons.Plan, "计划") { onNavigate(AstelleDestination.Plans) }
+                DockBtn(AstelleIcons.Plan, "计划") { closeCategoryInput(); onNavigate(AstelleDestination.Plans) }
                 Spacer(Modifier.width(14.dp))
-                DockBtn(AstelleIcons.Diary, "日记") { onNavigate(AstelleDestination.Diary) }
+                DockBtn(AstelleIcons.Diary, "日记") { closeCategoryInput(); onNavigate(AstelleDestination.Diary) }
                 Spacer(Modifier.width(14.dp))
-                DockBtn(Icons.Outlined.AutoAwesome, "AI") { onNavigate(AstelleDestination.Diary) }
+                DockBtn(Icons.Outlined.AutoAwesome, "AI") { closeCategoryInput(); onNavigate(AstelleDestination.Diary) }
                 Spacer(Modifier.weight(1f))
-                DockBtn(Icons.Outlined.Tune, "设置") { onNavigate(AstelleDestination.Settings) }
+                DockBtn(Icons.Outlined.Tune, "设置") { closeCategoryInput(); onNavigate(AstelleDestination.Settings) }
             }
         }
 }
@@ -542,11 +610,106 @@ private fun Chip(text: String, selected: Boolean, onClick: () -> Unit) {
     }
 }
 
+/** 全项目动效共用这一条：cubic-bezier(.22, 1, .36, 1) */
+private val BrandCurve = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
+
 /**
- * 分类组头。38dp / 圆角 10dp —— 折叠时是纸白，展开时透出一点暖橙，
- * 让「这一组是开着的」不只靠那个小箭头承担。
+ * 一个分类容器：组头 + 组内条目拼成**一张**卡。
  *
- * 长按 → 重命名 / 删除。「未分类」是收件箱、不是一个真的分类，所以不给菜单。
+ * 关键是那个「拼」—— 展开时组头下缘切直角、内容上缘也是直角，两者共用
+ * 一条圆角边框，看上去就是一张卡分了标题栏和内容区；折叠时组头恢复四角圆，
+ * 变回一张独立的小卡。（花笺的做法，比「一堆飘着的卡片 + 一个标题」清楚得多。）
+ */
+@Composable
+private fun FolderCard(
+    group: NoteGroup,
+    collapsed: Boolean,
+    currentNoteId: String?,
+    allFolders: List<Folder>,
+    onToggle: () -> Unit,
+    onRename: () -> Unit,
+    onDelete: () -> Unit,
+    onOpenNote: (String) -> Unit,
+    onTogglePin: (String) -> Unit,
+    onToggleFavorite: (String) -> Unit,
+    onRequestDelete: (String) -> Unit,
+    onMoveToFolder: (String, String?) -> Unit,
+) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp, vertical = 3.dp),
+    ) {
+        FolderHeader(
+            name = group.name,
+            count = group.notes.size,
+            collapsed = collapsed,
+            onToggle = onToggle,
+            onRename = onRename,
+            onDelete = onDelete,
+        )
+
+        // 花笺的 `grid-template-rows: 0fr → 1fr`，Compose 版本就是它。
+        // 好处一样：按内容的真实高度展开收起，不需要事先知道这一组有多高
+        AnimatedVisibility(
+            visible = !collapsed,
+            enter = expandVertically(tween(250, easing = BrandCurve)) + fadeIn(tween(200)),
+            exit = shrinkVertically(tween(250, easing = BrandCurve)) + fadeOut(tween(150)),
+        ) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    // 只有下缘圆角，上缘接组头，于是两块拼成一张卡
+                    .clip(RoundedCornerShape(bottomStart = 10.dp, bottomEnd = 10.dp))
+                    .background(Paper.copy(alpha = 0.5f))
+                    .padding(vertical = 4.dp),
+            ) {
+                if (group.notes.isEmpty()) {
+                    Text(
+                        "空文件夹",
+                        fontSize = 11.sp,
+                        color = Ghost.copy(alpha = 0.6f),
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 10.dp),
+                    )
+                } else {
+                    group.notes.forEachIndexed { index, note ->
+                        if (index > 0) HairLine()
+                        NoteItem(
+                            note = note,
+                            selected = note.id == currentNoteId,
+                            contained = true,
+                            folders = allFolders,
+                            onClick = { onOpenNote(note.id) },
+                            onTogglePin = { onTogglePin(note.id) },
+                            onToggleFavorite = { onToggleFavorite(note.id) },
+                            onRequestDelete = { onRequestDelete(note.id) },
+                            onMoveToFolder = { onMoveToFolder(note.id, it) },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** 组内条目之间的发丝分割线 —— 比再画一张卡片轻，也让「同一组」看得出来 */
+@Composable
+private fun HairLine() {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 13.dp)
+            .height(1.dp)
+            .background(Divider.copy(alpha = 0.7f)),
+    )
+}
+
+/**
+ * 分类组头。**展开时刻意把下缘切成直角**，好和下面的内容拼成一张卡；
+ * 折叠时四角收圆，自己就是一张完整的小卡。
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -554,7 +717,6 @@ private fun FolderHeader(
     name: String,
     count: Int,
     collapsed: Boolean,
-    isInbox: Boolean,
     onToggle: () -> Unit,
     onRename: () -> Unit,
     onDelete: () -> Unit,
@@ -563,19 +725,24 @@ private fun FolderHeader(
     var menuOpen by remember { mutableStateOf(false) }
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
-    // 设计稿 §3：折叠展开 250ms，同一条品牌曲线
+    // 箭头 200ms、内容 250ms —— 和花笺一致，箭头跟手一点
     val arrow by animateFloatAsState(
         targetValue = if (collapsed) -90f else 0f,
-        animationSpec = tween(250, easing = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)),
+        animationSpec = tween(200, easing = BrandCurve),
         label = "folderArrow",
     )
+    val shape = if (collapsed) {
+        RoundedCornerShape(10.dp)
+    } else {
+        RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp)
+    }
 
     Box(modifier) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(38.dp)
-                .clip(RoundedCornerShape(10.dp))
+                .clip(shape)
                 .background(
                     when {
                         pressed -> AccentMist
@@ -587,11 +754,19 @@ private fun FolderHeader(
                     interactionSource = interaction,
                     indication = null,
                     onClick = onToggle,
-                    onLongClick = if (isInbox) null else { { menuOpen = true } },
+                    onLongClick = { menuOpen = true },
                 )
                 .padding(horizontal = 11.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            // 箭头放最左，跟文件夹图标、名字、计数一起从左往右读
+            Icon(
+                AstelleIcons.Chevron,
+                contentDescription = if (collapsed) "展开" else "折叠",
+                tint = Ghost,
+                modifier = Modifier.size(16.dp).rotate(arrow),
+            )
+            Spacer(Modifier.width(6.dp))
             Icon(
                 AstelleIcons.Folder,
                 contentDescription = null,
@@ -609,13 +784,6 @@ private fun FolderHeader(
                 modifier = Modifier.weight(1f),
             )
             Text("$count", fontFamily = mono, fontSize = 11.sp, color = Ghost)
-            Spacer(Modifier.width(4.dp))
-            Icon(
-                AstelleIcons.Chevron,
-                contentDescription = if (collapsed) "展开" else "折叠",
-                tint = Ghost,
-                modifier = Modifier.size(16.dp).rotate(arrow),
-            )
         }
 
         DropdownMenu(
@@ -646,12 +814,19 @@ private fun emptyHint(query: String, filter: NoteFilter): String = when {
     else -> "还没有笔记，去写第一条吧"
 }
 
+/**
+ * 一条笔记。
+ *
+ * [contained] 为 true 时它住在某个分类容器里：自己没有背景和圆角，
+ * 颜色交给外面那张卡，只负责在选中时铺一层淡淡的暖橙。
+ * 为 false 时就是收件箱/搜索结果的独立卡片。
+ */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-private fun NoteCard(
+private fun NoteItem(
     note: NoteSummary,
     selected: Boolean,
-    nested: Boolean,
+    contained: Boolean,
     folders: List<Folder>,
     onClick: () -> Unit,
     onTogglePin: () -> Unit,
@@ -677,17 +852,18 @@ private fun NoteCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                // 分类下的卡片缩进一档：不缩的话整组就是一堆飘着的卡片，
-                // 上面那个组头白画了
+                // 容器里的条目贴着卡边；独立卡片自己留出卡片间的缝隙和左右缩进
                 .padding(
-                    start = if (nested) 12.dp else 4.dp,
-                    end = 4.dp,
-                    top = 3.dp,
-                    bottom = 3.dp,
+                    start = if (contained) 0.dp else 4.dp,
+                    end = if (contained) 0.dp else 4.dp,
+                    top = if (contained) 0.dp else 3.dp,
+                    bottom = if (contained) 0.dp else 3.dp,
                 )
-                .clip(RoundedCornerShape(14.dp))
+                .clip(if (contained) RectangleShape else RoundedCornerShape(14.dp))
                 .background(
                     when {
+                        contained && selected -> AccentMist.copy(alpha = 0.55f)
+                        contained -> Color.Transparent
                         selected -> AccentMist
                         pressed -> PaperWarm
                         else -> Paper
@@ -699,7 +875,7 @@ private fun NoteCard(
                     onClick = onClick,
                     onLongClick = { menuOpen = true },
                 )
-                .padding(horizontal = 13.dp, vertical = 11.dp),
+                .padding(horizontal = 13.dp, vertical = if (contained) 10.dp else 11.dp),
         ) {
             if (selected) {
                 Box(
@@ -881,12 +1057,15 @@ internal fun cleanGreeting(now: java.util.Calendar = java.util.Calendar.getInsta
 
     // 全年取最近一个（长期项目不截断 30 天）
     val nowDays = now.get(java.util.Calendar.DAY_OF_YEAR)
+    // 用本年的真实天数，别写死 365：闰年里 12-31 → 元旦 的差会被算成 0，
+    // 于是「明天元旦」整条文案凭空消失
+    val yearDays = now.getActualMaximum(java.util.Calendar.DAY_OF_YEAR)
     val soonest = festivals.mapNotNull { (md, name) ->
         val cal = java.util.Calendar.getInstance()
         cal.set(java.util.Calendar.MONTH, md / 100 - 1)
         cal.set(java.util.Calendar.DAY_OF_MONTH, md % 100)
         val target = cal.get(java.util.Calendar.DAY_OF_YEAR)
-        val delta = (target - nowDays + 365) % 365
+        val delta = (target - nowDays + yearDays) % yearDays
         if (delta >= 1) delta to name else null
     }.minByOrNull { it.first }
 

@@ -24,6 +24,8 @@ class DrawerGroupsTest {
     private fun folder(id: String, name: String = id, sortOrder: Int = 0) =
         Folder(id = id, name = name, sortOrder = sortOrder, createdAt = 0L)
 
+    /* ---------------- groupNotes ---------------- */
+
     @Test
     fun `没有分类时只有收件箱一组`() {
         val groups = groupNotes(listOf(note("a"), note("b")), emptyList())
@@ -86,42 +88,62 @@ class DrawerGroupsTest {
         assertTrue(groupNotes(emptyList(), emptyList()).isEmpty())
     }
 
-    @Test
-    fun `折叠的组只吐组头，笔记不进列表`() {
-        val folders = listOf(folder("f1", "工作"), folder("f2", "生活"))
-        val groups = groupNotes(
-            listOf(note("a"), note("b", "f1"), note("c", "f2")),
-            folders,
-        )
-
-        val expanded = buildRows(groups, collapsed = emptySet())
-        assertEquals(6, expanded.size) // 收件箱头+a + f1头+b + f2头+c
-
-        val collapsed = buildRows(groups, collapsed = setOf("f1"))
-        assertEquals(5, collapsed.size)
-        assertTrue(
-            "f1 里的 b 不该出现",
-            collapsed.none { it is DrawerRow.Note && it.summary.id == "b" },
-        )
-        assertTrue(
-            "但 f2 的 c 还得在",
-            collapsed.any { it is DrawerRow.Note && it.summary.id == "c" },
-        )
-    }
+    /* ---------------- buildRows ---------------- */
 
     @Test
-    fun `分类下的笔记标为 nested，收件箱的不标`() {
+    fun `只有真正的分类才包成容器，未分类保持平铺卡片`() {
         val groups = groupNotes(
             listOf(note("a"), note("b", "f1")),
             listOf(folder("f1", "工作")),
         )
-        val rows = buildRows(groups, emptySet())
+        val rows = buildRows(groups, collapsed = emptySet())
 
-        fun nestedOf(id: String) =
-            rows.filterIsInstance<DrawerRow.Note>().first { it.summary.id == id }.nested
+        assertTrue(
+            "收件箱是收件箱，不是你自己建的分组，不该套一个文件夹壳",
+            rows.any { it is DrawerRow.FlatNote && it.summary.id == "a" },
+        )
+        val container = rows.filterIsInstance<DrawerRow.FolderGroup>().single()
+        assertEquals("f1", container.group.folder?.id)
+        assertTrue(
+            "分类里的笔记住进容器了，不该再单独占一行",
+            rows.none { it is DrawerRow.FlatNote && it.summary.id == "b" },
+        )
+    }
 
-        assertTrue("收件箱是平铺的", !nestedOf("a"))
-        assertTrue("分类下的要缩进一档", nestedOf("b"))
+    @Test
+    fun `折叠的组仍然占一行，只是把 collapsed 传下去`() {
+        val groups = groupNotes(
+            listOf(note("b", "f1"), note("c", "f2")),
+            listOf(folder("f1", "工作"), folder("f2", "生活")),
+        )
+        val rows = buildRows(groups, collapsed = setOf("f1"))
+        val containers = rows.filterIsInstance<DrawerRow.FolderGroup>()
+
+        assertTrue(
+            "折叠态要传给容器去收起内容",
+            containers.first { it.group.key == "f1" }.collapsed,
+        )
+        assertTrue(
+            "没折叠的组不该被连累",
+            !containers.first { it.group.key == "f2" }.collapsed,
+        )
+        // 笔记始终挂在容器上，收不收起由容器自己的动画决定
+        assertEquals(1, containers.first { it.group.key == "f1" }.group.notes.size)
+    }
+
+    @Test
+    fun `搜索态下全部压平，不分段`() {
+        val groups = groupNotes(
+            listOf(note("a"), note("b", "f1")),
+            listOf(folder("f1", "工作")),
+        )
+        val rows = buildRows(groups, collapsed = emptySet(), flat = true)
+
+        assertTrue("搜索是「我要那一篇」，不该再冒出分类容器", rows.none { it is DrawerRow.FolderGroup })
+        assertEquals(
+            listOf("a", "b"),
+            rows.filterIsInstance<DrawerRow.FlatNote>().map { it.summary.id },
+        )
     }
 
     @Test
@@ -133,9 +155,8 @@ class DrawerGroupsTest {
         val keys = buildRows(groups, emptySet()).map { it.key }
 
         assertEquals("key 撞车会让 LazyColumn 直接崩", keys.size, keys.toSet().size)
-        // 空分类也要有 key
-        assertTrue(keys.contains("h:f2"))
-        assertTrue(keys.contains("h:$INBOX_KEY"))
-        assertTrue(keys.contains("n:b"))
+        assertTrue("空分类也要有 key", keys.contains("g:f2"))
+        assertTrue(keys.contains("g:f1"))
+        assertTrue(keys.contains("n:a"))
     }
 }
