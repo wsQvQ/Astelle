@@ -122,6 +122,27 @@ class HomeViewModel @Inject constructor(
         _uiState.update { it.copy(canUndo = history.canUndo, canRedo = history.canRedo) }
     }
 
+    /**
+     * 把一篇笔记装进编辑器：绑定当前笔记、重置历史、清干净保存态。
+     * 切换笔记与导入 .md 都走这里，避免同一段状态拼装写两遍。
+     */
+    private fun openInEditor(note: Note, savedAt: Long) {
+        activeNote = note
+        history.reset(EditSnapshot(note.title, note.content))
+        _uiState.update {
+            it.copy(
+                currentNoteId = note.id,
+                title = note.title,
+                content = note.content,
+                savedAt = savedAt,
+                isDirty = false,
+                isSaving = false,
+                canUndo = false,
+                canRedo = false,
+            )
+        }
+    }
+
     fun onEvent(event: HomeUiEvent) {
         when (event) {
             is HomeUiEvent.TitleChanged ->
@@ -161,21 +182,23 @@ class HomeViewModel @Inject constructor(
                 persist(_uiState.value.title, _uiState.value.content)
                 viewModelScope.launch {
                     val note = noteRepository.getNote(event.id) ?: return@launch
-                    activeNote = note
-                    // 换了一篇笔记，旧的历史对它没有意义
-                    history.reset(EditSnapshot(note.title, note.content))
-                    _uiState.update {
-                        it.copy(
-                            currentNoteId = note.id,
-                            title = note.title,
-                            content = note.content,
-                            savedAt = note.updatedAt,
-                            isDirty = false,
-                            isSaving = false,
-                            canUndo = false,
-                            canRedo = false,
-                        )
-                    }
+                    openInEditor(note, savedAt = note.updatedAt)
+                }
+            }
+            is HomeUiEvent.ImportNote -> {
+                saveJob?.cancel()
+                persist(_uiState.value.title, _uiState.value.content)
+                viewModelScope.launch {
+                    val now = System.currentTimeMillis()
+                    val note = Note(
+                        id = UUID.randomUUID().toString(),
+                        title = event.note.title,
+                        content = event.note.content,
+                        createdAt = now,
+                        updatedAt = now,
+                    )
+                    noteRepository.upsert(note)
+                    openInEditor(note, savedAt = now)
                 }
             }
             is HomeUiEvent.RequestDelete ->

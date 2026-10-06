@@ -1,6 +1,9 @@
 package com.astelle.app.ui.home
 
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -68,6 +71,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
@@ -80,6 +84,8 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.astelle.app.R
+import com.astelle.app.data.importer.MarkdownFileReader
+import com.astelle.app.data.importer.MarkdownImport
 import com.astelle.app.domain.model.Note
 import com.astelle.app.ui.components.AstelleIcons
 import com.astelle.app.ui.navigation.AstelleDestination
@@ -106,6 +112,19 @@ private val SavedText = Color(0xFFA86428)
 private val mono = FontFamily.Monospace
 private val display = FontFamily.Serif
 
+/**
+ * 导入 .md 时交给系统文件选择器的类型过滤。
+ * 各家文件管理器对 .md 上报的 MIME 差异很大，这里把常见几种都列上；
+ * 若真机上 .md 被置灰选不中，往这里补一个全通配的 MIME 即可。
+ */
+private val MARKDOWN_MIME_TYPES = arrayOf(
+    "text/markdown",
+    "text/x-markdown",
+    "text/plain",
+    "text/*",
+    "application/octet-stream",
+)
+
 @Composable
 fun HomeRoute(
     currentDestination: AstelleDestination,
@@ -116,6 +135,26 @@ fun HomeRoute(
     val notes by viewModel.filteredNotes.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val keyboard = LocalSoftwareKeyboardController.current
+    val context = LocalContext.current
+
+    // 导入 .md：挑文件 → 读文本 → 纯函数解析 → 交给 ViewModel 落库。
+    // 解析放在 UI 层是为了让 ViewModel 完全不碰 Android 的 ContentResolver
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val picked = MarkdownFileReader.read(context, uri)
+            val text = picked?.text
+            if (text == null) {
+                Toast.makeText(context, "导入失败：读不到这个文件", Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+            val imported = MarkdownImport.parse(picked.displayName, text)
+            viewModel.onEvent(HomeUiEvent.ImportNote(imported))
+            Toast.makeText(context, "已导入「${imported.title}」", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     // 与 RikkaHub 同一套：标准 ModalNavigationDrawer，手势交给 Material
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -152,6 +191,10 @@ fun HomeRoute(
                     onTogglePin = { viewModel.onEvent(HomeUiEvent.TogglePin(it)) },
                     onToggleFavorite = { viewModel.onEvent(HomeUiEvent.ToggleFavorite(it)) },
                     onRequestDelete = { viewModel.onEvent(HomeUiEvent.RequestDelete(it)) },
+                    onImportMarkdown = {
+                        scope.launch { drawerState.close() }
+                        importLauncher.launch(MARKDOWN_MIME_TYPES)
+                    },
                     onAddFolder = { /* 分类落库下一轮 */ },
                     onNavigate = {
                         scope.launch { drawerState.close() }
@@ -632,6 +675,7 @@ private fun DrawerSheet(
     onTogglePin: (String) -> Unit,
     onToggleFavorite: (String) -> Unit,
     onRequestDelete: (String) -> Unit,
+    onImportMarkdown: () -> Unit,
     onAddFolder: () -> Unit,
     onNavigate: (AstelleDestination) -> Unit,
 ) {
@@ -735,7 +779,7 @@ private fun DrawerSheet(
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
-                    ) { }
+                    ) { onImportMarkdown() }
                     .padding(vertical = 8.dp),
                 contentAlignment = Alignment.Center,
             ) {

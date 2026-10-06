@@ -1,5 +1,6 @@
 package com.astelle.app.ui.home
 
+import com.astelle.app.data.importer.ImportedNote
 import com.astelle.app.domain.model.Note
 
 enum class NoteFilter { All, Pinned, Favorite }
@@ -37,6 +38,8 @@ sealed interface HomeUiEvent {
     data object Redo : HomeUiEvent
     data object NewNote : HomeUiEvent
     data class OpenNote(val id: String) : HomeUiEvent
+    /** 从 .md 文件导入：解析在 UI 层完成，这里只接收纯数据，ViewModel 不碰 Android */
+    data class ImportNote(val note: ImportedNote) : HomeUiEvent
     data class RequestDelete(val id: String) : HomeUiEvent
     data object ConfirmDelete : HomeUiEvent
     data object CancelDelete : HomeUiEvent
