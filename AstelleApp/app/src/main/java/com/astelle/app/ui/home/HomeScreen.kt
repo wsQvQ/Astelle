@@ -391,7 +391,11 @@ private fun TitleField(value: String, onValueChange: (String) -> Unit, modifier:
         ),
         cursorBrush = SolidColor(Accent),
         decorationBox = { innerTextField: @Composable () -> Unit ->
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.CenterStart) {
+            // 这里必须用 fillMaxWidth，不能用 fillMaxSize。
+            // 外层已不再写死高度，fillMaxSize 会去撑满 Column 给的全部剩余空间，
+            // 于是标题框变成整屏高、文字飘到屏幕正中（上一版就是这么炸的）。
+            // fillMaxWidth 只锁宽度，高度由文字撑开。
+            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
                 if (value.isEmpty()) {
                     Text(
                         "无标题",
