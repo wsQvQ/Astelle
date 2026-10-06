@@ -1,0 +1,274 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 700" font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif">
+  <defs>
+    <filter id="soft" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#2C2418" flood-opacity="0.06"/>
+    </filter>
+    <filter id="lift" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#2C2418" flood-opacity="0.1"/>
+    </filter>
+    <style>
+      .t-title{font-size:14px;font-weight:500;fill:#2C2418;}
+      .t-cap{font-size:11px;fill:#9C8B74;}
+      .t-h{font-size:12px;font-weight:500;fill:#2C2418;}
+      .t-n{font-size:10px;fill:#9C8B74;}
+      .t-acc{font-size:10px;font-weight:500;fill:#D4843A;}
+      .t-ink{font-size:12px;fill:#2C2418;}
+      .t-cell{font-size:9px;fill:#4A4034;}
+      .t-mood{font-size:12px;}
+      .t-day{font-size:9px;fill:#4A4034;}
+      .t-ttl{font-size:11px;font-weight:600;fill:#2C2418;}
+      .t-body{font-size:9px;fill:#4A4034;}
+      .t-date{font-size:8px;fill:#B8A992;}
+      .t-meta{font-size:9px;fill:#B8A992;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;}
+    </style>
+  </defs>
+
+  <text x="36" y="32" class="t-title">日记页 · 三态</text>
+  <text x="36" y="50" class="t-cap">底部居中滑块 · 列表瀑布卡片 · 书写 = 首页编辑器 + 心情</text>
+
+  <!-- ================= 1 · 日历态 ================= -->
+  <rect x="36" y="72" width="210" height="560" rx="20" fill="#FAF5EF" stroke="#E8DDD0" stroke-width="1" filter="url(#soft)"/>
+
+  <!-- header -->
+  <g>
+    <path d="M56 100 L48 106 L56 112" fill="none" stroke="#9C8B74" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="66" y="110" class="t-h">日记</text>
+    <text x="226" y="110" class="t-n" text-anchor="end">2026</text>
+  </g>
+
+  <!-- year ribbon -->
+  <g>
+    <rect x="52" y="128" width="178" height="6" rx="3" fill="#F3EBE0"/>
+    <rect x="52" y="128" width="16" height="6" rx="3" fill="#D4843A" fill-opacity="0.88"/>
+    <rect x="71" y="128" width="16" height="6" rx="3" fill="#D4843A" fill-opacity="0.55"/>
+    <rect x="90" y="128" width="16" height="6" rx="3" fill="#D4843A" fill-opacity="0.72"/>
+    <rect x="109" y="128" width="16" height="6" rx="3" fill="#D4843A" fill-opacity="0.92"/>
+    <rect x="128" y="128" width="16" height="6" rx="3" fill="#D4843A" fill-opacity="0.40"/>
+    <rect x="147" y="128" width="16" height="6" rx="3" fill="#D4843A" fill-opacity="0.62"/>
+    <rect x="166" y="128" width="16" height="6" rx="3" fill="#D4843A" fill-opacity="0.78"/>
+  </g>
+
+  <!-- month nav -->
+  <g>
+    <text x="141" y="160" class="t-h" text-anchor="middle">四月</text>
+    <path d="M92 155 L87 159 L92 163" fill="none" stroke="#9C8B74" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M190 155 L195 159 L190 163" fill="none" stroke="#9C8B74" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- weekday -->
+  <g class="t-n" text-anchor="middle" font-size="9">
+    <text x="64" y="182">一</text>
+    <text x="89" y="182">二</text>
+    <text x="114" y="182">三</text>
+    <text x="139" y="182">四</text>
+    <text x="164" y="182">五</text>
+    <text x="189" y="182">六</text>
+    <text x="214" y="182">日</text>
+  </g>
+
+  <!-- calendar -->
+  <g>
+    <rect x="54" y="192" width="20" height="20" rx="7" fill="#F3EBE0" fill-opacity="0.4"/>
+    <rect x="79" y="192" width="20" height="20" rx="7" fill="#F3EBE0" fill-opacity="0.4"/>
+    <rect x="104" y="192" width="20" height="20" rx="7" fill="#F3EBE0"/>
+    <text x="114" y="206" class="t-day" text-anchor="middle">1</text>
+    <rect x="129" y="192" width="20" height="20" rx="7" fill="#F7E8D4"/>
+    <text x="139" y="206" class="t-mood" text-anchor="middle" font-size="11">🙂</text>
+    <rect x="154" y="192" width="20" height="20" rx="7" fill="#F3EBE0"/>
+    <text x="164" y="206" class="t-day" text-anchor="middle">3</text>
+    <rect x="179" y="192" width="20" height="20" rx="7" fill="#F7E8D4"/>
+    <text x="189" y="206" class="t-mood" text-anchor="middle" font-size="11">😊</text>
+    <rect x="204" y="192" width="20" height="20" rx="7" fill="#F3EBE0" fill-opacity="0.4"/>
+
+    <rect x="54" y="217" width="20" height="20" rx="7" fill="#F7E8D4"/>
+    <text x="64" y="231" class="t-mood" text-anchor="middle" font-size="11">😐</text>
+    <rect x="79" y="217" width="20" height="20" rx="7" fill="#F3EBE0"/>
+    <text x="89" y="231" class="t-day" text-anchor="middle">7</text>
+    <rect x="104" y="217" width="20" height="20" rx="7" fill="#F7E8D4"/>
+    <text x="114" y="231" class="t-mood" text-anchor="middle" font-size="11">😊</text>
+    <rect x="129" y="217" width="20" height="20" rx="7" fill="#F7E8D4"/>
+    <text x="139" y="231" class="t-mood" text-anchor="middle" font-size="11">🙂</text>
+    <rect x="154" y="217" width="20" height="20" rx="7" fill="#F3EBE0"/>
+    <text x="164" y="231" class="t-day" text-anchor="middle">10</text>
+    <rect x="179" y="217" width="20" height="20" rx="7" fill="#F3EBE0" fill-opacity="0.4"/>
+    <rect x="204" y="217" width="20" height="20" rx="7" fill="#F7E8D4"/>
+    <text x="214" y="231" class="t-mood" text-anchor="middle" font-size="11">😢</text>
+
+    <rect x="54" y="242" width="20" height="20" rx="7" fill="#F3EBE0"/>
+    <text x="64" y="256" class="t-day" text-anchor="middle">13</text>
+    <rect x="79" y="242" width="20" height="20" rx="7" fill="#F7E8D4"/>
+    <text x="89" y="256" class="t-mood" text-anchor="middle" font-size="11">😊</text>
+    <rect x="104" y="242" width="20" height="20" rx="7" fill="#FAF5EF" stroke="#D4843A" stroke-width="1.3"/>
+    <text x="114" y="256" class="t-acc" text-anchor="middle">15</text>
+    <rect x="129" y="242" width="20" height="20" rx="7" fill="#F3EBE0"/>
+    <text x="139" y="256" class="t-day" text-anchor="middle">16</text>
+    <rect x="154" y="242" width="20" height="20" rx="7" fill="#F7E8D4"/>
+    <text x="164" y="256" class="t-mood" text-anchor="middle" font-size="11">😠</text>
+    <rect x="179" y="242" width="20" height="20" rx="7" fill="#F3EBE0"/>
+    <text x="189" y="256" class="t-day" text-anchor="middle">18</text>
+    <rect x="204" y="242" width="20" height="20" rx="7" fill="#F3EBE0" fill-opacity="0.4"/>
+
+    <rect x="54" y="267" width="20" height="20" rx="7" fill="#F3EBE0" fill-opacity="0.3"/>
+    <rect x="79" y="267" width="20" height="20" rx="7" fill="#F3EBE0" fill-opacity="0.3"/>
+    <rect x="104" y="267" width="20" height="20" rx="7" fill="#F3EBE0" fill-opacity="0.3"/>
+    <rect x="129" y="267" width="20" height="20" rx="7" fill="#F3EBE0" fill-opacity="0.3"/>
+    <rect x="154" y="267" width="20" height="20" rx="7" fill="#F3EBE0" fill-opacity="0.3"/>
+    <rect x="179" y="267" width="20" height="20" rx="7" fill="#F3EBE0" fill-opacity="0.3"/>
+    <rect x="204" y="267" width="20" height="20" rx="7" fill="#F3EBE0" fill-opacity="0.3"/>
+  </g>
+
+  <!-- 月报 -->
+  <g>
+    <text x="52" y="318" class="t-h">这个月</text>
+    <text x="230" y="318" class="t-n" text-anchor="end">12 篇 · 3,428 字</text>
+    <rect x="52" y="330" width="178" height="10" rx="5" fill="#F3EBE0"/>
+    <rect x="52" y="330" width="74" height="10" rx="5" fill="#D4843A" fill-opacity="0.85"/>
+    <rect x="126" y="330" width="42" height="10" fill="#D4843A" fill-opacity="0.55"/>
+    <rect x="168" y="330" width="26" height="10" fill="#D4843A" fill-opacity="0.32"/>
+    <rect x="194" y="330" width="18" height="10" fill="#C4A882" fill-opacity="0.45"/>
+    <rect x="212" y="330" width="18" height="10" rx="5" fill="#B8A992" fill-opacity="0.35"/>
+    <text x="52" y="360" class="t-n">😊 5</text>
+    <text x="88" y="360" class="t-n">🙂 3</text>
+    <text x="124" y="360" class="t-n">😐 2</text>
+    <text x="160" y="360" class="t-n">😢 1</text>
+    <text x="196" y="360" class="t-n">😠 1</text>
+    <text x="52" y="386" class="t-n">连续 5 天 · 最长 12 天</text>
+  </g>
+
+  <!-- CTA -->
+  <rect x="52" y="410" width="178" height="38" rx="13" fill="#FAF5EF" stroke="#D4843A" stroke-width="1.2"/>
+  <text x="141" y="434" class="t-acc" text-anchor="middle">写今天</text>
+
+  <!-- bottom floating toggle: 日历 | 列表 -->
+  <g filter="url(#lift)">
+    <rect x="62" y="548" width="158" height="36" rx="18" fill="#F3EBE0" fill-opacity="0.92" stroke="#E8DDD0" stroke-width="0.6"/>
+    <rect x="65" y="551" width="74" height="30" rx="15" fill="#FAF5EF" stroke="#E8DDD0" stroke-width="0.5"/>
+    <text x="102" y="570" class="t-acc" text-anchor="middle">日历</text>
+    <text x="180" y="570" class="t-n" text-anchor="middle">列表</text>
+  </g>
+
+  <text x="141" y="612" class="t-cap" text-anchor="middle" font-size="10">态 1 · 日历</text>
+
+  <!-- ================= 2 · 列表态 · 瀑布卡片 ================= -->
+  <rect x="262" y="72" width="210" height="560" rx="20" fill="#F3EBE0" stroke="#E8DDD0" stroke-width="1" filter="url(#soft)"/>
+
+  <g>
+    <path d="M282 100 L274 106 L282 112" fill="none" stroke="#9C8B74" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="292" y="110" class="t-h">日记</text>
+    <text x="452" y="110" class="t-n" text-anchor="end">2026</text>
+  </g>
+
+  <!-- masonry: 2 cols, staggered heights -->
+  <!-- col L x=278 w=82 ; col R x=368 w=82 ; gap 8 -->
+  <g>
+    <!-- L1 tall -->
+    <rect x="278" y="128" width="82" height="118" rx="12" fill="#FAF5EF" filter="url(#soft)"/>
+    <text x="288" y="148" class="t-ttl">换灯的晚上</text>
+    <text x="288" y="166" class="t-body">下午把设计稿又</text>
+    <text x="288" y="180" class="t-body">改了一遍，比想</text>
+    <text x="288" y="194" class="t-body">象中顺。晚上煮</text>
+    <text x="288" y="208" class="t-body">了面……</text>
+    <text x="288" y="232" class="t-date">4月15日</text>
+    <text x="350" y="232" class="t-mood" text-anchor="end" font-size="10">😊</text>
+
+    <!-- R1 short -->
+    <rect x="368" y="128" width="82" height="78" rx="12" fill="#FAF5EF" filter="url(#soft)"/>
+    <text x="378" y="148" class="t-ttl">又一版</text>
+    <text x="378" y="166" class="t-body">导师说结构清楚</text>
+    <text x="378" y="180" class="t-body">多了……</text>
+    <text x="378" y="198" class="t-date">4月14日</text>
+    <text x="440" y="198" class="t-mood" text-anchor="end" font-size="10">🙂</text>
+
+    <!-- R2 tall -->
+    <rect x="368" y="214" width="82" height="128" rx="12" fill="#FAF5EF" filter="url(#soft)"/>
+    <text x="378" y="234" class="t-ttl">回家路上</text>
+    <text x="378" y="252" class="t-body">有点想家，视频</text>
+    <text x="378" y="266" class="t-body">了四十分钟。楼</text>
+    <text x="378" y="280" class="t-body">下的桂花好像开</text>
+    <text x="378" y="294" class="t-body">了，风是甜的那</text>
+    <text x="378" y="308" class="t-body">种……</text>
+    <text x="378" y="328" class="t-date">4月12日</text>
+    <text x="440" y="328" class="t-mood" text-anchor="end" font-size="10">😢</text>
+
+    <!-- L2 mid -->
+    <rect x="278" y="254" width="82" height="96" rx="12" fill="#FAF5EF" filter="url(#soft)"/>
+    <text x="288" y="274" class="t-ttl">没有标题</text>
+    <text x="288" y="292" class="t-body">阴天，把待办划</text>
+    <text x="288" y="306" class="t-body">掉了两项，还算</text>
+    <text x="288" y="320" class="t-body">顺……</text>
+    <text x="288" y="338" class="t-date">4月13日</text>
+    <text x="350" y="338" class="t-mood" text-anchor="end" font-size="10">😐</text>
+
+    <!-- L3 short -->
+    <rect x="278" y="358" width="82" height="72" rx="12" fill="#FAF5EF" filter="url(#soft)"/>
+    <text x="288" y="378" class="t-ttl">牙医</text>
+    <text x="288" y="396" class="t-body">比想象中轻松。</text>
+    <text x="288" y="418" class="t-date">4月10日</text>
+    <text x="350" y="418" class="t-mood" text-anchor="end" font-size="10">😊</text>
+
+    <!-- R3 mid -->
+    <rect x="368" y="350" width="82" height="88" rx="12" fill="#FAF5EF" filter="url(#soft)"/>
+    <text x="378" y="370" class="t-ttl">雨</text>
+    <text x="378" y="388" class="t-body">下了一整天。窗</text>
+    <text x="378" y="402" class="t-body">台上有只蜗牛。</text>
+    <text x="378" y="424" class="t-date">4月8日</text>
+    <text x="440" y="424" class="t-mood" text-anchor="end" font-size="10">😐</text>
+  </g>
+
+  <!-- bottom floating toggle: 列表 selected -->
+  <g filter="url(#lift)">
+    <rect x="288" y="548" width="158" height="36" rx="18" fill="#E8DDD0" fill-opacity="0.92" stroke="#E8DDD0" stroke-width="0.6"/>
+    <rect x="372" y="551" width="74" height="30" rx="15" fill="#FAF5EF" stroke="#E8DDD0" stroke-width="0.5"/>
+    <text x="325" y="570" class="t-n" text-anchor="middle">日历</text>
+    <text x="409" y="570" class="t-acc" text-anchor="middle">列表</text>
+  </g>
+
+  <text x="367" y="612" class="t-cap" text-anchor="middle" font-size="10">态 2 · 列表（瀑布卡片）</text>
+
+  <!-- ================= 3 · 书写态 · 首页编辑器风格 ================= -->
+  <rect x="488" y="72" width="210" height="560" rx="20" fill="#FAF5EF" stroke="#E8DDD0" stroke-width="1" filter="url(#soft)"/>
+
+  <!-- top: back only -->
+  <g>
+    <path d="M508 100 L500 106 L508 112" fill="none" stroke="#9C8B74" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="518" y="110" class="t-n">4月15日 · 周三</text>
+  </g>
+
+  <!-- title (home style 19sp scaled) -->
+  <text x="504" y="152" class="t-ttl" font-size="15" font-weight="600">换灯的晚上</text>
+
+  <!-- meta: 日期 · 字数（无保存） -->
+  <text x="504" y="174" class="t-meta">04-15 · 128 字</text>
+
+  <!-- mood row -->
+  <g>
+    <rect x="504" y="192" width="32" height="32" rx="10" fill="#F7E8D4" stroke="#D4843A" stroke-width="1.2"/>
+    <text x="520" y="213" class="t-mood" text-anchor="middle" font-size="12">😊</text>
+    <rect x="544" y="192" width="32" height="32" rx="10" fill="#F3EBE0" fill-opacity="0.65"/>
+    <text x="560" y="213" class="t-mood" text-anchor="middle" font-size="12">🙂</text>
+    <rect x="584" y="192" width="32" height="32" rx="10" fill="#F3EBE0" fill-opacity="0.65"/>
+    <text x="600" y="213" class="t-mood" text-anchor="middle" font-size="12">😐</text>
+    <rect x="624" y="192" width="32" height="32" rx="10" fill="#F3EBE0" fill-opacity="0.65"/>
+    <text x="640" y="213" class="t-mood" text-anchor="middle" font-size="12">😢</text>
+    <rect x="664" y="192" width="32" height="32" rx="10" fill="#F3EBE0" fill-opacity="0.65"/>
+    <text x="680" y="213" class="t-mood" text-anchor="middle" font-size="12">😠</text>
+  </g>
+
+  <!-- divider -->
+  <line x1="504" y1="244" x2="682" y2="244" stroke="#E8DDD0"/>
+
+  <!-- body 16sp / lh 1.75 scaled -->
+  <g class="t-ink" font-size="12">
+    <text x="504" y="278">下午把设计稿又改了一遍，</text>
+    <text x="504" y="302">比想象中顺。晚上煮了面，</text>
+    <text x="504" y="326">把阳台的灯换成了暖光。</text>
+    <text x="504" y="350">房间一下子软下来了。</text>
+    <text x="504" y="374">今天过得刚刚好。</text>
+  </g>
+
+  <!-- soft empty rest -->
+  <rect x="504" y="404" width="148" height="5" rx="2.5" fill="#F3EBE0" opacity="0.4"/>
+  <rect x="504" y="418" width="96" height="5" rx="2.5" fill="#F3EBE0" opacity="0.28"/>
+
+  <text x="593" y="612" class="t-cap" text-anchor="middle" font-size="10">态 3 · 书写（首页编辑器 + 心情）</text>
+</svg>

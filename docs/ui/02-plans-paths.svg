@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 620" font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif">
+  <defs>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6" fill="none" stroke="#B8A992" stroke-width="1"/>
+    </marker>
+    <style>
+      .t-title{font-size:14px;font-weight:500;fill:#2C2418;}
+      .t-cap{font-size:11px;fill:#9C8B74;}
+      .t-h{font-size:13px;font-weight:500;fill:#4A4034;}
+      .t-n{font-size:11px;fill:#B8A992;}
+      .t-acc{font-size:11px;font-weight:500;fill:#D4843A;}
+    </style>
+  </defs>
+
+  <text x="36" y="34" class="t-title">计划页 · 三条产品路线</text>
+  <text x="36" y="54" class="t-cap">核心物不同，界面气质就不同。下面先选「它是哪种东西」。</text>
+
+  <!-- A -->
+  <rect x="36" y="80" width="200" height="300" rx="16" fill="#FAF5EF" stroke="#E8DDD0" stroke-width="1"/>
+  <text x="136" y="112" class="t-acc" text-anchor="middle">路线 A · 倒数日</text>
+  <text x="136" y="132" class="t-n" text-anchor="middle">核心物：一个日子</text>
+
+  <rect x="56" y="150" width="160" height="88" rx="12" fill="#F7E8D4"/>
+  <text x="136" y="188" text-anchor="middle" font-size="28" font-weight="600" fill="#D4843A">12</text>
+  <text x="136" y="210" class="t-n" text-anchor="middle">天后 · 毕业答辩</text>
+  <text x="136" y="228" class="t-n" text-anchor="middle">5月20日截止</text>
+
+  <rect x="56" y="252" width="160" height="36" rx="10" fill="#F3EBE0"/>
+  <text x="70" y="274" class="t-n">去杭州 · 还有 34 天</text>
+  <rect x="56" y="296" width="160" height="36" rx="10" fill="#F3EBE0"/>
+  <text x="70" y="318" class="t-n">妈妈生日 · 还有 58 天</text>
+
+  <text x="136" y="356" class="t-n" text-anchor="middle">五年日记 / 倒数日 App</text>
+
+  <!-- B -->
+  <rect x="260" y="80" width="200" height="300" rx="16" fill="#FAF5EF" stroke="#E8DDD0" stroke-width="1"/>
+  <text x="360" y="112" class="t-acc" text-anchor="middle">路线 B · 轻项目</text>
+  <text x="360" y="132" class="t-n" text-anchor="middle">核心物：一个计划</text>
+
+  <rect x="280" y="150" width="160" height="100" rx="12" fill="#FFFFFF" stroke="#E8DDD0"/>
+  <text x="294" y="174" class="t-h">写完产品设计稿</text>
+  <text x="420" y="174" class="t-n" text-anchor="end">12 天</text>
+  <rect x="294" y="190" width="132" height="6" rx="3" fill="#E8DDD0"/>
+  <rect x="294" y="190" width="82" height="6" rx="3" fill="#D4843A"/>
+  <text x="294" y="220" class="t-n">62% · 里程碑 2/5</text>
+  <text x="294" y="238" class="t-n">关联随记 3</text>
+
+  <rect x="280" y="262" width="160" height="52" rx="10" fill="#F3EBE0"/>
+  <text x="294" y="284" class="t-h">论文初稿</text>
+  <text x="294" y="302" class="t-n">进度 30% · 45 天</text>
+
+  <text x="360" y="356" class="t-n" text-anchor="middle">Things 3 / 轻 Notion</text>
+
+  <!-- C -->
+  <rect x="484" y="80" width="200" height="300" rx="16" fill="#FAF5EF" stroke="#E8DDD0" stroke-width="1"/>
+  <text x="584" y="112" class="t-acc" text-anchor="middle">路线 C · 本周页</text>
+  <text x="584" y="132" class="t-n" text-anchor="middle">核心物：一周</text>
+
+  <text x="504" y="162" class="t-h">本周 4/1 – 4/7</text>
+  <line x1="504" y1="174" x2="664" y2="174" stroke="#E8DDD0"/>
+  <text x="504" y="200" class="t-n">○ 周三  交设计稿</text>
+  <text x="654" y="200" class="t-n" text-anchor="end">2 天</text>
+  <text x="504" y="228" class="t-n">○ 周五  牙医</text>
+  <text x="654" y="228" class="t-n" text-anchor="end">4 天</text>
+  <text x="504" y="256" class="t-n">○ 周日  给家里打电话</text>
+
+  <line x1="504" y1="280" x2="664" y2="280" stroke="#E8DDD0" stroke-dasharray="3 3"/>
+  <text x="504" y="306" class="t-n">下周 · 4/9 论文答辩</text>
+
+  <text x="584" y="356" class="t-n" text-anchor="middle">Bullet Journal 周表</text>
+
+  <!-- recommendation -->
+  <rect x="36" y="420" width="648" height="160" rx="16" fill="#F7E8D4" stroke="#D4843A" stroke-opacity="0.25"/>
+  <text x="56" y="452" class="t-acc">我的建议：A 为魂、B 为壳 —— 「倒数日」做门面，「轻项目」装内容</text>
+
+  <rect x="56" y="472" width="280" height="84" rx="12" fill="#FAF5EF"/>
+  <text x="70" y="496" class="t-h">一个计划 = 一个有截止日的容器</text>
+  <text x="70" y="518" class="t-n">名称 + 截止日（产生倒计时）</text>
+  <text x="70" y="536" class="t-n">要做的事（3–7 条勾选）</text>
+  <text x="70" y="554" class="t-n">关联随记（点进去就是笔记）</text>
+
+  <rect x="356" y="472" width="308" height="84" rx="12" fill="#FAF5EF"/>
+  <text x="370" y="496" class="t-h">主界面</text>
+  <text x="370" y="518" class="t-n">大数字「还有 12 天」→ 今日感</text>
+  <text x="370" y="536" class="t-n">勾选清单 → 干活感</text>
+  <text x="370" y="554" class="t-n">关联随记 → 不脱离「随手收下」</text>
+
+  <text x="36" y="608" class="t-cap">导航：侧栏顶部放「随记｜计划」两段滑块（与编辑/预览同款组件），不加底部 Tab，首页仍是编辑器。</text>
+</svg>

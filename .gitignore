@@ -1,0 +1,11 @@
+﻿# --- IDE ---
+.idea/
+*.iml
+
+# --- build logs ---
+build_*.txt
+
+# --- OS ---
+Thumbs.db
+desktop.ini
+.DS_Store
