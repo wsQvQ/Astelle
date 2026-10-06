@@ -86,7 +86,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.astelle.app.R
 import com.astelle.app.data.importer.MarkdownFileReader
 import com.astelle.app.data.importer.MarkdownImport
-import com.astelle.app.domain.model.Note
+import com.astelle.app.domain.model.NoteSummary
 import com.astelle.app.ui.components.AstelleIcons
 import com.astelle.app.ui.navigation.AstelleDestination
 import dev.jeziellago.compose.markdowntext.MarkdownText
@@ -675,7 +675,7 @@ private fun BodyPreview(content: String, modifier: Modifier = Modifier) {
 
 @Composable
 private fun DrawerSheet(
-    notes: List<Note>,
+    notes: List<NoteSummary>,
     currentNoteId: String?,
     searchQuery: String,
     filter: NoteFilter,
@@ -975,7 +975,7 @@ private fun Chip(text: String, selected: Boolean, onClick: () -> Unit) {
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun NoteCard(
-    note: Note,
+    note: NoteSummary,
     selected: Boolean,
     onClick: () -> Unit,
     onTogglePin: () -> Unit,
@@ -1047,7 +1047,8 @@ private fun NoteCard(
                     }
                     Text(dateLabel, fontFamily = mono, fontSize = 10.sp, color = Ghost)
                 }
-                val sum = note.content.trim().lineSequence().firstOrNull().orEmpty()
+                // 摘要与字数都来自投影，不再从正文全文里现算
+                val sum = note.preview
                 // sum != headline：标题为空时 headline 就是正文首行，再显示一遍纯属重复
                 if (sum.isNotBlank() && sum != headline) {
                     Text(
@@ -1061,7 +1062,7 @@ private fun NoteCard(
                     )
                 }
                 Text(
-                    "$timeLabel · ${note.content.length} 字",
+                    "$timeLabel · ${note.charCount} 字",
                     fontFamily = mono,
                     fontSize = 10.sp,
                     color = Ghost,

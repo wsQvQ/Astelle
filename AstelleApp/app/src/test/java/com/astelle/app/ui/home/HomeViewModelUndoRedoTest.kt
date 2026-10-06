@@ -1,11 +1,13 @@
 package com.astelle.app.ui.home
 
 import com.astelle.app.domain.model.Note
+import com.astelle.app.domain.model.NoteSummary
 import com.astelle.app.domain.repository.NoteRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.resetMain
@@ -120,19 +122,27 @@ class HomeViewModelUndoRedoTest {
 private class FakeNoteRepository : NoteRepository {
 
     private val stored = LinkedHashMap<String, Note>()
-    private val notes = MutableStateFlow<List<Note>>(emptyList())
+    private val summaries = MutableStateFlow<List<NoteSummary>>(emptyList())
 
     private fun publish() {
-        notes.value = stored.values.toList()
+        summaries.value = stored.values.map { it.toSummary() }
     }
 
-    override fun observeNotes(): Flow<List<Note>> = notes
+    override fun observeSummaries(query: String): Flow<List<NoteSummary>> =
+        if (query.isBlank()) {
+            summaries
+        } else {
+            summaries.map { list ->
+                list.filter {
+                    it.title.contains(query, ignoreCase = true) ||
+                        it.snippet.contains(query, ignoreCase = true)
+                }
+            }
+        }
 
     override fun observeNote(id: String): Flow<Note?> = MutableStateFlow(stored[id])
 
     override suspend fun getNote(id: String): Note? = stored[id]
-
-    override fun search(query: String): Flow<List<Note>> = notes
 
     override suspend fun upsert(note: Note) {
         stored[note.id] = note
@@ -156,3 +166,17 @@ private class FakeNoteRepository : NoteRepository {
         stored[id]?.let { stored[id] = it.copy(isArchived = archived); publish() }
     }
 }
+
+/** 与 NoteDao.observeSummaries 的投影保持一致，便于测试聚焦在 ViewModel 行为上 */
+private fun Note.toSummary() = NoteSummary(
+    id = id,
+    title = title,
+    snippet = content.take(280),
+    charCount = content.length,
+    createdAt = createdAt,
+    updatedAt = updatedAt,
+    mood = mood,
+    isPinned = isPinned,
+    isFavorite = isFavorite,
+    isArchived = isArchived,
+)

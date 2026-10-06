@@ -4,6 +4,7 @@ import com.astelle.app.data.local.entity.NoteEntity
 import com.astelle.app.data.local.entity.PlanDayEntity
 import com.astelle.app.data.local.entity.TodoEntity
 import com.astelle.app.domain.model.Note
+import com.astelle.app.domain.model.NoteSummary
 import com.astelle.app.domain.model.PlanDay
 import com.astelle.app.domain.model.Todo
 import java.time.LocalDate
@@ -24,6 +25,19 @@ fun Note.toEntity(): NoteEntity = NoteEntity(
     id = id,
     title = title,
     content = content,
+    createdAt = createdAt,
+    updatedAt = updatedAt,
+    mood = mood,
+    isPinned = isPinned,
+    isFavorite = isFavorite,
+    isArchived = isArchived,
+)
+
+fun NoteSummaryRow.toDomain(): NoteSummary = NoteSummary(
+    id = id,
+    title = title,
+    snippet = snippet,
+    charCount = charCount,
     createdAt = createdAt,
     updatedAt = updatedAt,
     mood = mood,

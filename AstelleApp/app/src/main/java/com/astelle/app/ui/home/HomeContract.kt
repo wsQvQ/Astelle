@@ -1,7 +1,6 @@
 package com.astelle.app.ui.home
 
 import com.astelle.app.data.importer.ImportedNote
-import com.astelle.app.domain.model.Note
 
 enum class NoteFilter { All, Pinned, Favorite }
 
@@ -16,7 +15,6 @@ data class HomeUiState(
     val canUndo: Boolean = false,
     /** 回退之后是否还能再前进 */
     val canRedo: Boolean = false,
-    val notes: List<Note> = emptyList(),
     val searchQuery: String = "",
     val filter: NoteFilter = NoteFilter.All,
     val mode: EditorMode = EditorMode.Edit,

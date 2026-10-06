@@ -5,10 +5,12 @@ import androidx.lifecycle.viewModelScope
 import com.astelle.app.BuildConfig
 import com.astelle.app.data.seed.SampleNote
 import com.astelle.app.domain.model.Note
+import com.astelle.app.domain.model.NoteSummary
 import com.astelle.app.domain.repository.NoteRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.UUID
 import javax.inject.Inject
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,6 +20,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
@@ -28,7 +31,7 @@ import kotlinx.coroutines.launch
 /**
  * 首屏编辑器：双层顶栏 + 标题 + 正文。变更去抖后自动落库。
  */
-@OptIn(FlowPreview::class)
+@OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val noteRepository: NoteRepository,
@@ -37,26 +40,20 @@ class HomeViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
-    val filteredNotes: StateFlow<List<Note>> = combine(
-        noteRepository.observeNotes(),
-        _uiState.map { it.searchQuery }.distinctUntilChanged(),
+    /**
+     * 抽屉列表。搜索已下推给 SQL：换关键词时重新订阅一个新的查询流，
+     * 因此这里拿到的是轻量摘要（不含正文全文），筛选仍在内存里做。
+     */
+    val filteredNotes: StateFlow<List<NoteSummary>> = combine(
+        _uiState.map { it.searchQuery }.distinctUntilChanged()
+            .flatMapLatest { noteRepository.observeSummaries(it) },
         _uiState.map { it.filter }.distinctUntilChanged(),
-    ) { notes, query, filter ->
-        notes
-            .asSequence()
-            .filter { note ->
-                when (filter) {
-                    NoteFilter.All -> true
-                    NoteFilter.Pinned -> note.isPinned
-                    NoteFilter.Favorite -> note.isFavorite
-                }
-            }
-            .filter { note ->
-                query.isBlank() ||
-                    note.title.contains(query, ignoreCase = true) ||
-                    note.content.contains(query, ignoreCase = true)
-            }
-            .toList()
+    ) { notes, filter ->
+        when (filter) {
+            NoteFilter.All -> notes
+            NoteFilter.Pinned -> notes.filter { it.isPinned }
+            NoteFilter.Favorite -> notes.filter { it.isFavorite }
+        }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private var activeNote: Note? = null

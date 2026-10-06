@@ -1,13 +1,20 @@
 package com.astelle.app.domain.repository
 
 import com.astelle.app.domain.model.Note
+import com.astelle.app.domain.model.NoteSummary
 import kotlinx.coroutines.flow.Flow
 
 interface NoteRepository {
-    fun observeNotes(): Flow<List<Note>>
+    /**
+     * 抽屉列表的数据源。只返回摘要投影，**不含正文全文** ——
+     * 正文由 [getNote] 在真正打开某篇时才取，避免列表把超大行读进
+     * SQLite 的 CursorWindow（约 2MB）直接崩溃。
+     *
+     * [query] 为空表示不过滤，否则标题或正文命中即算匹配（在 SQL 里做）。
+     */
+    fun observeSummaries(query: String = ""): Flow<List<NoteSummary>>
     fun observeNote(id: String): Flow<Note?>
     suspend fun getNote(id: String): Note?
-    fun search(query: String): Flow<List<Note>>
     suspend fun upsert(note: Note)
     suspend fun delete(id: String)
     suspend fun setPinned(id: String, pinned: Boolean)
