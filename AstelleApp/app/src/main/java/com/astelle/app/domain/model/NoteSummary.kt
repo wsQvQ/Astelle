@@ -23,6 +23,8 @@ data class NoteSummary(
     val isPinned: Boolean = false,
     val isFavorite: Boolean = false,
     val isArchived: Boolean = false,
+    /** 所属分类；null = 未分类。抽屉据此把笔记分到各个分组里 */
+    val folderId: String? = null,
 ) {
     /** 卡片第一行：标题为空时退回正文首行 */
     val displayTitle: String

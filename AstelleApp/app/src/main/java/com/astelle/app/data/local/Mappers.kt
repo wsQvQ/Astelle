@@ -1,8 +1,10 @@
 package com.astelle.app.data.local
 
+import com.astelle.app.data.local.entity.FolderEntity
 import com.astelle.app.data.local.entity.NoteEntity
 import com.astelle.app.data.local.entity.PlanDayEntity
 import com.astelle.app.data.local.entity.TodoEntity
+import com.astelle.app.domain.model.Folder
 import com.astelle.app.domain.model.Note
 import com.astelle.app.domain.model.NoteSummary
 import com.astelle.app.domain.model.PlanDay
@@ -19,6 +21,7 @@ fun NoteEntity.toDomain(): Note = Note(
     isPinned = isPinned,
     isFavorite = isFavorite,
     isArchived = isArchived,
+    folderId = folderId,
 )
 
 fun Note.toEntity(): NoteEntity = NoteEntity(
@@ -31,6 +34,7 @@ fun Note.toEntity(): NoteEntity = NoteEntity(
     isPinned = isPinned,
     isFavorite = isFavorite,
     isArchived = isArchived,
+    folderId = folderId,
 )
 
 fun NoteSummaryRow.toDomain(): NoteSummary = NoteSummary(
@@ -44,6 +48,7 @@ fun NoteSummaryRow.toDomain(): NoteSummary = NoteSummary(
     isPinned = isPinned,
     isFavorite = isFavorite,
     isArchived = isArchived,
+    folderId = folderId,
 )
 
 fun PlanDayEntity.toDomain(): PlanDay = PlanDay(
@@ -84,4 +89,18 @@ fun Todo.toEntity(): TodoEntity = TodoEntity(
     createdAt = createdAt,
     doneAt = doneAt,
     sortOrder = sortOrder,
+)
+
+fun FolderEntity.toDomain(): Folder = Folder(
+    id = id,
+    name = name,
+    sortOrder = sortOrder,
+    createdAt = createdAt,
+)
+
+fun Folder.toEntity(): FolderEntity = FolderEntity(
+    id = id,
+    name = name,
+    sortOrder = sortOrder,
+    createdAt = createdAt,
 )

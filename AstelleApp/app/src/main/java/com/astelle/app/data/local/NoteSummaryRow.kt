@@ -18,4 +18,6 @@ data class NoteSummaryRow(
     val isPinned: Boolean,
     val isFavorite: Boolean,
     val isArchived: Boolean,
+    /** 所属分类；null = 未分类 */
+    val folderId: String?,
 )

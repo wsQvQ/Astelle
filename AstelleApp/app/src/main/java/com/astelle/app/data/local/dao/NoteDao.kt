@@ -36,7 +36,8 @@ interface NoteDao {
                mood,
                isPinned,
                isFavorite,
-               isArchived
+               isArchived,
+               folderId
         FROM notes
         WHERE isArchived = 0
           AND (:query = '' OR title LIKE '%' || :query || '%' OR content LIKE '%' || :query || '%')
@@ -71,4 +72,8 @@ interface NoteDao {
 
     @Query("UPDATE notes SET isFavorite = :favorite, updatedAt = :updatedAt WHERE id = :id")
     suspend fun setFavorite(id: String, favorite: Boolean, updatedAt: Long)
+
+    /** 移入 / 移出分类：folderId 传 null 即移出到「未分类」 */
+    @Query("UPDATE notes SET folderId = :folderId, updatedAt = :updatedAt WHERE id = :id")
+    suspend fun moveToFolder(id: String, folderId: String?, updatedAt: Long)
 }

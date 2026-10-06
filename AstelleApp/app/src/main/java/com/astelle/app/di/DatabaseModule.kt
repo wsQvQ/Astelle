@@ -3,6 +3,7 @@ package com.astelle.app.di
 import android.content.Context
 import androidx.room.Room
 import com.astelle.app.data.local.AstelleDatabase
+import com.astelle.app.data.local.dao.FolderDao
 import com.astelle.app.data.local.dao.NoteDao
 import com.astelle.app.data.local.dao.PlanDayDao
 import com.astelle.app.data.local.dao.TodoDao
@@ -26,6 +27,9 @@ object DatabaseModule {
 
     @Provides
     fun provideNoteDao(db: AstelleDatabase): NoteDao = db.noteDao()
+
+    @Provides
+    fun provideFolderDao(db: AstelleDatabase): FolderDao = db.folderDao()
 
     @Provides
     fun providePlanDayDao(db: AstelleDatabase): PlanDayDao = db.planDayDao()

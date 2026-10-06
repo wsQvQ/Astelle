@@ -1,7 +1,9 @@
 package com.astelle.app.di
 
+import com.astelle.app.data.repository.FolderRepositoryImpl
 import com.astelle.app.data.repository.NoteRepositoryImpl
 import com.astelle.app.data.repository.PlanRepositoryImpl
+import com.astelle.app.domain.repository.FolderRepository
 import com.astelle.app.domain.repository.NoteRepository
 import com.astelle.app.domain.repository.PlanRepository
 import dagger.Binds
@@ -17,6 +19,10 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindNoteRepository(impl: NoteRepositoryImpl): NoteRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindFolderRepository(impl: FolderRepositoryImpl): FolderRepository
 
     @Binds
     @Singleton

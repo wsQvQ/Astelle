@@ -14,4 +14,6 @@ data class NoteEntity(
     val isPinned: Boolean = false,
     val isFavorite: Boolean = false,
     val isArchived: Boolean = false,
+    /** 所属分类；null = 未分类 */
+    val folderId: String? = null,
 )
