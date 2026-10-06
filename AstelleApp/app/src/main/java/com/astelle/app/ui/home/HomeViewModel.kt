@@ -4,8 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.astelle.app.BuildConfig
 import com.astelle.app.data.seed.SampleNote
+import com.astelle.app.domain.model.Folder
 import com.astelle.app.domain.model.Note
 import com.astelle.app.domain.model.NoteSummary
+import com.astelle.app.domain.repository.FolderRepository
 import com.astelle.app.domain.repository.NoteRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.UUID
@@ -35,6 +37,7 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val noteRepository: NoteRepository,
+    private val folderRepository: FolderRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -55,6 +58,10 @@ class HomeViewModel @Inject constructor(
             NoteFilter.Favorite -> notes.filter { it.isFavorite }
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** 全部分类。分组渲染在 UI 层做（纯函数，见 DrawerGroups.kt） */
+    val folders: StateFlow<List<Folder>> = folderRepository.observeFolders()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private var activeNote: Note? = null
     private var saveJob: Job? = null
@@ -241,6 +248,52 @@ class HomeViewModel @Inject constructor(
             }
             is HomeUiEvent.SetMode ->
                 _uiState.update { it.copy(mode = event.mode) }
+
+            /* ---------- 分类 ---------- */
+
+            is HomeUiEvent.AddFolder -> {
+                val name = event.name.trim()
+                if (name.isEmpty()) return
+                viewModelScope.launch {
+                    folderRepository.upsert(
+                        Folder(
+                            id = UUID.randomUUID().toString(),
+                            name = name,
+                            // 由 SQL 取 max+1：抽屉关着时 folders 流无人订阅，
+                            // 在内存里取 max 会让连点两次新建拿到同一个排序
+                            sortOrder = folderRepository.nextSortOrder(),
+                            createdAt = System.currentTimeMillis(),
+                        )
+                    )
+                }
+            }
+
+            is HomeUiEvent.RenameFolder -> {
+                val name = event.name.trim()
+                // 改名成空 = 把分类变成无名条目，界面上一行空白，不如不响应
+                if (name.isEmpty()) return
+                viewModelScope.launch { folderRepository.rename(event.id, name) }
+            }
+
+            is HomeUiEvent.DeleteFolder -> viewModelScope.launch {
+                folderRepository.delete(event.id)
+                // 关键：库里 detachNotes 只改了数据库，内存里的 activeNote
+                // 还指着那个已删除的分类。不同步的话，下一次自动保存整行回写，
+                // 又会把这个悬空 folderId 写回去 —— 分类没了，笔记也再也找不到
+                val current = activeNote
+                if (current != null && current.folderId == event.id) {
+                    activeNote = current.copy(folderId = null)
+                }
+            }
+
+            is HomeUiEvent.MoveNoteToFolder -> viewModelScope.launch {
+                noteRepository.moveToFolder(event.noteId, event.folderId)
+                // 同上：不跟着改内存副本，下次 persist 会把 folderId 抹回去
+                val current = activeNote
+                if (current != null && current.id == event.noteId) {
+                    activeNote = current.copy(folderId = event.folderId)
+                }
+            }
         }
     }
 

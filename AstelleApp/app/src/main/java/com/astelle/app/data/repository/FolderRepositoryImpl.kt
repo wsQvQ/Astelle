@@ -22,6 +22,12 @@ class FolderRepositoryImpl @Inject constructor(
         folderDao.upsert(folder.toEntity())
     }
 
+    override suspend fun rename(id: String, name: String) {
+        folderDao.rename(id, name)
+    }
+
+    override suspend fun nextSortOrder(): Int = folderDao.nextSortOrder()
+
     override suspend fun delete(id: String) {
         // 顺序要紧：先把笔记放出来，再删分类
         folderDao.detachNotes(id, updatedAt = System.currentTimeMillis())

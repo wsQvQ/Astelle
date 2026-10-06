@@ -40,6 +40,12 @@ class NoteRepositoryImpl @Inject constructor(
         noteDao.toggleFavorite(id, updatedAt = System.currentTimeMillis())
     }
 
+    override suspend fun moveToFolder(id: String, folderId: String?) {
+        // 顺带刷新 updatedAt：移进新分类后笔记会浮到那一组的最前，
+        // 用户能立刻看见「它确实过去了」——否则卡片纹丝不动，像没生效
+        noteDao.moveToFolder(id, folderId, updatedAt = System.currentTimeMillis())
+    }
+
     override suspend fun setArchived(id: String, archived: Boolean) {
         noteDao.setArchived(id, archived, updatedAt = System.currentTimeMillis())
     }

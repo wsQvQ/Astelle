@@ -22,5 +22,8 @@ interface NoteRepository {
     suspend fun togglePinned(id: String)
     suspend fun toggleFavorite(id: String)
 
+    /** 移入 / 移出分类；[folderId] 传 null 即回到「未分类」。同样只走一条 UPDATE */
+    suspend fun moveToFolder(id: String, folderId: String?)
+
     suspend fun setArchived(id: String, archived: Boolean)
 }

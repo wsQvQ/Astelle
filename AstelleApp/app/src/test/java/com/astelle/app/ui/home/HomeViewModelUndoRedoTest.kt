@@ -1,13 +1,7 @@
 package com.astelle.app.ui.home
 
-import com.astelle.app.domain.model.Note
-import com.astelle.app.domain.model.NoteSummary
-import com.astelle.app.domain.repository.NoteRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.resetMain
@@ -45,7 +39,7 @@ class HomeViewModelUndoRedoTest {
 
     @Test
     fun `输入停稳后可以撤销，并且能重做回来`() = runTest(dispatcher) {
-        val vm = HomeViewModel(FakeNoteRepository())
+        val vm = HomeViewModel(FakeNoteRepository(), FakeFolderRepository())
         advanceTimeBy(settle); runCurrent()
 
         // 刚打开时没有历史，撤销钮应是禁用的
@@ -66,7 +60,7 @@ class HomeViewModelUndoRedoTest {
 
     @Test
     fun `连续多次编辑后能一步步退回`() = runTest(dispatcher) {
-        val vm = HomeViewModel(FakeNoteRepository())
+        val vm = HomeViewModel(FakeNoteRepository(), FakeFolderRepository())
         advanceTimeBy(settle); runCurrent()
 
         vm.onEvent(HomeUiEvent.TitleChanged("标题"))
@@ -85,7 +79,7 @@ class HomeViewModelUndoRedoTest {
 
     @Test
     fun `新建笔记会清空历史`() = runTest(dispatcher) {
-        val vm = HomeViewModel(FakeNoteRepository())
+        val vm = HomeViewModel(FakeNoteRepository(), FakeFolderRepository())
         advanceTimeBy(settle); runCurrent()
 
         vm.onEvent(HomeUiEvent.ContentChanged("hello"))
@@ -102,7 +96,7 @@ class HomeViewModelUndoRedoTest {
 
     @Test
     fun `撤销本身不会污染历史`() = runTest(dispatcher) {
-        val vm = HomeViewModel(FakeNoteRepository())
+        val vm = HomeViewModel(FakeNoteRepository(), FakeFolderRepository())
         advanceTimeBy(settle); runCurrent()
 
         vm.onEvent(HomeUiEvent.ContentChanged("hello"))
@@ -117,66 +111,3 @@ class HomeViewModelUndoRedoTest {
         assertTrue("hello 应仍可重做", vm.uiState.value.canRedo)
     }
 }
-
-/** 内存版仓库，只为把 ViewModel 跑起来 */
-private class FakeNoteRepository : NoteRepository {
-
-    private val stored = LinkedHashMap<String, Note>()
-    private val summaries = MutableStateFlow<List<NoteSummary>>(emptyList())
-
-    private fun publish() {
-        summaries.value = stored.values.map { it.toSummary() }
-    }
-
-    override fun observeSummaries(query: String): Flow<List<NoteSummary>> =
-        if (query.isBlank()) {
-            summaries
-        } else {
-            summaries.map { list ->
-                list.filter {
-                    it.title.contains(query, ignoreCase = true) ||
-                        it.snippet.contains(query, ignoreCase = true)
-                }
-            }
-        }
-
-    override fun observeNote(id: String): Flow<Note?> = MutableStateFlow(stored[id])
-
-    override suspend fun getNote(id: String): Note? = stored[id]
-
-    override suspend fun upsert(note: Note) {
-        stored[note.id] = note
-        publish()
-    }
-
-    override suspend fun delete(id: String) {
-        stored.remove(id)
-        publish()
-    }
-
-    override suspend fun togglePinned(id: String) {
-        stored[id]?.let { stored[id] = it.copy(isPinned = !it.isPinned); publish() }
-    }
-
-    override suspend fun toggleFavorite(id: String) {
-        stored[id]?.let { stored[id] = it.copy(isFavorite = !it.isFavorite); publish() }
-    }
-
-    override suspend fun setArchived(id: String, archived: Boolean) {
-        stored[id]?.let { stored[id] = it.copy(isArchived = archived); publish() }
-    }
-}
-
-/** 与 NoteDao.observeSummaries 的投影保持一致，便于测试聚焦在 ViewModel 行为上 */
-private fun Note.toSummary() = NoteSummary(
-    id = id,
-    title = title,
-    snippet = content.take(280),
-    charCount = content.length,
-    createdAt = createdAt,
-    updatedAt = updatedAt,
-    mood = mood,
-    isPinned = isPinned,
-    isFavorite = isFavorite,
-    isArchived = isArchived,
-)

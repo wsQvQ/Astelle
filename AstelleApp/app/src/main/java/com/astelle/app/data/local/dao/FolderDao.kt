@@ -19,6 +19,19 @@ interface FolderDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(entity: FolderEntity)
 
+    /** 改名走原地 UPDATE：不必先读出来再整行回写，也就没有读写之间的竞态 */
+    @Query("UPDATE folders SET name = :name WHERE id = :id")
+    suspend fun rename(id: String, name: String)
+
+    /**
+     * 新分类排到末尾。
+     *
+     * 由 SQL 算而不是在 ViewModel 里读列表取 max：列表在抽屉关着时无人订阅
+     * （WhileSubscribed），连点两次新建会拿到同一个值，两个分类排序撞车。
+     */
+    @Query("SELECT COALESCE(MAX(sortOrder), -1) + 1 FROM folders")
+    suspend fun nextSortOrder(): Int
+
     @Query("DELETE FROM folders WHERE id = :id")
     suspend fun deleteById(id: String)
 

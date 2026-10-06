@@ -92,6 +92,7 @@ import com.astelle.app.ui.navigation.AstelleDestination
 // 色板统一取自 ui/theme —— 本文件不再自己抄一份
 import com.astelle.app.ui.theme.Accent
 import com.astelle.app.ui.theme.AccentMist
+import com.astelle.app.ui.theme.Danger
 import com.astelle.app.ui.theme.Divider
 import com.astelle.app.ui.theme.DrawerBg
 import com.astelle.app.ui.theme.Ghost
@@ -131,6 +132,7 @@ fun HomeRoute(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val notes by viewModel.filteredNotes.collectAsStateWithLifecycle()
+    val folders by viewModel.folders.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val keyboard = LocalSoftwareKeyboardController.current
     val context = LocalContext.current
@@ -181,6 +183,7 @@ fun HomeRoute(
             ) {
                 DrawerSheet(
                     notes = notes,
+                    folders = folders,
                     currentNoteId = state.currentNoteId,
                     searchQuery = state.searchQuery,
                     filter = state.filter,
@@ -197,7 +200,14 @@ fun HomeRoute(
                         scope.launch { drawerState.close() }
                         importLauncher.launch(MARKDOWN_MIME_TYPES)
                     },
-                    onAddFolder = { /* 分类落库下一轮 */ },
+                    onAddFolder = { viewModel.onEvent(HomeUiEvent.AddFolder(it)) },
+                    onRenameFolder = { id, name ->
+                        viewModel.onEvent(HomeUiEvent.RenameFolder(id, name))
+                    },
+                    onDeleteFolder = { viewModel.onEvent(HomeUiEvent.DeleteFolder(it)) },
+                    onMoveNoteToFolder = { noteId, folderId ->
+                        viewModel.onEvent(HomeUiEvent.MoveNoteToFolder(noteId, folderId))
+                    },
                     onNavigate = {
                         scope.launch { drawerState.close() }
                         onNavigate(it)
@@ -229,7 +239,7 @@ fun HomeRoute(
             text = { Text("删除后无法恢复。") },
             confirmButton = {
                 TextButton(onClick = { viewModel.onEvent(HomeUiEvent.ConfirmDelete) }) {
-                    Text("删除", color = Color(0xFFC45C4A))
+                    Text("删除", color = Danger)
                 }
             },
             dismissButton = {
@@ -535,9 +545,9 @@ private fun MetaRow(
                     },
                 )
                 DropdownMenuItem(
-                    text = { Text("删除笔记", color = Color(0xFFC45C4A)) },
+                    text = { Text("删除笔记", color = Danger) },
                     leadingIcon = {
-                        Icon(AstelleIcons.Import, contentDescription = null, tint = Color(0xFFC45C4A), modifier = Modifier.size(18.dp))
+                        Icon(AstelleIcons.Import, contentDescription = null, tint = Danger, modifier = Modifier.size(18.dp))
                     },
                     onClick = {
                         onDismissMore()

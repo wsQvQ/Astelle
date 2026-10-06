@@ -44,4 +44,13 @@ sealed interface HomeUiEvent {
     data class TogglePin(val id: String) : HomeUiEvent
     data class ToggleFavorite(val id: String) : HomeUiEvent
     data class SetMode(val mode: EditorMode) : HomeUiEvent
+
+    /* ---------- 分类 ---------- */
+
+    data class AddFolder(val name: String) : HomeUiEvent
+    data class RenameFolder(val id: String, val name: String) : HomeUiEvent
+    data class DeleteFolder(val id: String) : HomeUiEvent
+
+    /** [folderId] 传 null = 移回「未分类」 */
+    data class MoveNoteToFolder(val noteId: String, val folderId: String?) : HomeUiEvent
 }

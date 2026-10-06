@@ -93,6 +93,34 @@ object AstelleIcons {
         }.build()
     }
 
+    /** 分类组头：一个带页签的文件夹轮廓 */
+    val Folder: ImageVector by lazy {
+        ImageVector.Builder("Folder", 24.dp, 24.dp, 24f, 24f).apply {
+            path(stroke = SolidColor(Muted), strokeLineWidth = 1.6f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
+                moveTo(3.6f, 17.9f)
+                lineTo(3.6f, 7.1f)
+                arcTo(1.9f, 1.9f, 0f, false, true, 5.5f, 5.2f)
+                lineTo(9.1f, 5.2f)
+                lineTo(10.9f, 7.4f)
+                lineTo(18.5f, 7.4f)
+                arcTo(1.9f, 1.9f, 0f, false, true, 20.4f, 9.3f)
+                lineTo(20.4f, 17.9f)
+                arcTo(1.9f, 1.9f, 0f, false, true, 18.5f, 19.8f)
+                lineTo(5.5f, 19.8f)
+                arcTo(1.9f, 1.9f, 0f, false, true, 3.6f, 17.9f)
+            }
+        }.build()
+    }
+
+    /** 折叠箭头。展开态整体旋转 180°，所以只画一个朝下的 V */
+    val Chevron: ImageVector by lazy {
+        ImageVector.Builder("Chevron", 24.dp, 24.dp, 24f, 24f).apply {
+            path(stroke = SolidColor(Ghost), strokeLineWidth = 2f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
+                moveTo(7f, 10f); lineTo(12f, 15f); lineTo(17f, 10f)
+            }
+        }.build()
+    }
+
     val Search: ImageVector by lazy {
         ImageVector.Builder("Search", 24.dp, 24.dp, 24f, 24f).apply {
             path(stroke = SolidColor(Ghost), strokeLineWidth = 2f, strokeLineCap = StrokeCap.Round) {
