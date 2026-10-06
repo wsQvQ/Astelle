@@ -145,14 +145,18 @@ fun HomeRoute(
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
             val picked = MarkdownFileReader.read(context, uri)
-            val text = picked?.text
-            if (text == null) {
+            if (picked == null) {
                 Toast.makeText(context, "导入失败：读不到这个文件", Toast.LENGTH_SHORT).show()
                 return@launch
             }
-            val imported = MarkdownImport.parse(picked.displayName, text)
+            val imported = MarkdownImport.parse(picked.displayName, picked.text)
             viewModel.onEvent(HomeUiEvent.ImportNote(imported))
-            Toast.makeText(context, "已导入「${imported.title}」", Toast.LENGTH_SHORT).show()
+            val message = if (picked.truncated) {
+                "文件过大，只导入了前 ${MarkdownFileReader.MAX_BYTES / 1024} KB"
+            } else {
+                "已导入「${imported.title}」"
+            }
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -232,9 +236,15 @@ fun HomeRoute(
             },
             dismissButton = {
                 TextButton(onClick = { viewModel.onEvent(HomeUiEvent.CancelDelete) }) {
-                    Text("取消")
+                    Text("取消", color = Muted)
                 }
             },
+            // 显式指定，不依赖 M3 默认容器色
+            containerColor = SurfaceFloat,
+            titleContentColor = Ink,
+            textContentColor = Muted,
+            shape = RoundedCornerShape(20.dp),
+            tonalElevation = 0.dp,
         )
     }
 }
@@ -1060,7 +1070,15 @@ private fun NoteCard(
             }
         }
 
-        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+        DropdownMenu(
+            expanded = menuOpen,
+            onDismissRequest = { menuOpen = false },
+            // 与 meta 行那枚 ⋯ 菜单保持同一套外观
+            shape = RoundedCornerShape(14.dp),
+            containerColor = SurfaceFloat,
+            tonalElevation = 0.dp,
+            shadowElevation = 8.dp,
+        ) {
             DropdownMenuItem(
                 text = { Text(if (note.isPinned) "取消置顶" else "置顶") },
                 onClick = { menuOpen = false; onTogglePin() },
