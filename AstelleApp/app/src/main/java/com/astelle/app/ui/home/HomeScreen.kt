@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -53,6 +54,7 @@ import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -62,6 +64,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
@@ -71,6 +74,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -299,13 +303,14 @@ private fun IconBtn(
     onClick: () -> Unit,
     enabled: Boolean = true,
     shape: androidx.compose.ui.graphics.Shape = RoundedCornerShape(16.dp),
+    size: Dp = 44.dp,
     content: @Composable () -> Unit,
 ) {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     Box(
         modifier = Modifier
-            .size(44.dp)
+            .size(size)
             .clip(shape)
             .background(if (pressed) PaperWarm else Color.Transparent)
             .clickable(enabled = enabled, interactionSource = interaction, indication = null, onClick = onClick),
@@ -371,9 +376,11 @@ private fun TitleField(value: String, onValueChange: (String) -> Unit, modifier:
     BasicTextField(
         value = value,
         onValueChange = onValueChange,
+        // 高度交给文字自身决定（24sp 行高 + 上下各 2dp），不写死 32dp：
+        // 写死的话用户把系统字体调大后，标题会被裁掉
         modifier = modifier
             .fillMaxWidth()
-            .height(32.dp),
+            .padding(vertical = 2.dp),
         singleLine = true,
         maxLines = 1,
         textStyle = LocalTextStyle.current.copy(
@@ -417,7 +424,7 @@ private fun MetaRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 16.dp, end = 8.dp, top = 0.dp, bottom = 4.dp),
+            .padding(start = 16.dp, end = 8.dp, top = 0.dp, bottom = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(dateLabel, fontFamily = mono, fontSize = 11.sp, color = Ghost)
@@ -427,7 +434,10 @@ private fun MetaRow(
         SavePill(isDirty = isDirty, isSaving = isSaving)
         Spacer(Modifier.weight(1f))
         Box {
-            IconBtn(onClick = onMore) {
+            // 36dp：原型 index.html 里这枚 ⋯ 是 32px，但那是鼠标场景；
+            // 手机上我留到 36dp 保触控。行内文字垂直居中，按钮越高，
+            // 标题与 meta 之间凭空多出来的空白就越大
+            IconBtn(onClick = onMore, size = 36.dp) {
                 Icon(AstelleIcons.More, contentDescription = "更多", tint = Muted, modifier = Modifier.size(20.dp))
             }
             DropdownMenu(
@@ -781,8 +791,22 @@ private fun DrawerSheet(
             }
 
             // 列表 + 上下渐隐
+            val listState = rememberLazyListState()
+            // 顶部渐隐只在列表真的滚动过之后才出现 —— 它的语义是「卡片从这条边
+            // 溶出去」。停在顶部时若也画，就会白白糊掉第一张卡的上沿
+            val listScrolled by remember {
+                derivedStateOf {
+                    listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0
+                }
+            }
+            val topFadeAlpha by animateFloatAsState(
+                targetValue = if (listScrolled) 1f else 0f,
+                animationSpec = tween(180, easing = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)),
+                label = "drawerTopFade",
+            )
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(horizontal = 10.dp),
@@ -799,14 +823,15 @@ private fun DrawerSheet(
                     }
                     item { Spacer(Modifier.height(72.dp)) }
                 }
-                // 上下 22px 渐隐，溶进抽屉底色
+                // 上下渐隐，溶进抽屉底色
                 Box(
                     Modifier
                         .align(Alignment.TopCenter)
                         .fillMaxWidth()
                         .height(22.dp)
+                        .graphicsLayer { alpha = topFadeAlpha }
                         .background(
-                            androidx.compose.ui.graphics.Brush.verticalGradient(
+                            Brush.verticalGradient(
                                 listOf(DrawerBg, DrawerBg.copy(alpha = 0f))
                             )
                         ),
@@ -817,7 +842,7 @@ private fun DrawerSheet(
                         .fillMaxWidth()
                         .height(72.dp)
                         .background(
-                            androidx.compose.ui.graphics.Brush.verticalGradient(
+                            Brush.verticalGradient(
                                 listOf(DrawerBg.copy(alpha = 0f), DrawerBg)
                             )
                         ),
@@ -829,7 +854,7 @@ private fun DrawerSheet(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(
-                        androidx.compose.ui.graphics.Brush.verticalGradient(
+                        Brush.verticalGradient(
                             listOf(DrawerBg.copy(alpha = 0f), DrawerBg)
                         )
                     )
