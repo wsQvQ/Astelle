@@ -5,6 +5,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.sp
+import com.astelle.app.data.markdown.MarkdownCompat
 import com.astelle.app.ui.theme.Accent
 import com.astelle.app.ui.theme.Ink
 import com.astelle.app.ui.theme.PaperWarm
@@ -37,7 +38,8 @@ internal fun MarkdownBody(
     selectable: Boolean = false,
 ) {
     MarkdownText(
-        markdown = markdown,
+        // 先过兼容性修补（表格前补空行之类），只影响显示、不动原文
+        markdown = MarkdownCompat.render(markdown),
         modifier = modifier.fillMaxWidth(),
         linkColor = Accent,
         style = TextStyle(

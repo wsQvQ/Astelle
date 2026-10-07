@@ -786,7 +786,7 @@ private fun BodyPreview(content: String, modifier: Modifier = Modifier) {
             .padding(horizontal = 20.dp, vertical = 18.dp),
     ) {
         if (content.isBlank()) {
-            Text("还没有内容", color = Ghost, fontSize = 14.sp)
+            Text("还没有内容，请切换到「编辑」输入文字", color = Ghost, fontSize = 14.sp)
         } else {
             // 真 Markdown 渲染。字号 / 行高 / 配色的三个刻意选择，
             // 全写在 MarkdownBody 里 —— 它和导出图片共用同一份配置。
