@@ -1,7 +1,9 @@
 package com.astelle.app.ui.home
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -49,6 +51,7 @@ import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.runtime.Composable
@@ -379,7 +382,9 @@ internal fun DrawerSheet(
                     closeCategoryInput(); onFilter(NoteFilter.Favorite)
                 }
                 Spacer(Modifier.weight(1f))
-                // 新增分类入口。＋ 转 45° 就成了 ×，不用额外文案解释「再点一下能收起」
+                // 新增分类入口。＋ 转 45° 就成了 ×，不用额外文案解释「再点一下能收起」。
+                // 用 Material 的 Add 而不是文字「＋」：全角 ＋ 的字形在行盒里会偏下，
+                // 用图标才保证几何居中
                 val folderInteraction = remember { MutableInteractionSource() }
                 val folderPressed by folderInteraction.collectIsPressedAsState()
                 val plusRotation by animateFloatAsState(
@@ -389,8 +394,8 @@ internal fun DrawerSheet(
                 )
                 Box(
                     modifier = Modifier
-                        .size(28.dp)
-                        .clip(RoundedCornerShape(8.dp))
+                        .size(32.dp)
+                        .clip(RoundedCornerShape(9.dp))
                         .background(if (folderPressed || showCatInput) AccentMist else Color.Transparent)
                         .clickable(interactionSource = folderInteraction, indication = null) {
                             when {
@@ -402,11 +407,13 @@ internal fun DrawerSheet(
                         },
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(
-                        "＋",
-                        fontSize = 16.sp,
-                        color = if (folderPressed || showCatInput) Accent else Ghost,
-                        modifier = Modifier.rotate(plusRotation),
+                    Icon(
+                        Icons.Outlined.Add,
+                        contentDescription = "新建分类",
+                        tint = if (folderPressed || showCatInput) Accent else Ghost,
+                        modifier = Modifier
+                            .size(20.dp)
+                            .rotate(plusRotation),
                     )
                 }
             }
@@ -682,7 +689,9 @@ private fun FolderCard(
             ) {
                 // 组头与内容之间的一道缝
                 Box(Modifier.fillMaxWidth().height(1.dp).background(Divider))
-                Column(Modifier.padding(vertical = 4.dp)) {
+                // 四周都留 4dp：选中的高亮块不碰容器描边，像一块浮着的软块。
+                // 之前只有 vertical、左右是 0，高亮就贴着线，看着脏
+                Column(Modifier.padding(4.dp)) {
                 if (group.notes.isEmpty()) {
                     Text(
                         "空文件夹",
@@ -721,7 +730,8 @@ private fun HairLine() {
     Box(
         Modifier
             .fillMaxWidth()
-            .padding(horizontal = 13.dp)
+            // 和条目文字同一个左缘（4dp 外缩 + 9dp 内边距）
+            .padding(horizontal = 9.dp)
             .height(1.dp)
             .background(Divider.copy(alpha = 0.7f)),
     )
@@ -774,7 +784,8 @@ private fun FolderHeader(
                         menuOpen = true
                     },
                 )
-                .padding(horizontal = 11.dp),
+                // 13dp：和组内条目的文字同一个左缘（4dp 外缩 + 9dp 内边距）
+                .padding(horizontal = 13.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // 箭头放最左，跟文件夹图标、名字、计数一起从左往右读
@@ -802,21 +813,26 @@ private fun FolderHeader(
                 modifier = Modifier.weight(1f),
             )
             Text("$count", fontFamily = mono, fontSize = 11.sp, color = Ghost)
-            // 「在这个分类里新建一篇」。纯文字 ＋，不加圆底 ——
-            // 圆底像个 badge，反而更抢；和计数之间留足距离，免得读成「＋1」
+            // 「在这个分类里新建一篇」。用 Material 的 Add 图标，不用文字「＋」——
+            // 全角 ＋ 的字形在行盒里偏下，和计数对不齐
             if (onAddNote != null) {
                 val addInteraction = remember { MutableInteractionSource() }
                 val addPressed by addInteraction.collectIsPressedAsState()
-                Spacer(Modifier.width(14.dp))
+                Spacer(Modifier.width(10.dp))
                 Box(
                     modifier = Modifier
-                        .size(22.dp)
+                        .size(24.dp)
                         .clickable(interactionSource = addInteraction, indication = null) {
                             onAddNote()
                         },
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text("＋", fontSize = 15.sp, color = if (addPressed) Accent else Ghost)
+                    Icon(
+                        Icons.Outlined.Add,
+                        contentDescription = "在这个分类里新建笔记",
+                        tint = if (addPressed) Accent else Ghost,
+                        modifier = Modifier.size(16.dp),
+                    )
                 }
             }
         }
@@ -884,6 +900,26 @@ private fun NoteItem(
     // DropdownMenu —— 嵌套弹窗的位置很难控制，在抽屉这种窄容器里尤其明显
     var moving by remember { mutableStateOf(false) }
 
+    // 选中色条：0 → 20dp 展开，600ms。设计稿 §3 E 写了这条，花笺也是 600ms，
+    // 之前一直没做，选中就成了「啪」一下变块颜色，看着生硬。
+    // 色条**绝对定位**贴在最左缘：塞进 Row 内容里的话，选中时整块文字会横着跳一下
+    val barHeight by animateDpAsState(
+        targetValue = if (selected) 20.dp else 0.dp,
+        animationSpec = tween(600, easing = BrandCurve),
+        label = "selectBar",
+    )
+    val rowBg by animateColorAsState(
+        targetValue = when {
+            // 花笺是 bg-bamboo-mist/70 —— 只是「这块在被看」，不是高亮成一块色
+            selected -> AccentMist.copy(alpha = 0.7f)
+            pressed -> PaperWarm
+            contained -> Color.Transparent
+            else -> Paper
+        },
+        animationSpec = tween(600, easing = BrandCurve),
+        label = "noteRowBg",
+    )
+
     Box(modifier) {
         Row(
             modifier = Modifier
@@ -895,16 +931,12 @@ private fun NoteItem(
                     top = if (contained) 0.dp else 3.dp,
                     bottom = if (contained) 0.dp else 3.dp,
                 )
-                .clip(if (contained) RectangleShape else RoundedCornerShape(14.dp))
-                .background(
-                    when {
-                        contained && selected -> AccentMist
-                        contained -> Color.Transparent
-                        selected -> AccentMist
-                        pressed -> PaperWarm
-                        else -> Paper
-                    }
+                .clip(
+                    // 组内的条目也是圆角：选中的那条才是容器里的一块「软块」，
+                    // 而不是一条横贯的色带（花笺 rounded-xl）
+                    if (contained) RoundedCornerShape(6.dp) else RoundedCornerShape(14.dp)
                 )
+                .background(rowBg)
                 // 独立卡片和分类容器共用同一条描边 —— 否则同一个列表里
                 // 一半有边一半没边，是两种语言。组内的条目不再描，
                 // 它们已经在描过边的容器里，再描就是双重边框
@@ -922,18 +954,10 @@ private fun NoteItem(
                         menuOpen = true
                     },
                 )
-                .padding(horizontal = 13.dp, vertical = if (contained) 10.dp else 11.dp),
+                // 组内条目已经外缩 4dp，内容再退 9dp —— 文字仍落在距容器内缘 13dp，
+                // 和组头齐平，高亮缩进时文字不动
+                .padding(horizontal = if (contained) 9.dp else 13.dp, vertical = if (contained) 10.dp else 11.dp),
         ) {
-            if (selected) {
-                Box(
-                    Modifier
-                        .width(3.dp)
-                        .height(22.dp)
-                        .clip(RoundedCornerShape(topEnd = 99.dp, bottomEnd = 99.dp))
-                        .background(Accent.copy(alpha = 0.65f)),
-                )
-                Spacer(Modifier.width(10.dp))
-            }
             Column(Modifier.weight(1f)) {
                 // 标题为空时 displayTitle 会回退成正文首行；
                 // 若摘要再显示同一行，卡片上就会出现肉眼可见的重复，故抽出来比对一次
@@ -981,6 +1005,18 @@ private fun NoteItem(
                 )
             }
         }
+
+        // 选中色条。绝对定位贴在卡片最左缘 —— 不进 Row 的内容流，
+        // 否则选中时整块文字会横着跳一下
+        Box(
+            Modifier
+                .align(Alignment.CenterStart)
+                .padding(start = 3.dp)
+                .width(3.dp)
+                .height(barHeight)
+                .clip(RoundedCornerShape(topEnd = 99.dp, bottomEnd = 99.dp))
+                .background(Accent.copy(alpha = 0.6f)),
+        )
 
         DropdownMenu(
             expanded = menuOpen,
