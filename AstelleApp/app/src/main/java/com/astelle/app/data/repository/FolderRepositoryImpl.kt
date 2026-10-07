@@ -30,7 +30,7 @@ class FolderRepositoryImpl @Inject constructor(
 
     override suspend fun delete(id: String) {
         // 顺序要紧：先把笔记放出来，再删分类
-        folderDao.detachNotes(id, updatedAt = System.currentTimeMillis())
+        folderDao.detachNotes(id)
         folderDao.deleteById(id)
     }
 }

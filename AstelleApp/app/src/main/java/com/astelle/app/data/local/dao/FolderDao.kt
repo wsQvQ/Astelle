@@ -41,6 +41,6 @@ interface FolderDao {
      * 不做这一步的话，那些笔记的 folderId 会指向一个已经不存在的分类，
      * 在抽屉里就成了谁都认领不了的孤儿 —— 既不在任何分组里，也不算未分类。
      */
-    @Query("UPDATE notes SET folderId = NULL, updatedAt = :updatedAt WHERE folderId = :id")
-    suspend fun detachNotes(id: String, updatedAt: Long)
+    @Query("UPDATE notes SET folderId = NULL WHERE folderId = :id")
+    suspend fun detachNotes(id: String)
 }

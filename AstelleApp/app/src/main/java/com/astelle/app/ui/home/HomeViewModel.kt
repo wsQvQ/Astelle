@@ -108,7 +108,9 @@ class HomeViewModel @Inject constructor(
                     title = SampleNote.TITLE,
                     content = SampleNote.CONTENT,
                     createdAt = existing?.createdAt ?: now,
-                    updatedAt = now,
+                    // 内容没变就不动 updatedAt —— 否则示例笔记每次启动都显示
+                    // 今天的日期，和「只有内容变才改时间」这条规则打架
+                    updatedAt = if (existing?.content == SampleNote.CONTENT) existing.updatedAt else now,
                 )
             )
         }

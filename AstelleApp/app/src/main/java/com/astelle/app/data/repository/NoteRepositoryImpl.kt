@@ -32,16 +32,17 @@ class NoteRepositoryImpl @Inject constructor(
     }
 
     override suspend fun togglePinned(id: String) {
-        noteDao.togglePinned(id, updatedAt = System.currentTimeMillis())
+        noteDao.togglePinned(id)
     }
 
     override suspend fun toggleFavorite(id: String) {
-        noteDao.toggleFavorite(id, updatedAt = System.currentTimeMillis())
+        noteDao.toggleFavorite(id)
     }
 
     override suspend fun moveToFolder(id: String, folderId: String?) {
-        // 顺带刷新 updatedAt：移进新分类后笔记会浮到那一组的最前，
-        // 用户能立刻看见「它确实过去了」——否则卡片纹丝不动，像没生效
-        noteDao.moveToFolder(id, folderId, updatedAt = System.currentTimeMillis())
+        // 不碰 updatedAt：它是「内容最后修改时间」。挪个位置不算改内容，
+        // 刷了它笔记会凭空跳到那一组最前，看着像被置顶了。
+        // 「移到哪儿了」的反馈交给 UI 层的 Toast
+        noteDao.moveToFolder(id, folderId)
     }
 }

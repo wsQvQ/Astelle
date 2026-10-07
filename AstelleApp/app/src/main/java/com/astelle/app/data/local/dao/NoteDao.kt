@@ -63,14 +63,18 @@ interface NoteDao {
     /**
      * 原地翻转。原先是「getById 读全文 → 取反 → 回写」，
      * 为了一个布尔值把整篇正文搬进内存，既浪费，也让置顶与正文大小无谓地绑在一起。
+     *
+     * **故意不碰 updatedAt**：它是「内容最后修改时间」。翻个标记就刷新它的话，
+     * 排序（`ORDER BY isPinned DESC, updatedAt DESC`）会让笔记凭空跳到最前，
+     * 看起来像被置顶了 —— 用户反馈过「点收藏也会置顶」，根因就是这个。
      */
-    @Query("UPDATE notes SET isPinned = NOT isPinned, updatedAt = :updatedAt WHERE id = :id")
-    suspend fun togglePinned(id: String, updatedAt: Long)
+    @Query("UPDATE notes SET isPinned = NOT isPinned WHERE id = :id")
+    suspend fun togglePinned(id: String)
 
-    @Query("UPDATE notes SET isFavorite = NOT isFavorite, updatedAt = :updatedAt WHERE id = :id")
-    suspend fun toggleFavorite(id: String, updatedAt: Long)
+    @Query("UPDATE notes SET isFavorite = NOT isFavorite WHERE id = :id")
+    suspend fun toggleFavorite(id: String)
 
-    /** 移入 / 移出分类：folderId 传 null 即移出到「未分类」 */
-    @Query("UPDATE notes SET folderId = :folderId, updatedAt = :updatedAt WHERE id = :id")
-    suspend fun moveToFolder(id: String, folderId: String?, updatedAt: Long)
+    /** 移入 / 移出分类：folderId 传 null 即移出到「未分类」。同样不碰 updatedAt */
+    @Query("UPDATE notes SET folderId = :folderId WHERE id = :id")
+    suspend fun moveToFolder(id: String, folderId: String?)
 }
