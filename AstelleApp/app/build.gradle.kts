@@ -14,8 +14,10 @@ android {
         applicationId = "com.astelle.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        // versionCode 由版本号推导：1.20.1 → 1*10000 + 20*100 + 1 = 12001。
+        // Android 要求它单调递增且是整数，手工填容易和 versionName 对不上
+        versionCode = 12001
+        versionName = "1.20.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
