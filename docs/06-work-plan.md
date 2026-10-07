@@ -33,14 +33,15 @@
 
 ### 🔨 待做（按这个顺序）
 
-**⑤ 导出 Markdown + 图片（1440px）**
-- `Note.toMarkdown()` 纯函数：`# 标题\n\n正文`，标题空则不写标题行；配套单测
-- SAF `CreateDocument("text/markdown")` 写文件
-- 图片：复用 `BodyPreview` 的 Markdown 渲染，套进固定 **1440px** 宽的 `Box`；
-  `rememberGraphicsLayer()` + `graphicsLayer.toImageBitmap()`（compose-ui 1.7 有这个 API）
-- 入口：`⋯` 菜单加「导出」→ 弹二选一（Markdown 文件 / 图片），复用刚定的菜单样式
-- ⚠️ **画布宽度固定 1440px**（用户定的，不是 @2x）
-- ⚠️ 导出是**读操作**，绝不改 `updatedAt`
+**⑤ 导出 Markdown + 图片（1440px）** — ✅ 已完成，真机验过
+- `MarkdownExport.toMarkdown(title, content)` + `Note.toMarkdown()`：`# 标题\n\n正文`，标题空则不写标题行；
+  `baseName()` 出文件名（非法字符→下划线、清首尾点空格、洗完纯符号退回「笔记」）。14 条单测，含与 `MarkdownImport` 的**回环**
+- SAF `CreateDocument("text/markdown")` / `CreateDocument("image/png")` → `ExportFileWriter` 落盘
+  - ⚠️ `openOutputStream` 必须用 **`"wt"`**：默认 `"w"` 覆盖同名文件时不截断，短文本后面会拖上一版的尾巴
+- 图片：`ExportImageCanvas` 屏幕外画布，**固定 1440px 宽**（写死 `Density(2f)` + 720dp，输出和设备无关）；
+  标题 26sp SemiBold + 发丝线 + `MarkdownBody`（与编辑器预览同一份渲染配置，抽成了共用文件）
+- 入口：`⋯` 菜单「导出」→ 二级（Markdown 文件 / 图片），沿用「移动到分类」那招：同一个 `DropdownMenu` 换内容
+- ⚠️ 导出是**读操作**：全程只读内存 state，绝不落库、绝不碰 `updatedAt`
 
 **④ 文件夹支持置顶**
 - `folders` 表加 `isPinned` 列 → **DB version 4→5**
@@ -141,6 +142,19 @@
     .\gradlew :app:testDebugUnitTest :app:assembleDebug --offline --console=plain
     ```
     adb 在 `$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe`。
+    跑 gradle / adb 的 PowerShell 任务**必须显式传 `workdir`**，否则落在会话目录里找不到 gradlew。
+15. **`GraphicsLayer.toImageBitmap()` 是 suspend，而且要求 `record` 先发生**（库文档明说）。
+    挂载画布后**等两帧**再抓：第一帧排版+绘制（record），第二帧时它才落定；只等一帧抓到的是上一帧甚至空图。
+    另外 `GraphicsLayer.record {}` 是 **`DrawScope` 扩展**（得写在 `drawWithContent {}` 里），
+    `Layout` 在 `androidx.compose.ui.layout`，都不在 foundation 里。
+16. **屏幕外画布不能给孩子任何尺寸约束**。普通 Box / `requiredSize` 会把孩子压成宿主的尺寸，
+    导出图高度直接塌掉（真机实测 **1440×2px**）。`OffscreenCanvasHost` 用自定义 `Layout`
+    以**无界约束**量孩子、自身报 1×1px（不报 0×0 —— 零面积节点会不会被跳过绘制是实现细节，赌不起），
+    再 `clipToBounds` 裁住。宽度对了不代表高度对了，看图要两个维度都看。
+17. **导出图片 = 固定 1440px**，靠写死 `Density(2f)` + 720dp 实现，设备密度与系统字体缩放都不参与
+    （同一份笔记在任何设备上导出的图一模一样）。改宽度只改 `EXPORT_PAGE_WIDTH`。
+    正文标题 26sp 是量过的：正文 32px，页标题 52px，正文里的 `# 一级标题`（Markwon 2em≈64px）仍略高 —— 
+    不必追它，那只是个别笔记里才有的结构。
 
 ---
 

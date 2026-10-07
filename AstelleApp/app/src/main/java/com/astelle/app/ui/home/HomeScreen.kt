@@ -64,18 +64,21 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -85,6 +88,8 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.astelle.app.R
+import com.astelle.app.data.exporter.ExportFileWriter
+import com.astelle.app.data.exporter.MarkdownExport
 import com.astelle.app.data.importer.MarkdownFileReader
 import com.astelle.app.data.importer.MarkdownImport
 import com.astelle.app.domain.model.NoteSummary
@@ -106,7 +111,6 @@ import com.astelle.app.ui.theme.SavedText
 import com.astelle.app.ui.theme.SurfaceFloat
 import com.astelle.app.ui.theme.display
 import com.astelle.app.ui.theme.mono
-import dev.jeziellago.compose.markdowntext.MarkdownText
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -284,6 +288,47 @@ private fun EditorScaffold(
     }
     var moreMenuOpen by remember { mutableStateOf(false) }
 
+    // ── 导出 ──
+    // Markdown 只是文本拼接，点保存框那一刻现生成就行；
+    // 图片要临时挂一块 1440px 的屏幕外画布抓图（见 ExportImageCanvas）。
+    // 整条链路只读内存里的 state，绝不落库 —— 导出是读操作，不该刷新 updatedAt
+    val context = LocalContext.current
+    val exportScope = rememberCoroutineScope()
+    val exportLayer = rememberGraphicsLayer()
+    var exportCanvasShown by remember { mutableStateOf(false) }
+    var pendingMarkdown by remember { mutableStateOf<String?>(null) }
+    var pendingPng by remember { mutableStateOf<ImageBitmap?>(null) }
+    var pendingBaseName by remember { mutableStateOf(MarkdownExport.DEFAULT_NAME) }
+
+    val exportMdLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/markdown"),
+    ) { uri ->
+        val text = pendingMarkdown
+        if (uri == null || text == null) return@rememberLauncherForActivityResult
+        exportScope.launch {
+            val ok = ExportFileWriter.writeText(context, uri, text)
+            Toast.makeText(
+                context,
+                if (ok) "已导出 Markdown 文件" else "导出失败，没能写进文件",
+                Toast.LENGTH_SHORT,
+            ).show()
+        }
+    }
+    val exportPngLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("image/png"),
+    ) { uri ->
+        val bitmap = pendingPng
+        if (uri == null || bitmap == null) return@rememberLauncherForActivityResult
+        exportScope.launch {
+            val ok = ExportFileWriter.writePng(context, uri, bitmap.asAndroidBitmap())
+            Toast.makeText(
+                context,
+                if (ok) "已导出图片" else "导出失败，没能写进文件",
+                Toast.LENGTH_SHORT,
+            ).show()
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -356,6 +401,39 @@ private fun EditorScaffold(
             onTogglePin = onTogglePin,
             onToggleFavorite = onToggleFavorite,
             onRequestDelete = onRequestDelete,
+            onExportMarkdown = {
+                val text = MarkdownExport.toMarkdown(state.title, state.content)
+                if (text.isEmpty()) {
+                    Toast.makeText(context, "还没有内容，写点什么再导出", Toast.LENGTH_SHORT).show()
+                } else {
+                    pendingMarkdown = text
+                    pendingBaseName = MarkdownExport.baseName(state.title, state.content)
+                    exportMdLauncher.launch("$pendingBaseName.md")
+                }
+            },
+            onExportImage = {
+                if (state.title.isBlank() && state.content.isBlank()) {
+                    Toast.makeText(context, "还没有内容，写点什么再导出", Toast.LENGTH_SHORT).show()
+                } else {
+                    pendingBaseName = MarkdownExport.baseName(state.title, state.content)
+                    exportScope.launch {
+                        exportCanvasShown = true
+                        // 等两帧：第一帧把画布排版 + 绘制（record），
+                        // 第二帧时它才落定。库明确要求 record 先于 toImageBitmap，
+                        // 只等一帧抓到的是上一帧甚至一张空图
+                        withFrameNanos { }
+                        withFrameNanos { }
+                        val shot = runCatching { exportLayer.toImageBitmap() }.getOrNull()
+                        exportCanvasShown = false
+                        if (shot == null) {
+                            Toast.makeText(context, "导出失败，没能生成图片", Toast.LENGTH_SHORT).show()
+                        } else {
+                            pendingPng = shot
+                            exportPngLauncher.launch("$pendingBaseName.png")
+                        }
+                    }
+                }
+            },
         )
 
         // ── 分割 ──
@@ -377,6 +455,17 @@ private fun EditorScaffold(
             )
         } else {
             BodyPreview(content = state.content, modifier = Modifier.weight(1f))
+        }
+
+        // ── 屏幕外的导出画布：只在抓图那几十毫秒里存在 ──
+        if (exportCanvasShown) {
+            OffscreenCanvasHost {
+                ExportImageCanvas(
+                    title = state.title,
+                    content = state.content,
+                    graphicsLayer = exportLayer,
+                )
+            }
         }
     }
 }
@@ -509,6 +598,8 @@ private fun MetaRow(
     onTogglePin: (String) -> Unit,
     onToggleFavorite: (String) -> Unit,
     onRequestDelete: (String) -> Unit,
+    onExportMarkdown: () -> Unit,
+    onExportImage: () -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -529,9 +620,12 @@ private fun MetaRow(
             IconBtn(onClick = onMore, size = 36.dp) {
                 Icon(AstelleIcons.More, contentDescription = "更多", tint = Muted, modifier = Modifier.size(20.dp))
             }
+            // 二级菜单沿用抽屉里「移动到分类」的做法：同一个 DropdownMenu 换内容，
+            // 不叠第二个弹窗 —— 嵌套弹窗的位置在窄容器里根本控制不住
+            var pickingExport by remember { mutableStateOf(false) }
             DropdownMenu(
                 expanded = moreMenuOpen,
-                onDismissRequest = onDismissMore,
+                onDismissRequest = { pickingExport = false; onDismissMore() },
                 shape = RoundedCornerShape(14.dp),
                 containerColor = SurfaceFloat,
                 // 和卡片同一套语言：纸白 + 一圈描边 + 圆角 14dp
@@ -539,32 +633,59 @@ private fun MetaRow(
                 tonalElevation = 0.dp,
                 shadowElevation = 8.dp,
             ) {
-                DropdownMenuItem(
-                    text = { Text(if (isPinned) "取消置顶" else "置顶") },
-                    enabled = currentNoteId != null,
-                    onClick = {
-                        onDismissMore()
-                        currentNoteId?.let(onTogglePin)
-                    },
-                )
-                DropdownMenuItem(
-                    text = { Text(if (isFavorite) "取消收藏" else "收藏") },
-                    enabled = currentNoteId != null,
-                    onClick = {
-                        onDismissMore()
-                        currentNoteId?.let(onToggleFavorite)
-                    },
-                )
-                // 危险操作单独隔一组
-                Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 5.dp).height(1.dp).background(Divider))
-                DropdownMenuItem(
-                    text = { Text("删除笔记", color = Danger) },
-                    enabled = currentNoteId != null,
-                    onClick = {
-                        onDismissMore()
-                        currentNoteId?.let(onRequestDelete)
-                    },
-                )
+                if (pickingExport) {
+                    DropdownMenuItem(
+                        text = { Text("← 返回", color = Muted) },
+                        onClick = { pickingExport = false },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Markdown 文件") },
+                        onClick = {
+                            pickingExport = false
+                            onDismissMore()
+                            onExportMarkdown()
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("图片") },
+                        onClick = {
+                            pickingExport = false
+                            onDismissMore()
+                            onExportImage()
+                        },
+                    )
+                } else {
+                    DropdownMenuItem(
+                        text = { Text(if (isPinned) "取消置顶" else "置顶") },
+                        enabled = currentNoteId != null,
+                        onClick = {
+                            onDismissMore()
+                            currentNoteId?.let(onTogglePin)
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(if (isFavorite) "取消收藏" else "收藏") },
+                        enabled = currentNoteId != null,
+                        onClick = {
+                            onDismissMore()
+                            currentNoteId?.let(onToggleFavorite)
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("导出") },
+                        onClick = { pickingExport = true },
+                    )
+                    // 危险操作单独隔一组
+                    Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 5.dp).height(1.dp).background(Divider))
+                    DropdownMenuItem(
+                        text = { Text("删除笔记", color = Danger) },
+                        enabled = currentNoteId != null,
+                        onClick = {
+                            onDismissMore()
+                            currentNoteId?.let(onRequestDelete)
+                        },
+                    )
+                }
             }
         }
     }
@@ -662,30 +783,9 @@ private fun BodyPreview(content: String, modifier: Modifier = Modifier) {
         if (content.isBlank()) {
             Text("还没有内容", color = Ghost, fontSize = 14.sp)
         } else {
-            // 真 Markdown 渲染。规格：正文 16sp / 行高 1.75（docs/ui/01-home-screen.md §2.2）
-            //
-            // 三个刻意的选择：
-            //  - linkColor = Accent
-            //        链接用品牌橙。下划线保留库默认的开启状态：只靠颜色区分链接，
-            //        对色盲用户不友好。
-            //  - syntaxHighlightColor
-            //        这个参数名有误导性，它实际就是 codeBackgroundColor
-            //        （见库的 MardownCorePlugin.configureTheme）。库默认浅灰，
-            //        和暖纸色板打架，故换成 PaperWarm。
-            //  - enableSoftBreakAddsNewLine
-            //        保持库默认的 true。笔记里按一次回车就该换行；若为 false，
-            //        多行正文会被 Markdown 规则并成一整段。
-            MarkdownText(
-                markdown = content,
-                modifier = Modifier.fillMaxWidth(),
-                linkColor = Accent,
-                style = TextStyle(
-                    color = Ink,
-                    fontSize = 16.sp,
-                    lineHeight = 28.sp,
-                ),
-                syntaxHighlightColor = PaperWarm,
-            )
+            // 真 Markdown 渲染。字号 / 行高 / 配色的三个刻意选择，
+            // 全写在 MarkdownBody 里 —— 它和导出图片共用同一份配置
+            MarkdownBody(markdown = content)
         }
     }
 }
