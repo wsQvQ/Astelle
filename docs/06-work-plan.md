@@ -66,14 +66,11 @@
   ⚠️ 它是**新建文件夹**，不是新建笔记。要和顶栏的 ✎ 区分开
 - 侧栏「新建笔记」缺位：现在只能关抽屉点顶栏 ✎
 
-**⑨ 预览模式能复制文字**（用户：「预览模式下可以复制就好了，这个可以计划一下」）
-- ⚠️ 歧义待确认：**复制整篇还是选中片段？** 复制的是**渲染后的纯文本**还是 **Markdown 源码**？
-  默认按「整篇 + 渲染后纯文本」起步（最小可用），选中片段是后续增强
-- 现状：`MarkdownText` 是 AndroidView 包的 TextView，Compose 的 `SelectionContainer` **选不中它**
-- 两条路：
-  - a. 让底层 TextView 可选（`setTextIsSelectable(true)`）→ 原生选中手柄 + 复制；
-    要先确认 compose-markdown 有没有开这个口子，没有就得换库或自定义 factory
-  - b. 预览模式加「复制」动作（`⋯` 菜单或顶栏），把正文放进剪贴板 —— 简单可靠，先做这个
+**⑨ 预览模式能复制文字** — ✅ 已完成（选中复制，渲染后纯文本）
+- 用户定的口径：**选中哪段复制哪段**，复制的是**渲染后的纯文本**，**不加**「复制」菜单项
+- 实现：`MarkdownText(isTextSelectable = true)`（库里的一等参数），
+  Markwon 的标题/加粗等标记不进文本，抄出来就是渲染后的纯文本
+- 遗留：若以后要「复制整篇」，再加菜单项即可（一行 ClipboardManager）
 
 ---
 
@@ -179,6 +176,19 @@
     找控件别手算坐标 —— `uiautomator dump` 拿 `bounds`，或用脚本按中心点点。
     ⚠️ **中文别走命令行参数**：PowerShell → Python 一路换码，匹配必然失败；用 `\u` 转义输出。
     平板息屏时 Compose 不出帧（`withFrameNanos` 会一直等），先 `input keyevent KEYCODE_WAKEUP` + 上滑解锁。
+    ⚠️ **坐标会随键盘/菜单开关漂移**，用脚本按「节点序号」点最稳（`uiautomator dump` 现点现取）。
+    ⚠️ dump 输出是 `\u` 转义，**别拿中文去 grep** —— 我这么误判过「菜单没开」，其实开着。
+21. **Markwon 表格会叠字**（多行单元格尤其明显）：`TableRowSpan` 的单元格排版在 `draw()` 里才创建，
+    行高却在 `getSize()`（测量）里取 —— 首轮测量按单行算；它自带的 `invalidator` 只 `invalidate()`
+    不 `requestLayout()`，永远停在错的行高上。
+    修法在 `MarkdownBody.fixTableRelayout`：用库的 `beforeSetMarkdown` 钩子把 `TableRowSpan`
+    的 invalidator 换成 `requestLayout()`，首轮绘制后触发第二轮测量修正。
+    ⚠️ 为此要**显式依赖 `io.noties.markwon:ext-tables:4.6.2`**（compose-markdown 用 implementation 引，
+    编译期看不见；版本必须一致，否则类冲突）。
+22. **导出抓图要等三帧**，不是两帧：表格的修正在「第二轮测量」才生效（见上一条），
+    等两帧抓到的是没修完的那张 —— 真机上表格叠字就是这么漏过去的。预览是即时渲染不受影响。
+23. **SAF 保存重名文件会自动改名**（`table-test.png` → `table-test (1).png`）。
+    验证导出结果**别只 `ls` 原名**，要按时间列最新的那个 —— 我因此误判过一次「保存失败」。
 
 ---
 

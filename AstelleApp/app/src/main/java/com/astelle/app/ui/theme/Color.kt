@@ -106,7 +106,7 @@ val AccentSoft = Color(0xFFE8A45C)
  * 这个浓度下浮层和纸面差别很小，**边界全靠 `Divider` 描边 + 投影**——
  * 正是分类容器那条「边界靠描边，不靠填色撞色」的路子。要调只改这个系数。
  */
-val SurfaceFloat = lerp(Paper, Accent, 0.035f)
+val SurfaceFloat = lerp(Paper, Accent, 0.042f)
 
 /* ---------- 危险 ---------- */
 

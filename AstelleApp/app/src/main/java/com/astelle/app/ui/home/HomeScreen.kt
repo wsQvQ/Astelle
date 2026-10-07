@@ -426,9 +426,11 @@ private fun EditorScaffold(
                     pendingBaseName = MarkdownExport.baseName(state.title, state.content)
                     exportScope.launch {
                         exportCanvasShown = true
-                        // 等两帧：第一帧把画布排版 + 绘制（record），
-                        // 第二帧时它才落定。库明确要求 record 先于 toImageBitmap，
-                        // 只等一帧抓到的是上一帧甚至一张空图
+                        // 等三帧：第一帧排版+绘制（record），第二帧才落定；
+                        // 而 Markdown 表格的行高靠「首轮绘制后 requestLayout、
+                        // 第二轮测量才正确」（见 fixTableRelayout），所以要多等一帧 ——
+                        // 只等两帧抓到的是没修完的那张，表格会叠字（真机踩过）
+                        withFrameNanos { }
                         withFrameNanos { }
                         withFrameNanos { }
                         val shot = runCatching { exportLayer.toImageBitmap() }.getOrNull()
@@ -787,8 +789,9 @@ private fun BodyPreview(content: String, modifier: Modifier = Modifier) {
             Text("还没有内容", color = Ghost, fontSize = 14.sp)
         } else {
             // 真 Markdown 渲染。字号 / 行高 / 配色的三个刻意选择，
-            // 全写在 MarkdownBody 里 —— 它和导出图片共用同一份配置
-            MarkdownBody(markdown = content)
+            // 全写在 MarkdownBody 里 —— 它和导出图片共用同一份配置。
+            // selectable：预览里选中哪段复制哪段（用户要的），抄出来是渲染后的纯文本
+            MarkdownBody(markdown = content, selectable = true)
         }
     }
 }

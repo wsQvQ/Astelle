@@ -63,6 +63,10 @@ dependencies {
     ksp(libs.androidx.room.compiler)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.compose.markdown)
+    // Markwon 的表格扩展：compose-markdown 是用 implementation 引的，编译期看不见。
+    // 我们要拿 TableRowSpan 修表格行高 bug（见 MarkdownBody.fixTableRelayout），
+    // 所以显式声明一份 —— 版本必须和 compose-markdown 内置的一致（4.6.2），否则类冲突
+    implementation("io.noties.markwon:ext-tables:4.6.2")
     implementation(libs.coil.compose)
 
     implementation(libs.hilt.android)
