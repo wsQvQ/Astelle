@@ -3,6 +3,7 @@ package com.astelle.app.data.exporter
 import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -23,16 +24,36 @@ object ExportFileWriter {
                     out.write(text.toByteArray(Charsets.UTF_8))
                     out.flush()
                 } != null
-            }.getOrDefault(false)
+            }.getOrElse { e ->
+                Log.w(TAG, "writeText 失败", e)
+                false
+            }
         }
 
     suspend fun writePng(context: Context, uri: Uri, bitmap: Bitmap): Boolean =
         withContext(Dispatchers.IO) {
             runCatching {
                 open(context, uri)?.use { out ->
-                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+                    softwareCopy(bitmap).compress(Bitmap.CompressFormat.PNG, 100, out)
                 } == true
-            }.getOrDefault(false)
+            }.getOrElse { e ->
+                Log.w(TAG, "writePng 失败", e)
+                false
+            }
+        }
+
+    /**
+     * 硬件位图先拷成软件位图。
+     *
+     * `GraphicsLayer.toImageBitmap()` 内部用 `Bitmap.createBitmap(Picture)` 造图，
+     * 吐出来的是 **HARDWARE 配置**；而 `Bitmap.compress()` 要锁像素，
+     * 硬件位图锁不了，直接抛异常 —— 真机上「md 导得出、图导不出」就栽在这。
+     */
+    private fun softwareCopy(bitmap: Bitmap): Bitmap =
+        if (bitmap.config == Bitmap.Config.HARDWARE) {
+            bitmap.copy(Bitmap.Config.ARGB_8888, false)
+        } else {
+            bitmap
         }
 
     /**
@@ -41,4 +62,6 @@ object ExportFileWriter {
      */
     private fun open(context: Context, uri: Uri) =
         context.contentResolver.openOutputStream(uri, "wt")
+
+    private const val TAG = "ExportFileWriter"
 }

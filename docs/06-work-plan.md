@@ -30,6 +30,8 @@
 | ① | **时间语义**：`updatedAt` = 内容最后修改时间，元数据操作一律不碰它。查了六处（`togglePinned`/`toggleFavorite`/`moveToFolder`/`detachNotes`/`seedSampleNote`） | `b130117` |
 | ⑥ | 卡片三行间距收紧（5→3、6→3、行内上下 11→9） | `b8b7153` |
 | ⑦ | 二级菜单重做：纸白 + `Divider` 描边 + 圆角 14dp + 去 leadingIcon + 危险项单独隔一组 | `7e126fb` `713db1e` |
+| ⑤ | **导出 Markdown + 1440px 图片**，`⋯` 菜单加「导出」二级；76 测试全绿，真机端到端（SAF 保存）验过 | `421fd97` |
+| ⑧ | 菜单再调：**图标加回来**（用户：「有点单调」）、底色纯白→暖奶油（`SurfaceFloat`）、横向留白 12→24dp（用户：「左右太窄」）、菜单零件收进 `MenuChrome.kt` | 本轮 |
 
 ### 🔨 待做（按这个顺序）
 
@@ -63,6 +65,15 @@
 - 右上角 ＋ 改成：**文件夹图标 +「新建」两字，无底色**（用户给了图）
   ⚠️ 它是**新建文件夹**，不是新建笔记。要和顶栏的 ✎ 区分开
 - 侧栏「新建笔记」缺位：现在只能关抽屉点顶栏 ✎
+
+**⑨ 预览模式能复制文字**（用户：「预览模式下可以复制就好了，这个可以计划一下」）
+- ⚠️ 歧义待确认：**复制整篇还是选中片段？** 复制的是**渲染后的纯文本**还是 **Markdown 源码**？
+  默认按「整篇 + 渲染后纯文本」起步（最小可用），选中片段是后续增强
+- 现状：`MarkdownText` 是 AndroidView 包的 TextView，Compose 的 `SelectionContainer` **选不中它**
+- 两条路：
+  - a. 让底层 TextView 可选（`setTextIsSelectable(true)`）→ 原生选中手柄 + 复制；
+    要先确认 compose-markdown 有没有开这个口子，没有就得换库或自定义 factory
+  - b. 预览模式加「复制」动作（`⋯` 菜单或顶栏），把正文放进剪贴板 —— 简单可靠，先做这个
 
 ---
 
@@ -157,6 +168,17 @@
     （同一份笔记在任何设备上导出的图一模一样）。改宽度只改 `EXPORT_PAGE_WIDTH`。
     正文标题 26sp 是量过的：正文 32px，页标题 52px，正文里的 `# 一级标题`（Markwon 2em≈64px）仍略高 —— 
     不必追它，那只是个别笔记里才有的结构。
+18. **`GraphicsLayer.toImageBitmap()` 吐出来的是 HARDWARE 配置位图**（compose 内部
+    `Bitmap.createBitmap(Picture)` 造的），而 `Bitmap.compress()` 要锁像素，硬件位图锁不了、直接抛异常
+    —— 真机上「md 导得出、图导不出」就是栽在这。`ExportFileWriter.softwareCopy()` 先拷成 ARGB_8888 再压。
+    这条查了很久：**md 能写不代表 PNG 能压**，两条路只共享 `openOutputStream` 那一段。
+19. **菜单样式别再从头猜，看用户给的档位**：底色 `SurfaceFloat = lerp(Paper, Accent, x)` 的 x 试过
+    12%（太深）→ 0.08 → 0.06（「非常接近」）→ **0.035（现值）**；横向留白 24dp；图标**要**（用户说纯文字「单调」，
+    把 `713db1e` 那次「去 leadingIcon」的结论推翻了）。零件统一走 `ui/components/MenuChrome.kt`。
+20. **真机 UI 驱动**：`adb shell input tap/swipe/keyevent` 现在**可用**（之前那次 INJECT_EVENTS 是锁屏下的误判）。
+    找控件别手算坐标 —— `uiautomator dump` 拿 `bounds`，或用脚本按中心点点。
+    ⚠️ **中文别走命令行参数**：PowerShell → Python 一路换码，匹配必然失败；用 `\u` 转义输出。
+    平板息屏时 Compose 不出帧（`withFrameNanos` 会一直等），先 `input keyevent KEYCODE_WAKEUP` + 上滑解锁。
 
 ---
 

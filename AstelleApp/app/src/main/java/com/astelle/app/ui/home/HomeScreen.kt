@@ -45,7 +45,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.ModalDrawerSheet
@@ -54,7 +53,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Article
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.Photo
+import androidx.compose.material.icons.outlined.PushPin
+import androidx.compose.material.icons.outlined.SaveAlt
+import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -94,6 +100,8 @@ import com.astelle.app.data.importer.MarkdownFileReader
 import com.astelle.app.data.importer.MarkdownImport
 import com.astelle.app.domain.model.NoteSummary
 import com.astelle.app.ui.components.AstelleIcons
+import com.astelle.app.ui.components.MenuDivider
+import com.astelle.app.ui.components.MenuRow
 import com.astelle.app.ui.navigation.AstelleDestination
 // 色板统一取自 ui/theme —— 本文件不再自己抄一份
 import com.astelle.app.ui.theme.Accent
@@ -628,63 +636,58 @@ private fun MetaRow(
                 onDismissRequest = { pickingExport = false; onDismissMore() },
                 shape = RoundedCornerShape(14.dp),
                 containerColor = SurfaceFloat,
-                // 和卡片同一套语言：纸白 + 一圈描边 + 圆角 14dp
+                // 和卡片同一套语言：一圈描边 + 圆角 14dp，边界靠描边立
                 border = BorderStroke(1.dp, Divider),
                 tonalElevation = 0.dp,
                 shadowElevation = 8.dp,
             ) {
                 if (pickingExport) {
-                    DropdownMenuItem(
-                        text = { Text("← 返回", color = Muted) },
-                        onClick = { pickingExport = false },
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Markdown 文件") },
-                        onClick = {
-                            pickingExport = false
-                            onDismissMore()
-                            onExportMarkdown()
-                        },
-                    )
-                    DropdownMenuItem(
-                        text = { Text("图片") },
-                        onClick = {
-                            pickingExport = false
-                            onDismissMore()
-                            onExportImage()
-                        },
-                    )
+                    MenuRow(
+                        label = "返回",
+                        icon = Icons.AutoMirrored.Outlined.ArrowBack,
+                        iconTint = Muted,
+                        textColor = Muted,
+                    ) { pickingExport = false }
+                    MenuRow(label = "Markdown 文件", icon = Icons.AutoMirrored.Outlined.Article) {
+                        pickingExport = false
+                        onDismissMore()
+                        onExportMarkdown()
+                    }
+                    MenuRow(label = "图片", icon = Icons.Outlined.Photo) {
+                        pickingExport = false
+                        onDismissMore()
+                        onExportImage()
+                    }
                 } else {
-                    DropdownMenuItem(
-                        text = { Text(if (isPinned) "取消置顶" else "置顶") },
+                    MenuRow(
+                        label = if (isPinned) "取消置顶" else "置顶",
+                        icon = Icons.Outlined.PushPin,
                         enabled = currentNoteId != null,
-                        onClick = {
-                            onDismissMore()
-                            currentNoteId?.let(onTogglePin)
-                        },
-                    )
-                    DropdownMenuItem(
-                        text = { Text(if (isFavorite) "取消收藏" else "收藏") },
+                    ) {
+                        onDismissMore()
+                        currentNoteId?.let(onTogglePin)
+                    }
+                    MenuRow(
+                        label = if (isFavorite) "取消收藏" else "收藏",
+                        icon = Icons.Outlined.StarBorder,
                         enabled = currentNoteId != null,
-                        onClick = {
-                            onDismissMore()
-                            currentNoteId?.let(onToggleFavorite)
-                        },
-                    )
-                    DropdownMenuItem(
-                        text = { Text("导出") },
-                        onClick = { pickingExport = true },
-                    )
+                    ) {
+                        onDismissMore()
+                        currentNoteId?.let(onToggleFavorite)
+                    }
+                    MenuRow(label = "导出", icon = Icons.Outlined.SaveAlt) { pickingExport = true }
                     // 危险操作单独隔一组
-                    Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 5.dp).height(1.dp).background(Divider))
-                    DropdownMenuItem(
-                        text = { Text("删除笔记", color = Danger) },
+                    MenuDivider()
+                    MenuRow(
+                        label = "删除笔记",
+                        icon = Icons.Outlined.DeleteOutline,
+                        iconTint = Danger,
+                        textColor = Danger,
                         enabled = currentNoteId != null,
-                        onClick = {
-                            onDismissMore()
-                            currentNoteId?.let(onRequestDelete)
-                        },
-                    )
+                    ) {
+                        onDismissMore()
+                        currentNoteId?.let(onRequestDelete)
+                    }
                 }
             }
         }

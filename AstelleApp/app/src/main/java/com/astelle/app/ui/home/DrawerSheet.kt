@@ -45,15 +45,22 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.DriveFileMove
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.FolderOpen
+import androidx.compose.material.icons.outlined.Inbox
+import androidx.compose.material.icons.outlined.PushPin
+import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -86,6 +93,8 @@ import androidx.compose.ui.unit.sp
 import com.astelle.app.domain.model.Folder
 import com.astelle.app.domain.model.NoteSummary
 import com.astelle.app.ui.components.AstelleIcons
+import com.astelle.app.ui.components.MenuDivider
+import com.astelle.app.ui.components.MenuRow
 import com.astelle.app.ui.navigation.AstelleDestination
 // 色板统一取自 ui/theme —— 本文件不再自己抄一份
 import com.astelle.app.ui.theme.Accent
@@ -848,15 +857,14 @@ private fun FolderHeader(
             tonalElevation = 0.dp,
             shadowElevation = 8.dp,
         ) {
-            DropdownMenuItem(
-                text = { Text("重命名") },
-                onClick = { menuOpen = false; onRename() },
-            )
-            Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 5.dp).height(1.dp).background(Divider))
-            DropdownMenuItem(
-                text = { Text("删除分类", color = Danger) },
-                onClick = { menuOpen = false; onDelete() },
-            )
+            MenuRow(label = "重命名", icon = Icons.Outlined.Edit) { menuOpen = false; onRename() }
+            MenuDivider()
+            MenuRow(
+                label = "删除分类",
+                icon = Icons.Outlined.DeleteOutline,
+                iconTint = Danger,
+                textColor = Danger,
+            ) { menuOpen = false; onDelete() }
         }
     }
 }
@@ -1035,51 +1043,53 @@ private fun NoteItem(
             shadowElevation = 8.dp,
         ) {
             if (moving) {
-                DropdownMenuItem(
-                    text = { Text("← 选择分类", color = Muted) },
-                    onClick = { moving = false },
-                )
-                DropdownMenuItem(
-                    text = { Text(if (note.folderId == null) "未分类 ✓" else "未分类") },
-                    onClick = {
-                        menuOpen = false; moving = false
-                        // 已经在那组里就别白写一次库（会白白刷新 updatedAt）
-                        if (note.folderId != null) onMoveToFolder(null)
-                    },
-                )
+                MenuRow(
+                    label = "选择分类",
+                    icon = Icons.AutoMirrored.Outlined.ArrowBack,
+                    iconTint = Muted,
+                    textColor = Muted,
+                ) { moving = false }
+                MenuRow(
+                    label = if (note.folderId == null) "未分类 ✓" else "未分类",
+                    icon = Icons.Outlined.Inbox,
+                ) {
+                    menuOpen = false; moving = false
+                    // 已经在那组里就别白写一次库（会白白刷新 updatedAt）
+                    if (note.folderId != null) onMoveToFolder(null)
+                }
                 folders.forEach { folder ->
-                    DropdownMenuItem(
-                        text = {
-                            Text(if (note.folderId == folder.id) "${folder.name} ✓" else folder.name)
-                        },
-                        onClick = {
-                            menuOpen = false; moving = false
-                            if (note.folderId != folder.id) onMoveToFolder(folder.id)
-                        },
-                    )
+                    MenuRow(
+                        label = if (note.folderId == folder.id) "${folder.name} ✓" else folder.name,
+                        icon = Icons.Outlined.FolderOpen,
+                    ) {
+                        menuOpen = false; moving = false
+                        if (note.folderId != folder.id) onMoveToFolder(folder.id)
+                    }
                 }
             } else {
-                DropdownMenuItem(
-                    text = { Text(if (note.isPinned) "取消置顶" else "置顶") },
-                    onClick = { menuOpen = false; onTogglePin() },
-                )
-                DropdownMenuItem(
-                    text = { Text(if (note.isFavorite) "取消收藏" else "收藏") },
-                    onClick = { menuOpen = false; onToggleFavorite() },
-                )
+                MenuRow(
+                    label = if (note.isPinned) "取消置顶" else "置顶",
+                    icon = Icons.Outlined.PushPin,
+                ) { menuOpen = false; onTogglePin() }
+                MenuRow(
+                    label = if (note.isFavorite) "取消收藏" else "收藏",
+                    icon = Icons.Outlined.StarBorder,
+                ) { menuOpen = false; onToggleFavorite() }
                 // 一个分类都没有时不显示这项 —— 点进去只有「未分类」可选，纯属绕路
                 if (folders.isNotEmpty()) {
-                    DropdownMenuItem(
-                        text = { Text("移动到分类") },
-                        onClick = { moving = true },
-                    )
+                    MenuRow(
+                        label = "移动到分类",
+                        icon = Icons.AutoMirrored.Outlined.DriveFileMove,
+                    ) { moving = true }
                 }
                 // 危险操作单独隔一组
-                Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 5.dp).height(1.dp).background(Divider))
-                DropdownMenuItem(
-                    text = { Text("删除", color = Danger) },
-                    onClick = { menuOpen = false; onRequestDelete() },
-                )
+                MenuDivider()
+                MenuRow(
+                    label = "删除",
+                    icon = Icons.Outlined.DeleteOutline,
+                    iconTint = Danger,
+                    textColor = Danger,
+                ) { menuOpen = false; onRequestDelete() }
             }
         }
     }
