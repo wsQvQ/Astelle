@@ -89,6 +89,8 @@ import com.astelle.app.ui.theme.AccentMist
 import com.astelle.app.ui.theme.Danger
 import com.astelle.app.ui.theme.Divider
 import com.astelle.app.ui.theme.DrawerBg
+import com.astelle.app.ui.theme.FolderBody
+import com.astelle.app.ui.theme.FolderHead
 import com.astelle.app.ui.theme.Ghost
 import com.astelle.app.ui.theme.Ink
 import com.astelle.app.ui.theme.InkSoft
@@ -649,7 +651,11 @@ private fun FolderCard(
     Column(
         Modifier
             .fillMaxWidth()
-            .padding(horizontal = 4.dp, vertical = 3.dp),
+            .padding(horizontal = 4.dp, vertical = 3.dp)
+            // 这圈描边才是把整组「立起来」的东西。之前只调填色，
+            // 组头的亮度又正好撞上抽屉底，于是整块看起来就是背景的一部分
+            .clip(RoundedCornerShape(10.dp))
+            .border(1.dp, Divider, RoundedCornerShape(10.dp)),
     ) {
         FolderHeader(
             name = group.name,
@@ -658,6 +664,7 @@ private fun FolderCard(
             onToggle = onToggle,
             onRename = onRename,
             onDelete = onDelete,
+            onAddNote = group.folder?.let { folder -> { onAddNote(folder.id) } },
         )
 
         // 花笺的 `grid-template-rows: 0fr → 1fr`，Compose 版本就是它。
@@ -670,13 +677,10 @@ private fun FolderCard(
             Column(
                 Modifier
                     .fillMaxWidth()
-                    // 只有下缘圆角，上缘接组头，于是两块拼成一张卡
-                    .clip(RoundedCornerShape(bottomStart = 10.dp, bottomEnd = 10.dp))
-                    // 和独立卡片同一个纸白：分类里装的也是同一批文章，
-                    // 底不该比它们暗（v1 用半透明压在抽屉底上，显脏）
-                    .background(Paper),
+                    // 圆角交给外层容器的 clip；这里只铺色
+                    .background(FolderBody),
             ) {
-                // 组头只比内容多一点点温度，没有这条缝两块就糊成一块了
+                // 组头与内容之间的一道缝
                 Box(Modifier.fillMaxWidth().height(1.dp).background(Divider))
                 Column(Modifier.padding(vertical = 4.dp)) {
                 if (group.notes.isEmpty()) {
@@ -705,14 +709,6 @@ private fun FolderCard(
                         )
                     }
                 }
-                // 「在这个分类里新建」的入口。
-                // 之前只能先建空白笔记再长按移过来，两步；放到组头上又会和顶部
-                // 那个「新建分类」的 ＋ 撞语义，紧挨计数时还被读成「＋1」。
-                // 放在容器底部，是一行明明白白的「往这里加」。
-                group.folder?.let { folder ->
-                    HairLine()
-                    AddNoteRow(onAddNote = { onAddNote(folder.id) })
-                }
                 }
             }
         }
@@ -732,29 +728,6 @@ private fun HairLine() {
 }
 
 /**
- * 分类容器底部那行「＋ 新建笔记」。
- *
- * 用 [Muted] 而不是 [Ghost]：Ghost 的对比度只有 2.1，一行能点的动作
- * 不能埋在那么浅的灰里（规矩见 `Color.kt` 的 Ghost 注释）。
- */
-@Composable
-private fun AddNoteRow(onAddNote: () -> Unit) {
-    val interaction = remember { MutableInteractionSource() }
-    val pressed by interaction.collectIsPressedAsState()
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(interactionSource = interaction, indication = null, onClick = onAddNote)
-            .padding(horizontal = 13.dp, vertical = 11.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text("＋", fontSize = 13.sp, color = if (pressed) Accent else Muted)
-        Spacer(Modifier.width(8.dp))
-        Text("新建笔记", fontSize = 12.sp, color = if (pressed) Accent else Muted)
-    }
-}
-
-/**
  * 分类组头。**展开时刻意把下缘切成直角**，好和下面的内容拼成一张卡；
  * 折叠时四角收圆，自己就是一张完整的小卡。
  */
@@ -767,6 +740,8 @@ private fun FolderHeader(
     onToggle: () -> Unit,
     onRename: () -> Unit,
     onDelete: () -> Unit,
+    /** 在这个分类里新建一篇。不传就不显示那枚按钮 */
+    onAddNote: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
@@ -779,28 +754,16 @@ private fun FolderHeader(
         animationSpec = tween(200, easing = BrandCurve),
         label = "folderArrow",
     )
-    val shape = if (collapsed) {
-        RoundedCornerShape(10.dp)
-    } else {
-        RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp)
-    }
-
+    // 圆角由外面那层容器的 clip 统一管，这里只铺色 ——
+    // 自己再切一次圆角的话，描边和圆角两套各画各的，接缝对不齐
     Box(modifier) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(38.dp)
-                .clip(shape)
-                // 组头只有三种底：按下去变中性一档、折叠时和卡片同色、
-                // 展开时用主色叠 8% 的浅底。v1 那条「AccentMist 再叠 75%」
-                // 等于铺一块实心橙，是「暖到糊」的主要来源之一
-                .background(
-                    when {
-                        pressed -> PaperWarm
-                        collapsed -> Paper
-                        else -> AccentMist
-                    }
-                )
+                // 只有「按下去」才换色。折叠/展开颜色一致：
+                // 收起只是「内容没了」，不是「换了个东西」
+                .background(if (pressed) PaperWarm else FolderHead)
                 .combinedClickable(
                     interactionSource = interaction,
                     indication = null,
@@ -839,6 +802,23 @@ private fun FolderHeader(
                 modifier = Modifier.weight(1f),
             )
             Text("$count", fontFamily = mono, fontSize = 11.sp, color = Ghost)
+            // 「在这个分类里新建一篇」。纯文字 ＋，不加圆底 ——
+            // 圆底像个 badge，反而更抢；和计数之间留足距离，免得读成「＋1」
+            if (onAddNote != null) {
+                val addInteraction = remember { MutableInteractionSource() }
+                val addPressed by addInteraction.collectIsPressedAsState()
+                Spacer(Modifier.width(14.dp))
+                Box(
+                    modifier = Modifier
+                        .size(22.dp)
+                        .clickable(interactionSource = addInteraction, indication = null) {
+                            onAddNote()
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text("＋", fontSize = 15.sp, color = if (addPressed) Accent else Ghost)
+                }
+            }
         }
 
         DropdownMenu(
@@ -924,6 +904,13 @@ private fun NoteItem(
                         pressed -> PaperWarm
                         else -> Paper
                     }
+                )
+                // 独立卡片和分类容器共用同一条描边 —— 否则同一个列表里
+                // 一半有边一半没边，是两种语言。组内的条目不再描，
+                // 它们已经在描过边的容器里，再描就是双重边框
+                .then(
+                    if (contained) Modifier
+                    else Modifier.border(1.dp, Divider, RoundedCornerShape(14.dp))
                 )
                 .combinedClickable(
                     interactionSource = interaction,

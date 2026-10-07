@@ -1,6 +1,7 @@
 package com.astelle.app.ui.theme
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 
 /**
  * 纸感品牌色板 —— 与 `docs/ui/01-home-screen.md` §1 的设计 Token 表一一对应，
@@ -70,7 +71,23 @@ val Accent = Color(0xFFB4651B)
  * 用 alpha 推导的理由是**颜色只有一个来源**：以后调 [Accent]，所有浅底
  * 自动跟着走。（低透明度下 Lab 色相被底色带偏是物理必然，别拿色相当指标。）
  */
-val AccentMist = Color(0xFFF3E9DE)
+val AccentMist = lerp(Paper, Accent, 0.08f)
+
+/**
+ * 分类容器的组头 = [Accent] 叠 7% 到 [Paper] 上，体 = 叠 3%。
+ *
+ * 同样从 [Accent] 推导（`lerp(paper, accent, a)` 就是「accent 以 alpha a 叠在
+ * paper 上」），不手挑十六进制。
+ *
+ * **头和体必须同一个色相**，只差浓淡。分头是橙、体是另一种白，两块贴在一起
+ * 就是「两张皮」，怎么调都不像一个东西。
+ *
+ * 但**光靠填色救不了「没有边界」**：先前用 10% 的时候，组头的亮度正好和
+ * 抽屉底（L*≈91.6）撞上，这块区域压根没被画出来。真正把它立起来的是
+ * `Divider` 那圈描边 —— 花笺的 `border border-bamboo/15` 一直是我漏掉的那条。
+ */
+val FolderHead = lerp(Paper, Accent, 0.07f)
+val FolderBody = lerp(Paper, Accent, 0.03f)
 
 /** 按压态的次级强调 */
 val AccentSoft = Color(0xFFE8A45C)

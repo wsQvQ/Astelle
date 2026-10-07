@@ -54,6 +54,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.PushPin
+import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -539,7 +542,7 @@ private fun MetaRow(
                 DropdownMenuItem(
                     text = { Text(if (isPinned) "取消置顶" else "置顶") },
                     leadingIcon = {
-                        Icon(AstelleIcons.Pin, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Outlined.PushPin, contentDescription = null, modifier = Modifier.size(18.dp))
                     },
                     enabled = currentNoteId != null,
                     onClick = {
@@ -550,7 +553,7 @@ private fun MetaRow(
                 DropdownMenuItem(
                     text = { Text(if (isFavorite) "取消收藏" else "收藏") },
                     leadingIcon = {
-                        Icon(AstelleIcons.Star, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Outlined.StarBorder, contentDescription = null, modifier = Modifier.size(18.dp))
                     },
                     enabled = currentNoteId != null,
                     onClick = {
@@ -561,7 +564,7 @@ private fun MetaRow(
                 DropdownMenuItem(
                     text = { Text("删除笔记", color = Danger) },
                     leadingIcon = {
-                        Icon(AstelleIcons.Trash, contentDescription = null, tint = Danger, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Outlined.DeleteOutline, contentDescription = null, tint = Danger, modifier = Modifier.size(18.dp))
                     },
                     enabled = currentNoteId != null,
                     onClick = {
