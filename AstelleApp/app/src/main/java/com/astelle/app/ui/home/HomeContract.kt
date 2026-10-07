@@ -11,6 +11,9 @@ data class HomeUiState(
     val savedAt: Long? = null,
     val isDirty: Boolean = false,
     val isSaving: Boolean = false,
+    /** 当前笔记的开关态。`⋯` 菜单据此显示「置顶 / 取消置顶」而不是死文案 */
+    val isPinned: Boolean = false,
+    val isFavorite: Boolean = false,
     /** 编辑历史里是否还有更早的快照可回退 */
     val canUndo: Boolean = false,
     /** 回退之后是否还能再前进 */
@@ -44,6 +47,9 @@ sealed interface HomeUiEvent {
     data class TogglePin(val id: String) : HomeUiEvent
     data class ToggleFavorite(val id: String) : HomeUiEvent
     data class SetMode(val mode: EditorMode) : HomeUiEvent
+
+    /** 在某个分类下新建一篇空白笔记，直接进编辑器 */
+    data class NewNoteInFolder(val folderId: String) : HomeUiEvent
 
     /* ---------- 分类 ---------- */
 

@@ -68,7 +68,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -121,6 +123,7 @@ internal fun DrawerSheet(
     onRenameFolder: (String, String) -> Unit,
     onDeleteFolder: (String) -> Unit,
     onMoveNoteToFolder: (String, String?) -> Unit,
+    onNewNoteInFolder: (String) -> Unit,
     onNavigate: (AstelleDestination) -> Unit,
 ) {
     // 长按分类组头弹出的重命名 / 删除确认
@@ -505,6 +508,7 @@ internal fun DrawerSheet(
                                 onRename = { renaming = row.group.folder },
                                 onDelete = { deleting = row.group.folder },
                                 onOpenNote = { closeCategoryInput(); onOpenNote(it) },
+                                onAddNote = { closeCategoryInput(); onNewNoteInFolder(it) },
                                 onTogglePin = onTogglePin,
                                 onToggleFavorite = onToggleFavorite,
                                 onRequestDelete = onRequestDelete,
@@ -636,6 +640,7 @@ private fun FolderCard(
     onRename: () -> Unit,
     onDelete: () -> Unit,
     onOpenNote: (String) -> Unit,
+    onAddNote: (String) -> Unit,
     onTogglePin: (String) -> Unit,
     onToggleFavorite: (String) -> Unit,
     onRequestDelete: (String) -> Unit,
@@ -667,11 +672,13 @@ private fun FolderCard(
                     .fillMaxWidth()
                     // 只有下缘圆角，上缘接组头，于是两块拼成一张卡
                     .clip(RoundedCornerShape(bottomStart = 10.dp, bottomEnd = 10.dp))
-                    // 和独立卡片同一个纸白。之前用 Paper 半透明，压在抽屉底色上
-                    // 显得发灰发脏 —— 分类里装的也是同一批文章，底就不该比它暗
-                    .background(Paper)
-                    .padding(vertical = 4.dp),
+                    // 和独立卡片同一个纸白：分类里装的也是同一批文章，
+                    // 底不该比它们暗（v1 用半透明压在抽屉底上，显脏）
+                    .background(Paper),
             ) {
+                // 组头只比内容多一点点温度，没有这条缝两块就糊成一块了
+                Box(Modifier.fillMaxWidth().height(1.dp).background(Divider))
+                Column(Modifier.padding(vertical = 4.dp)) {
                 if (group.notes.isEmpty()) {
                     Text(
                         "空文件夹",
@@ -698,6 +705,15 @@ private fun FolderCard(
                         )
                     }
                 }
+                // 「在这个分类里新建」的入口。
+                // 之前只能先建空白笔记再长按移过来，两步；放到组头上又会和顶部
+                // 那个「新建分类」的 ＋ 撞语义，紧挨计数时还被读成「＋1」。
+                // 放在容器底部，是一行明明白白的「往这里加」。
+                group.folder?.let { folder ->
+                    HairLine()
+                    AddNoteRow(onAddNote = { onAddNote(folder.id) })
+                }
+                }
             }
         }
     }
@@ -716,6 +732,29 @@ private fun HairLine() {
 }
 
 /**
+ * 分类容器底部那行「＋ 新建笔记」。
+ *
+ * 用 [Muted] 而不是 [Ghost]：Ghost 的对比度只有 2.1，一行能点的动作
+ * 不能埋在那么浅的灰里（规矩见 `Color.kt` 的 Ghost 注释）。
+ */
+@Composable
+private fun AddNoteRow(onAddNote: () -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(interactionSource = interaction, indication = null, onClick = onAddNote)
+            .padding(horizontal = 13.dp, vertical = 11.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("＋", fontSize = 13.sp, color = if (pressed) Accent else Muted)
+        Spacer(Modifier.width(8.dp))
+        Text("新建笔记", fontSize = 12.sp, color = if (pressed) Accent else Muted)
+    }
+}
+
+/**
  * 分类组头。**展开时刻意把下缘切成直角**，好和下面的内容拼成一张卡；
  * 折叠时四角收圆，自己就是一张完整的小卡。
  */
@@ -731,6 +770,7 @@ private fun FolderHeader(
     modifier: Modifier = Modifier,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
+    val haptics = LocalHapticFeedback.current
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     // 箭头 200ms、内容 250ms —— 和花笺一致，箭头跟手一点
@@ -751,18 +791,25 @@ private fun FolderHeader(
                 .fillMaxWidth()
                 .height(38.dp)
                 .clip(shape)
+                // 组头只有三种底：按下去变中性一档、折叠时和卡片同色、
+                // 展开时用主色叠 8% 的浅底。v1 那条「AccentMist 再叠 75%」
+                // 等于铺一块实心橙，是「暖到糊」的主要来源之一
                 .background(
                     when {
-                        pressed -> AccentMist
-                        collapsed -> Paper.copy(alpha = 0.65f)
-                        else -> AccentMist.copy(alpha = 0.75f)
+                        pressed -> PaperWarm
+                        collapsed -> Paper
+                        else -> AccentMist
                     }
                 )
                 .combinedClickable(
                     interactionSource = interaction,
                     indication = null,
                     onClick = onToggle,
-                    onLongClick = { menuOpen = true },
+                    onLongClick = {
+                        // 长按是个「藏起来」的入口，没有触觉反馈用户不知道自己触发了什么
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        menuOpen = true
+                    },
                 )
                 .padding(horizontal = 11.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -852,6 +899,7 @@ private fun NoteItem(
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     var menuOpen by remember { mutableStateOf(false) }
+    val haptics = LocalHapticFeedback.current
     // 菜单的第二层：选要移进哪个分类。用同一个菜单换内容，而不是再叠一层
     // DropdownMenu —— 嵌套弹窗的位置很难控制，在抽屉这种窄容器里尤其明显
     var moving by remember { mutableStateOf(false) }
@@ -870,7 +918,7 @@ private fun NoteItem(
                 .clip(if (contained) RectangleShape else RoundedCornerShape(14.dp))
                 .background(
                     when {
-                        contained && selected -> AccentMist.copy(alpha = 0.55f)
+                        contained && selected -> AccentMist
                         contained -> Color.Transparent
                         selected -> AccentMist
                         pressed -> PaperWarm
@@ -881,7 +929,11 @@ private fun NoteItem(
                     interactionSource = interaction,
                     indication = null,
                     onClick = onClick,
-                    onLongClick = { menuOpen = true },
+                    onLongClick = {
+                        // 长按是个「藏起来」的入口，没有触觉反馈用户不知道自己触发了什么
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        menuOpen = true
+                    },
                 )
                 .padding(horizontal = 13.dp, vertical = if (contained) 10.dp else 11.dp),
         ) {

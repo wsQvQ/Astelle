@@ -66,6 +66,15 @@ class HomeViewModel @Inject constructor(
     private var activeNote: Note? = null
     private var saveJob: Job? = null
 
+    /**
+     * 这篇新草稿该落到哪个分类。只有「在分类里新建」时才有值。
+     *
+     * 刻意**不**在库里预先建一篇空笔记：那篇空笔记会被 500ms 后的自动保存
+     * 当成人走掉的草稿直接删掉（`persist` 里 `blank && existing != null` 就是删除）。
+     * 等用户真的写下第一个字，persist 建新笔记时才带上它。
+     */
+    private var pendingFolderId: String? = null
+
     /** 撤销 / 重做。纯内存，不落库；切换笔记时整条重置 */
     private val history = EditHistory()
 
@@ -132,6 +141,9 @@ class HomeViewModel @Inject constructor(
      */
     private fun openInEditor(note: Note, savedAt: Long) {
         activeNote = note
+        // 装进来的是一篇**已有**的笔记，它自己已经带着 folderId，
+        // 别让上一次「在分类里新建」留下的目标分类影响它之后的落库
+        pendingFolderId = null
         history.reset(EditSnapshot(note.title, note.content))
         _uiState.update {
             it.copy(
@@ -139,6 +151,8 @@ class HomeViewModel @Inject constructor(
                 title = note.title,
                 content = note.content,
                 savedAt = savedAt,
+                isPinned = note.isPinned,
+                isFavorite = note.isFavorite,
                 isDirty = false,
                 isSaving = false,
                 canUndo = false,
@@ -163,24 +177,8 @@ class HomeViewModel @Inject constructor(
             }
             HomeUiEvent.Undo -> history.undo()?.let(::applySnapshot)
             HomeUiEvent.Redo -> history.redo()?.let(::applySnapshot)
-            HomeUiEvent.NewNote -> {
-                saveJob?.cancel()
-                persist(_uiState.value.title, _uiState.value.content)
-                activeNote = null
-                history.reset(EditSnapshot())
-                _uiState.update {
-                    it.copy(
-                        currentNoteId = null,
-                        title = "",
-                        content = "",
-                        savedAt = null,
-                        isDirty = false,
-                        isSaving = false,
-                        canUndo = false,
-                        canRedo = false,
-                    )
-                }
-            }
+            HomeUiEvent.NewNote -> startBlankDraft(folderId = null)
+            is HomeUiEvent.NewNoteInFolder -> startBlankDraft(folderId = event.folderId)
             is HomeUiEvent.OpenNote -> {
                 saveJob?.cancel()
                 persist(_uiState.value.title, _uiState.value.content)
@@ -235,12 +233,19 @@ class HomeViewModel @Inject constructor(
                 }
             }
             is HomeUiEvent.TogglePin -> {
+                // 只有动的是当前这篇时才同步 UI 态 —— 抽屉长按可以翻任何一篇
+                if (_uiState.value.currentNoteId == event.id) {
+                    _uiState.update { it.copy(isPinned = !it.isPinned) }
+                }
                 viewModelScope.launch {
                     noteRepository.togglePinned(event.id)
                     syncActiveNoteFlag(event.id) { it.copy(isPinned = !it.isPinned) }
                 }
             }
             is HomeUiEvent.ToggleFavorite -> {
+                if (_uiState.value.currentNoteId == event.id) {
+                    _uiState.update { it.copy(isFavorite = !it.isFavorite) }
+                }
                 viewModelScope.launch {
                     noteRepository.toggleFavorite(event.id)
                     syncActiveNoteFlag(event.id) { it.copy(isFavorite = !it.isFavorite) }
@@ -308,7 +313,44 @@ class HomeViewModel @Inject constructor(
         if (current.id == id) activeNote = transform(current)
     }
 
-    private fun persist(title: String, content: String) {
+    /**
+     * 清空编辑器开一篇新草稿。[folderId] 是这篇该落到的分类，null = 未分类。
+     *
+     * 先把手上这篇落库（用它**本来**的分类），再换新草稿。
+     * folderId 在 persist 调用时就固定住，不给「上一篇草稿被塞进新分类」留机会。
+     */
+    private fun startBlankDraft(folderId: String?) {
+        saveJob?.cancel()
+        persist(
+            _uiState.value.title,
+            _uiState.value.content,
+            newNoteFolderId = pendingFolderId,
+        )
+        pendingFolderId = folderId
+        activeNote = null
+        history.reset(EditSnapshot())
+        _uiState.update {
+            it.copy(
+                currentNoteId = null,
+                title = "",
+                content = "",
+                savedAt = null,
+                isPinned = false,
+                isFavorite = false,
+                isDirty = false,
+                isSaving = false,
+                canUndo = false,
+                canRedo = false,
+            )
+        }
+    }
+
+    /**
+     * [newNoteFolderId] 只在**新建**笔记时用得到；更新已有的笔记时看它自己
+     * 的 folderId，不看这个参数。默认值在调用处取值，不是在协程里回头读，
+     * 否则中间又点了别的分类会把上一篇草稿塞错地方。
+     */
+    private fun persist(title: String, content: String, newNoteFolderId: String? = pendingFolderId) {
         val blank = title.isBlank() && content.isBlank()
         val currentId = _uiState.value.currentNoteId
         if (blank && currentId == null) {
@@ -323,7 +365,14 @@ class HomeViewModel @Inject constructor(
                     noteRepository.delete(existing.id)
                     activeNote = null
                     _uiState.update {
-                        it.copy(currentNoteId = null, savedAt = null, isSaving = false, isDirty = false)
+                        it.copy(
+                            currentNoteId = null,
+                            savedAt = null,
+                            isPinned = false,
+                            isFavorite = false,
+                            isSaving = false,
+                            isDirty = false,
+                        )
                     }
                 } else {
                     val trimmed = title.trim()
@@ -359,9 +408,11 @@ class HomeViewModel @Inject constructor(
                     content = content,
                     createdAt = now,
                     updatedAt = now,
+                    folderId = newNoteFolderId,
                 )
                 noteRepository.upsert(note)
                 activeNote = note
+                pendingFolderId = null
                 _uiState.update {
                     it.copy(currentNoteId = note.id, savedAt = now, isSaving = false, isDirty = false)
                 }

@@ -138,8 +138,8 @@ def check_chroma(palette: dict) -> None:
     print("\n[2] 墨的色度（越接近参考的 0~6 越好；暖纸配冷墨才有对比）")
     print("-" * 68)
     print(f"  花笺参考：{' / '.join(f'{v:.1f}' for v in REF_FLORAL['墨色度'])}")
-    print(f"  当前   ：{' / '.join(f'{lab(h)[3]:.1f}' for _, h in CURRENT['墨'])}")
-    print(f"  提案   ：{' / '.join(f'{lab(h)[3]:.1f}' for _, h in palette['墨'])}")
+    print(f"  v1      ：{' / '.join(f'{lab(h)[3]:.1f}' for _, h in CURRENT['墨'])}")
+    print(f"  v2      ：{' / '.join(f'{lab(h)[3]:.1f}' for _, h in palette['墨'])}")
 
 
 def check_accent(palette: dict) -> None:
@@ -172,13 +172,13 @@ def check_surfaces(palette: dict) -> None:
         d = abs(lab(h1)[0] - lab(h2)[0])
         flag = "OK" if d >= MIN_SURFACE_STEP else "分不开"
         print(f"  {n1:<10}-> {n2:<10}dL*={d:5.1f}   {flag}")
-    print("\n  当前色板里 Divider(#E8DDD0) 与 DrawerBg(#EAE0D0) 只差 dL*=0.9，")
+    print("\n  v1 里 Divider(#E8DDD0) 与 DrawerBg(#EAE0D0) 只差 dL*=0.9，")
     print("  在抽屉底上画分割线等于没画。")
 
 
 def main() -> None:
-    dump("当前色板", CURRENT)
-    dump("提案色板", PROPOSED)
+    dump("v1 改动前（留作对照）", CURRENT)
+    dump("v2 现在的 Color.kt", PROPOSED)
     check_text(PROPOSED)
     check_chroma(PROPOSED)
     check_accent(PROPOSED)

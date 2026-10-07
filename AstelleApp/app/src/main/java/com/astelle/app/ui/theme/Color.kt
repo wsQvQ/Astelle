@@ -8,24 +8,84 @@ import androidx.compose.ui.graphics.Color
  *
  * **全项目只此一份，不要在别处再抄一遍。** 之前 HomeScreen.kt 自己重抄了
  * 13 个同名常量，导致调品牌色要改两处、漏一处就两边不一致。
+ *
+ * ## 这一版怎么来的
+ *
+ * v1 的问题是「暖到糊」：纸是暖的、墨也是暖的，连强调色的浅底都是暖米色，
+ * 全屏同一色相、同一明度区间，眼睛找不到任何一个确定的东西。
+ *
+ * v2 的三条改动（数字与完整推理见 `docs/ui/05-visual-direction.md`）：
+ *
+ * 1. **墨改成中性**（纸保持暖）。主文字色度 9.6 → 2.1。暖纸配中性墨才有
+ *    印刷感的清爽；暖纸配暖墨就是一锅粥。
+ * 2. **强调色加深一档，浅底浓度降下来。** [AccentMist] 从「一块实色」改成
+ *    「主色叠 8%」，于是它自动贴着 [Accent] 走。
+ * 3. **面收成三层**，分割线要真的看得见 —— v1 的 Divider 与抽屉底只差 0.9
+ *    亮度，等于没画。
+ *
+ * 改完请跑 `python tools/palette-audit.py`。配色靠眼睛吵不出结果。
  */
-val Paper = Color(0xFFFAF5EF)
-val PaperWarm = Color(0xFFF3EBE0)
 
-/** 抽屉底色：比编辑器纸底深一档，两者要能拉开 */
-val DrawerBg = Color(0xFFEAE0D0)
+/* ---------- 面：三层 + 一档发丝线 ---------- */
 
-val Divider = Color(0xFFE8DDD0)
-val Ink = Color(0xFF2C2418)
-val InkSoft = Color(0xFF4A4034)
-val Muted = Color(0xFF9C8B74)
-val Ghost = Color(0xFFB8A992)
-val Accent = Color(0xFFD4843A)
-val AccentMist = Color(0xFFF7E8D4)
+/** 纸 / 卡片 / 分类容器体 / 编辑器纸。所有可书写、可阅读的面 */
+val Paper = Color(0xFFF9F5EF)
+
+/** 按下态、输入框底。比纸深一档，只用来表示「被按住了」 */
+val PaperWarm = Color(0xFFF2ECE2)
+
+/** 页面底 / 抽屉底。比纸深一档，卡片靠这层温度差浮起来 */
+val DrawerBg = Color(0xFFEDE6DB)
+
+/** 发丝分割线。对抽屉底的亮度差 6.2，看得见 */
+val Divider = Color(0xFFDED4C5)
+
+/* ---------- 墨：中性偏暖，色度压到花笺 / granola 的量级 ---------- */
+
+/** 主文字。色度 2.1，和暖纸拉开色相 */
+val Ink = Color(0xFF232320)
+
+/** 次文字：卡片标题、次级正文 */
+val InkSoft = Color(0xFF44443F)
+
+/** 弱文字：日期、字数这类元信息。**不承载正文** */
+val Muted = Color(0xFF7E7C76)
+
+/** 占位符、禁用态。对比度只有 2.1，**不承载任何信息** */
+val Ghost = Color(0xFFAFADA6)
+
+/* ---------- 强调：一个橙，三种浓度 ---------- */
+
+/**
+ * 主强调。比 v1 的 #D4843A 深一档 —— 用在文字上才有对比度，
+ * 也更像「印章/印刷」而不是「荧光笔」。
+ */
+val Accent = Color(0xFFB4651B)
+
+/**
+ * 主强调的浅底 = [Accent] 叠 8% 到 [Paper] 上。
+ *
+ * **不要手挑这个值。** v1 的 #F7E8D4 就是手挑出来的：色相 80.9、亮度 92.7，
+ * 和 PaperWarm 几乎重合，根本不是「橙的浅底」，是「深一点的纸」。
+ * 用 alpha 推导的理由是**颜色只有一个来源**：以后调 [Accent]，所有浅底
+ * 自动跟着走。（低透明度下 Lab 色相被底色带偏是物理必然，别拿色相当指标。）
+ */
+val AccentMist = Color(0xFFF3E9DE)
+
+/** 按压态的次级强调 */
+val AccentSoft = Color(0xFFE8A45C)
+
+/** 浮层：菜单、弹窗。纯白浮在暖纸上，靠温度差建立层次 */
 val SurfaceFloat = Color(0xFFFFFFFF)
 
-/** 保存胶囊「已保存」态的文字色 */
-val SavedText = Color(0xFFA86428)
+/* ---------- 危险 ---------- */
 
-val DangerBg = Color(0xFFFBEAEA)
-val Danger = Color(0xFFB54A4A)
+/** 仅用于删除。深一档，用在文字上才读得清 */
+val Danger = Color(0xFFA94242)
+
+/** 危险操作的浅底，同 [AccentMist] 的推导方式（Danger 叠 8% 到 Paper） */
+val DangerBg = Color(0xFFF6ECEC)
+
+/* ---------- 保存胶囊「已保存」态的文字色 ----------
+ * 比 [Accent] 再深一档：它落在 AccentMist 上，需要更高的对比度 */
+val SavedText = Color(0xFF8F5212)

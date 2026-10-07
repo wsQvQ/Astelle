@@ -121,6 +121,47 @@ object AstelleIcons {
         }.build()
     }
 
+    /** 图钉（置顶）。之前误用了 `More` 那枚三点，是「更多」不是「置顶」 */
+    val Pin: ImageVector by lazy {
+        ImageVector.Builder("Pin", 24.dp, 24.dp, 24f, 24f).apply {
+            path(stroke = SolidColor(Muted), strokeLineWidth = 1.8f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
+                moveTo(9f, 3.5f); lineTo(15f, 3.5f)
+                moveTo(12f, 3.5f); lineTo(12f, 9f)
+                moveTo(7.5f, 9f); lineTo(16.5f, 9f)
+                moveTo(7.5f, 9f); lineTo(7.5f, 11f); lineTo(11f, 14.5f)
+                lineTo(11f, 20.5f); lineTo(13f, 20.5f); lineTo(13f, 14.5f)
+                lineTo(16.5f, 11f); lineTo(16.5f, 9f)
+            }
+        }.build()
+    }
+
+    /** 五角星（收藏） */
+    val Star: ImageVector by lazy {
+        ImageVector.Builder("Star", 24.dp, 24.dp, 24f, 24f).apply {
+            path(stroke = SolidColor(Muted), strokeLineWidth = 1.8f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
+                moveTo(12f, 3.2f); lineTo(14.7f, 8.8f)
+                lineTo(20.8f, 9.7f); lineTo(16.4f, 13.9f)
+                lineTo(17.5f, 20.0f); lineTo(12f, 17.1f)
+                lineTo(6.5f, 20.0f); lineTo(7.6f, 13.9f)
+                lineTo(3.2f, 9.7f); lineTo(9.3f, 8.8f)
+                close()
+            }
+        }.build()
+    }
+
+    /** 垃圾桶（删除）。之前误用了 `Import` 那枚向下箭头，那是「下载」 */
+    val Trash: ImageVector by lazy {
+        ImageVector.Builder("Trash", 24.dp, 24.dp, 24f, 24f).apply {
+            path(stroke = SolidColor(Muted), strokeLineWidth = 1.8f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
+                moveTo(4f, 7f); lineTo(20f, 7f)
+                moveTo(9f, 7f); lineTo(9f, 4.5f); lineTo(15f, 4.5f); lineTo(15f, 7f)
+                moveTo(6f, 7f); lineTo(7f, 20f); lineTo(17f, 20f); lineTo(18f, 7f)
+                moveTo(10f, 11f); lineTo(10f, 16.5f)
+                moveTo(14f, 11f); lineTo(14f, 16.5f)
+            }
+        }.build()
+    }
+
     val Search: ImageVector by lazy {
         ImageVector.Builder("Search", 24.dp, 24.dp, 24f, 24f).apply {
             path(stroke = SolidColor(Ghost), strokeLineWidth = 2f, strokeLineCap = StrokeCap.Round) {

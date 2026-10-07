@@ -136,6 +136,51 @@ class HomeViewModelFolderTest {
     }
 
     @Test
+    fun `在分类里新建并写下第一个字，笔记才落到那个分类`() = runTest(dispatcher) {
+        val notes = FakeNoteRepository()
+        val folders = FakeFolderRepository()
+        folders.upsert(Folder(id = "f1", name = "工作", createdAt = now))
+        val vm = HomeViewModel(notes, folders)
+        advanceTimeBy(settle); runCurrent()
+
+        vm.onEvent(HomeUiEvent.NewNoteInFolder("f1"))
+        runCurrent()
+
+        // 不能预建空笔记：那篇会被 500ms 后的自动保存当成人走掉的草稿删掉
+        assertTrue(
+            "不该凭空多出一篇空笔记",
+            notes.stored.values.none { it.content.isBlank() },
+        )
+
+        vm.onEvent(HomeUiEvent.ContentChanged("第一句"))
+        advanceTimeBy(settle); runCurrent()
+
+        assertEquals("f1", notes.stored.values.last { it.content == "第一句" }.folderId)
+    }
+
+    @Test
+    fun `在分类里新建后又打开别的笔记，目标分类不会一路带过去`() = runTest(dispatcher) {
+        val notes = FakeNoteRepository()
+        val folders = FakeFolderRepository()
+        folders.upsert(Folder(id = "f1", name = "工作", createdAt = now))
+        notes.upsert(
+            Note(id = "old", title = "旧", content = "旧内容", createdAt = now, updatedAt = now)
+        )
+        val vm = HomeViewModel(notes, folders)
+        advanceTimeBy(settle); runCurrent()
+
+        vm.onEvent(HomeUiEvent.NewNoteInFolder("f1"))
+        runCurrent()
+        vm.onEvent(HomeUiEvent.OpenNote("old"))
+        runCurrent()
+
+        vm.onEvent(HomeUiEvent.ContentChanged("改一下"))
+        advanceTimeBy(settle); runCurrent()
+
+        assertEquals("「旧」自己没有分类，不该被塞进 f1", null, notes.getNote("old")?.folderId)
+    }
+
+    @Test
     fun `移出分类回到未分类`() = runTest(dispatcher) {
         val notes = FakeNoteRepository()
         notes.upsert(

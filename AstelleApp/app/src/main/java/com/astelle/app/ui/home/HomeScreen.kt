@@ -208,6 +208,10 @@ fun HomeRoute(
                     onMoveNoteToFolder = { noteId, folderId ->
                         viewModel.onEvent(HomeUiEvent.MoveNoteToFolder(noteId, folderId))
                     },
+                    onNewNoteInFolder = { folderId ->
+                        scope.launch { drawerState.close() }
+                        viewModel.onEvent(HomeUiEvent.NewNoteInFolder(folderId))
+                    },
                     onNavigate = {
                         scope.launch { drawerState.close() }
                         onNavigate(it)
@@ -346,6 +350,8 @@ private fun EditorScaffold(
             onMore = { moreMenuOpen = true },
             onDismissMore = { moreMenuOpen = false },
             currentNoteId = state.currentNoteId,
+            isPinned = state.isPinned,
+            isFavorite = state.isFavorite,
             onTogglePin = onTogglePin,
             onToggleFavorite = onToggleFavorite,
             onRequestDelete = onRequestDelete,
@@ -497,6 +503,8 @@ private fun MetaRow(
     onMore: () -> Unit,
     onDismissMore: () -> Unit,
     currentNoteId: String?,
+    isPinned: Boolean,
+    isFavorite: Boolean,
     onTogglePin: (String) -> Unit,
     onToggleFavorite: (String) -> Unit,
     onRequestDelete: (String) -> Unit,
@@ -529,16 +537,22 @@ private fun MetaRow(
                 shadowElevation = 8.dp,
             ) {
                 DropdownMenuItem(
-                    text = { Text("置顶") },
-                    leadingIcon = { Icon(AstelleIcons.More, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                    text = { Text(if (isPinned) "取消置顶" else "置顶") },
+                    leadingIcon = {
+                        Icon(AstelleIcons.Pin, contentDescription = null, modifier = Modifier.size(18.dp))
+                    },
+                    enabled = currentNoteId != null,
                     onClick = {
                         onDismissMore()
                         currentNoteId?.let(onTogglePin)
                     },
                 )
                 DropdownMenuItem(
-                    text = { Text("收藏") },
-                    leadingIcon = { Icon(AstelleIcons.Sparkle, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                    text = { Text(if (isFavorite) "取消收藏" else "收藏") },
+                    leadingIcon = {
+                        Icon(AstelleIcons.Star, contentDescription = null, modifier = Modifier.size(18.dp))
+                    },
+                    enabled = currentNoteId != null,
                     onClick = {
                         onDismissMore()
                         currentNoteId?.let(onToggleFavorite)
@@ -547,8 +561,9 @@ private fun MetaRow(
                 DropdownMenuItem(
                     text = { Text("删除笔记", color = Danger) },
                     leadingIcon = {
-                        Icon(AstelleIcons.Import, contentDescription = null, tint = Danger, modifier = Modifier.size(18.dp))
+                        Icon(AstelleIcons.Trash, contentDescription = null, tint = Danger, modifier = Modifier.size(18.dp))
                     },
+                    enabled = currentNoteId != null,
                     onClick = {
                         onDismissMore()
                         currentNoteId?.let(onRequestDelete)
