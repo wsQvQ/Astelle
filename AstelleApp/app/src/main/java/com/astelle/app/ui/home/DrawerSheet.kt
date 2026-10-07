@@ -956,7 +956,8 @@ private fun NoteItem(
                 )
                 // 组内条目已经外缩 4dp，内容再退 9dp —— 文字仍落在距容器内缘 13dp，
                 // 和组头齐平，高亮缩进时文字不动
-                .padding(horizontal = if (contained) 9.dp else 13.dp, vertical = if (contained) 10.dp else 11.dp),
+                // 三行间距整体收了一档，位置和层级不变
+                .padding(horizontal = if (contained) 9.dp else 13.dp, vertical = if (contained) 8.dp else 9.dp),
         ) {
             Column(Modifier.weight(1f)) {
                 // 标题为空时 displayTitle 会回退成正文首行；
@@ -993,7 +994,7 @@ private fun NoteItem(
                         color = Muted,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(top = 5.dp),
+                        modifier = Modifier.padding(top = 3.dp),
                     )
                 }
                 Text(
@@ -1001,7 +1002,7 @@ private fun NoteItem(
                     fontFamily = mono,
                     fontSize = 10.sp,
                     color = Ghost,
-                    modifier = Modifier.padding(top = 6.dp),
+                    modifier = Modifier.padding(top = 3.dp),
                 )
             }
         }
