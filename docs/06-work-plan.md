@@ -127,8 +127,10 @@
    测试阶段用户认可，**发布前必须换真 `Migration`**。
 8. **长按是「藏起来」的入口**，必须有触觉反馈（`HapticFeedbackType.LongPress`）。
 9. **M3 的 `DropdownMenu` 在 material3 1.3 有 `border` 参数**，不用自绘 Popup。
-10. **PowerShell 跑 git 推送**：`$out -match 'HEAD -> main'` 会被错误信息里的 "HEAD" 骗到，
-    判成功要匹配 `'HEAD -> main'` 整串。推送失败多半是 xray 没起来，等代理回来重试。
+10. **PowerShell 跑 git 推送**：成功标志是输出里出现 `-> main`（`git push origin main` 显示
+    `4525aca..421fd97  main -> main`，裸 `git push` 才显示 `HEAD -> main`）。别只匹配 `HEAD`，
+    错误信息里也有它；也别只匹配 `HEAD -> main`，用 `git push origin main` 时看不到这串。
+    推送失败多半是 xray 没起来，等代理回来重试。
 11. **`read_image` 前文件得先存在**：`present` 工具用绝对路径，工作目录下的临时 PNG
     偶尔会被清掉，生成完立刻 present。
 12. **用户说话有歧义要指出**，他明确要求过（自认提示词写得不好）。
