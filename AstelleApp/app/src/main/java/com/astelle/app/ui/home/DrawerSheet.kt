@@ -10,6 +10,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -842,6 +843,8 @@ private fun FolderHeader(
             onDismissRequest = { menuOpen = false },
             shape = RoundedCornerShape(14.dp),
             containerColor = SurfaceFloat,
+            // 和卡片同一套语言：纸白 + 一圈描边 + 圆角 14dp
+            border = BorderStroke(1.dp, Divider),
             tonalElevation = 0.dp,
             shadowElevation = 8.dp,
         ) {
@@ -849,6 +852,7 @@ private fun FolderHeader(
                 text = { Text("重命名") },
                 onClick = { menuOpen = false; onRename() },
             )
+            Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 5.dp).height(1.dp).background(Divider))
             DropdownMenuItem(
                 text = { Text("删除分类", color = Danger) },
                 onClick = { menuOpen = false; onDelete() },
@@ -1025,6 +1029,8 @@ private fun NoteItem(
             // 与 meta 行那枚 ⋯ 菜单保持同一套外观
             shape = RoundedCornerShape(14.dp),
             containerColor = SurfaceFloat,
+            // 和卡片同一套语言：纸白 + 一圈描边 + 圆角 14dp
+            border = BorderStroke(1.dp, Divider),
             tonalElevation = 0.dp,
             shadowElevation = 8.dp,
         ) {
@@ -1068,6 +1074,8 @@ private fun NoteItem(
                         onClick = { moving = true },
                     )
                 }
+                // 危险操作单独隔一组
+                Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 5.dp).height(1.dp).background(Divider))
                 DropdownMenuItem(
                     text = { Text("删除", color = Danger) },
                     onClick = { menuOpen = false; onRequestDelete() },

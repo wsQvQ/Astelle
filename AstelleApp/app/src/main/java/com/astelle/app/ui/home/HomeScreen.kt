@@ -17,6 +17,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -536,6 +537,8 @@ private fun MetaRow(
                 onDismissRequest = onDismissMore,
                 shape = RoundedCornerShape(14.dp),
                 containerColor = SurfaceFloat,
+                // 和卡片同一套语言：纸白 + 一圈描边 + 圆角 14dp
+                border = BorderStroke(1.dp, Divider),
                 tonalElevation = 0.dp,
                 shadowElevation = 8.dp,
             ) {
