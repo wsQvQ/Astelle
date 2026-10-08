@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -85,17 +86,21 @@ import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.astelle.app.R
+import com.astelle.app.data.editor.MarkdownEditing
 import com.astelle.app.data.exporter.ExportFileWriter
 import com.astelle.app.data.exporter.ExportResult
 import com.astelle.app.data.exporter.MarkdownExport
@@ -299,6 +304,32 @@ private fun EditorScaffold(
     }
     var moreMenuOpen by remember { mutableStateOf(false) }
 
+    // ── 编辑框持有 TextFieldValue ──
+    // 工具栏要拿光标/选区做「包住选中」「插模板光标落点」，String 拿不到这些。
+    // 外部内容变化（切笔记、撤销、重做）时同步进来；打字以本地为准，不回灌
+    var fieldValue by remember { mutableStateOf(TextFieldValue("")) }
+    LaunchedEffect(state.currentNoteId, state.content) {
+        if (fieldValue.text != state.content) {
+            fieldValue = TextFieldValue(state.content, selection = TextRange(state.content.length))
+        }
+    }
+    val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+
+    /** 工具栏动作落到纯函数；一次操作 = 一次撤销（走 onContent 一条路） */
+    val applyFormat: (FormatAction) -> Unit = { action ->
+        val text = fieldValue.text
+        val cursor = fieldValue.selection.min
+        val end = fieldValue.selection.max
+        val r = when (action) {
+            is FormatAction.Wrap -> MarkdownEditing.wrap(text, cursor, end, action.open, action.close)
+            is FormatAction.LinePrefix -> MarkdownEditing.toggleLinePrefix(text, cursor, action.prefix)
+            is FormatAction.Insert -> MarkdownEditing.insert(text, cursor, action.snippet, action.caret)
+            FormatAction.ToggleTask -> MarkdownEditing.toggleTask(text, cursor)
+        }
+        fieldValue = TextFieldValue(r.text, TextRange(r.selectStart, r.selectEnd))
+        onContent(r.text)
+    }
+
     // ── 导出 ──
     // Markdown 只是文本拼接，点保存框那一刻现生成就行；
     // 图片要临时挂一块 1440px 的屏幕外画布抓图（见 ExportImageCanvas）。
@@ -501,12 +532,29 @@ private fun EditorScaffold(
         // ── 正文 ──
         if (state.mode == EditorMode.Edit) {
             BodyEditor(
-                value = state.content,
-                onValueChange = onContent,
+                value = fieldValue,
+                onValueChange = { new ->
+                    // 回车续列表/引用：只在「正好插入一个换行」时接管
+                    val continued = MarkdownEditing.autoContinue(fieldValue.text, new.text, new.selection.min)
+                    if (continued != null) {
+                        fieldValue = TextFieldValue(continued.text, TextRange(continued.selectStart, continued.selectEnd))
+                        onContent(continued.text)
+                    } else {
+                        fieldValue = new
+                        onContent(new.text)
+                    }
+                },
                 modifier = Modifier
                     .weight(1f)
                     .imePadding(),
             )
+            // 格式工具栏贴在键盘上沿；键盘收起就不占地方
+            if (imeVisible) {
+                FormatToolbar(
+                    onAction = { applyFormat(it) },
+                    modifier = Modifier.imePadding(),
+                )
+            }
         } else {
             BodyPreview(content = state.content, modifier = Modifier.weight(1f))
         }
@@ -783,8 +831,8 @@ private fun SavePill(isDirty: Boolean, isSaving: Boolean) {
 
 @Composable
 private fun BodyEditor(
-    value: String,
-    onValueChange: (String) -> Unit,
+    value: TextFieldValue,
+    onValueChange: (TextFieldValue) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     BasicTextField(
@@ -801,7 +849,7 @@ private fun BodyEditor(
         cursorBrush = SolidColor(Accent),
         decorationBox = { innerTextField: @Composable () -> Unit ->
             Box(Modifier.fillMaxSize()) {
-                if (value.isEmpty()) {
+                if (value.text.isEmpty()) {
                     Column {
                         Text(
                             "写下你的想法…",
