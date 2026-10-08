@@ -109,6 +109,8 @@ internal fun FormatToolbar(
     Row(
         modifier = modifier
             .fillMaxWidth()
+            // 上面两个 R 角：它贴在屏幕底/键盘上沿，是个「浮起来的纸条」而不是一条分割线
+            .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
             .background(SurfaceFloat)
             .height(48.dp),
         verticalAlignment = Alignment.CenterVertically,

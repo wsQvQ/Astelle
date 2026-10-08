@@ -1,7 +1,14 @@
 package com.astelle.app.ui.home
 
+import android.text.Selection
+import android.text.Spannable
+import android.text.Spanned
+import android.widget.TextView
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.sp
@@ -36,7 +43,18 @@ internal fun MarkdownBody(
     modifier: Modifier = Modifier,
     /** 预览模式下可选中复制（用户要的「选中哪段复制哪段」）；导出画布用不到，关掉省事 */
     selectable: Boolean = false,
+    /** 递增一次就清掉选区（用户：打开侧边栏时选中不该留着） */
+    clearSelectionTick: Int = 0,
 ) {
+    // 拿住底层 TextView：清选区要直接对它操作（MarkdownText 只给 set 的钩子）
+    val textView = remember { mutableStateOf<TextView?>(null) }
+    LaunchedEffect(clearSelectionTick) {
+        if (clearSelectionTick > 0) {
+            val tv = textView.value ?: return@LaunchedEffect
+            (tv.text as? Spanned)?.let { Selection.removeSelection(it as Spannable) }
+            tv.clearFocus()
+        }
+    }
     MarkdownText(
         // 先过兼容性修补（表格前补空行之类），只影响显示、不动原文
         markdown = MarkdownCompat.render(markdown),
@@ -49,7 +67,10 @@ internal fun MarkdownBody(
         ),
         syntaxHighlightColor = PaperWarm,
         isTextSelectable = selectable,
-        beforeSetMarkdown = { textView, spanned -> fixTableRelayout(textView, spanned) },
+        beforeSetMarkdown = { tv, spanned ->
+            textView.value = tv
+            fixTableRelayout(tv, spanned)
+        },
     )
 }
 

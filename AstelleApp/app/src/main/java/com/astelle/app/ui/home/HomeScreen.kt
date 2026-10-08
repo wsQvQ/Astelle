@@ -3,6 +3,7 @@ package com.astelle.app.ui.home
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.util.Log
+import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -17,6 +18,10 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -68,6 +73,7 @@ import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -85,8 +91,11 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.rememberGraphicsLayer
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
@@ -191,8 +200,19 @@ fun HomeRoute(
         if (drawerState.isOpen) keyboard?.hide()
     }
 
+    // 打开侧边栏就清掉预览里的选区（用户：选中不该留着）—— tick 递增，下游自己清
+    var selectionClearTick by remember { mutableStateOf(0) }
+    LaunchedEffect(drawerState.isOpen) {
+        if (drawerState.isOpen) selectionClearTick++
+    }
+
+    // ⚠️ 抽屉的开合手势只留**关闭**：M3 的全屏拖拽在内容少（没有滚动）时极易
+    // 误触开抽屉（P0 bug C）。开启入口就是顶栏那个侧边栏按钮，不抢手势。
+    // （试过左缘感应条 + setSystemGestureExclusionRects：被系统「返回」手势吃掉，
+    //  MIUI 上排除矩形不生效 —— 别再走这条弯路）
     ModalNavigationDrawer(
         drawerState = drawerState,
+        gesturesEnabled = drawerState.isOpen,
         scrimColor = Ink.copy(alpha = 0.18f),
         drawerContent = {
             ModalDrawerSheet(
@@ -241,19 +261,22 @@ fun HomeRoute(
             }
         },
     ) {
-        EditorScaffold(
-            state = state,
-            onOpenDrawer = { scope.launch { drawerState.open() } },
-            onTitle = { viewModel.onEvent(HomeUiEvent.TitleChanged(it)) },
-            onContent = { viewModel.onEvent(HomeUiEvent.ContentChanged(it)) },
-            onNewNote = { viewModel.onEvent(HomeUiEvent.NewNote) },
-            onUndo = { viewModel.onEvent(HomeUiEvent.Undo) },
-            onRedo = { viewModel.onEvent(HomeUiEvent.Redo) },
-            onMode = { viewModel.onEvent(HomeUiEvent.SetMode(it)) },
-            onTogglePin = { id -> viewModel.onEvent(HomeUiEvent.TogglePin(id)) },
-            onToggleFavorite = { id -> viewModel.onEvent(HomeUiEvent.ToggleFavorite(id)) },
-            onRequestDelete = { id -> viewModel.onEvent(HomeUiEvent.RequestDelete(id)) },
-        )
+        Box {
+            EditorScaffold(
+                state = state,
+                clearSelectionTick = selectionClearTick,
+                onOpenDrawer = { scope.launch { drawerState.open() } },
+                onTitle = { viewModel.onEvent(HomeUiEvent.TitleChanged(it)) },
+                onContent = { viewModel.onEvent(HomeUiEvent.ContentChanged(it)) },
+                onNewNote = { viewModel.onEvent(HomeUiEvent.NewNote) },
+                onUndo = { viewModel.onEvent(HomeUiEvent.Undo) },
+                onRedo = { viewModel.onEvent(HomeUiEvent.Redo) },
+                onMode = { viewModel.onEvent(HomeUiEvent.SetMode(it)) },
+                onTogglePin = { id -> viewModel.onEvent(HomeUiEvent.TogglePin(id)) },
+                onToggleFavorite = { id -> viewModel.onEvent(HomeUiEvent.ToggleFavorite(id)) },
+                onRequestDelete = { id -> viewModel.onEvent(HomeUiEvent.RequestDelete(id)) },
+            )
+        }
     }
 
     // 删除二次确认
@@ -287,6 +310,7 @@ fun HomeRoute(
 @Composable
 private fun EditorScaffold(
     state: HomeUiState,
+    clearSelectionTick: Int = 0,
     onOpenDrawer: () -> Unit,
     onTitle: (String) -> Unit,
     onContent: (String) -> Unit,
@@ -313,7 +337,7 @@ private fun EditorScaffold(
             fieldValue = TextFieldValue(state.content, selection = TextRange(state.content.length))
         }
     }
-    val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+    val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0 // 保留：键盘态以后还要用
 
     /** 工具栏动作落到纯函数；一次操作 = 一次撤销（走 onContent 一条路） */
     val applyFormat: (FormatAction) -> Unit = { action ->
@@ -544,19 +568,23 @@ private fun EditorScaffold(
                         onContent(new.text)
                     }
                 },
-                modifier = Modifier
-                    .weight(1f)
-                    .imePadding(),
+                // ⚠️ 正文**不加 imePadding**：工具栏已经用 imePadding 把自己顶到键盘上沿、
+                // 也占掉了自己的高度；正文再按输入法高度内缩一次就是双重扣减 ——
+                // 真机上表现为「打字区被顶上去一格，第一行看不见」（P0 bug A）
+                modifier = Modifier.weight(1f),
             )
-            // 格式工具栏贴在键盘上沿；键盘收起就不占地方
-            if (imeVisible) {
-                FormatToolbar(
-                    onAction = { applyFormat(it) },
-                    modifier = Modifier.imePadding(),
-                )
-            }
+            // 格式工具栏**编辑模式常驻**（用户拍板）：收起键盘就消失会连带把它的
+            // ⋯ 菜单一起拆掉 —— 菜单一打开输入法就收起，于是菜单秒开秒关、页面抽搐（P0 bug B）
+            FormatToolbar(
+                onAction = { applyFormat(it) },
+                modifier = Modifier.imePadding(),
+            )
         } else {
-            BodyPreview(content = state.content, modifier = Modifier.weight(1f))
+            BodyPreview(
+                content = state.content,
+                modifier = Modifier.weight(1f),
+                clearSelectionTick = clearSelectionTick,
+            )
         }
 
         // ── 屏幕外的导出画布：只在抓图那几十毫秒里存在 ──
@@ -872,7 +900,11 @@ private fun BodyEditor(
 }
 
 @Composable
-private fun BodyPreview(content: String, modifier: Modifier = Modifier) {
+private fun BodyPreview(
+    content: String,
+    modifier: Modifier = Modifier,
+    clearSelectionTick: Int = 0,
+) {
     val scroll = rememberScrollState()
     Column(
         modifier = modifier
@@ -886,7 +918,11 @@ private fun BodyPreview(content: String, modifier: Modifier = Modifier) {
             // 真 Markdown 渲染。字号 / 行高 / 配色的三个刻意选择，
             // 全写在 MarkdownBody 里 —— 它和导出图片共用同一份配置。
             // selectable：预览里选中哪段复制哪段（用户要的），抄出来是渲染后的纯文本
-            MarkdownBody(markdown = content, selectable = true)
+            MarkdownBody(
+                markdown = content,
+                selectable = true,
+                clearSelectionTick = clearSelectionTick,
+            )
         }
     }
 }
