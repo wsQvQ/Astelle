@@ -196,6 +196,17 @@
     等两帧抓到的是没修完的那张 —— 真机上表格叠字就是这么漏过去的。预览是即时渲染不受影响。
 23. **SAF 保存重名文件会自动改名**（`table-test.png` → `table-test (1).png`）。
     验证导出结果**别只 `ls` 原名**，要按时间列最新的那个 —— 我因此误判过一次「保存失败」。
+24. **软件画布不许画硬件位图**。`GraphicsLayer.toImageBitmap()` 出来的是 HARDWARE 位图：
+    - `Bitmap.copy(config, false)` ✅ 硬件→软件，全机型合法
+    - `softwareCanvas.drawBitmap(hwBitmap, ...)` ❌ 直接抛
+      `IllegalArgumentException: Software rendering doesn't support hardware bitmaps`（真机栈顶原话）
+    我曾以为「画一遍比 copy 稳」，结果整条导出链路在手机上挂了两轮 —— **别用直觉给 API 的可靠性排序**。
+25. **长图要分片抓**：4450 字的图约 1440×20783px，整张读回要么撞 GPU 纹理上限（手机常见 8192）、
+    要么 OOM。`ExportImageCanvas` 按 `MAX_SLICE_PX = 2048` 切片 record（translate 挪进窗口），
+    逐片 `toImageBitmap` → `Bitmap.copy` → 拼进一张软件位图。「800 字能导、4450 字不能」就是尺寸的分界。
+26. **别吞异常**：`runCatching { }.getOrNull()` 把根因吃掉，我因此猜错两轮（先猜 OOM、再猜 copy 有 bug）。
+    现在抓图失败带 `Log.w(..., e)`，报错 toast 带环节标记（`@copy` / `@encode` / `@write`）。
+    有真机在手时，**先抓 logcat 栈顶再动手**，别根据 toast 猜。
 
 ---
 

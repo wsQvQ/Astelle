@@ -2,6 +2,7 @@ package com.astelle.app.ui.home
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -442,6 +443,7 @@ private fun EditorScaffold(
                         // 分片抓、拼整图：长图一次性读回内存会撞 GPU 纹理上限，
                         // 手机上 4450 字的图就是这么在 @copy 环节炸的（见 MAX_SLICE_PX）
                         val shot = if (totalHeight <= 0) {
+                            Log.w("AstelleExport", "画布高度为 0，没东西可抓")
                             null
                         } else {
                             runCatching {
@@ -458,12 +460,21 @@ private fun EditorScaffold(
                                     sliceHeightPx = h
                                     withFrameNanos { }
                                     withFrameNanos { }
-                                    val part = exportLayer.toImageBitmap()
-                                    canvas.drawBitmap(part.asAndroidBitmap(), 0f, y.toFloat(), null)
+                                    // toImageBitmap() 出来的是**硬件位图**，
+                                    // 而软件画布不许直接画硬件位图（真机实测：
+                                    // "Software rendering doesn't support hardware bitmaps"）——
+                                    // 必须先 Bitmap.copy 成软件位图，这一步在所有机型都合法
+                                    val part = exportLayer.toImageBitmap().asAndroidBitmap()
+                                    val sw = part.copy(Bitmap.Config.RGB_565, false)
+                                    canvas.drawBitmap(sw, 0f, y.toFloat(), null)
+                                    sw.recycle()
                                     y += h
                                 }
                                 out
-                            }.getOrNull()
+                            }.getOrElse { e ->
+                                Log.w("AstelleExport", "抓图失败 totalHeight=$totalHeight", e)
+                                null
+                            }
                         }
                         sliceOffsetPx = 0f
                         sliceHeightPx = 0
