@@ -356,22 +356,13 @@ private fun EditorScaffold(
         val cursor = fieldValue.selection.min
         val end = fieldValue.selection.max
         val r = when (action) {
-            // Wrap 走 toggleWrap：工具栏点亮时再按 = 摘掉符号（状态高亮的承诺）
-            is FormatAction.Wrap -> MarkdownEditing.toggleWrap(text, cursor, end, action.open, action.close)
+            is FormatAction.Wrap -> MarkdownEditing.wrap(text, cursor, end, action.open, action.close)
             is FormatAction.LinePrefix -> MarkdownEditing.toggleLinePrefix(text, cursor, action.prefix)
             is FormatAction.Insert -> MarkdownEditing.insert(text, cursor, action.snippet, action.caret)
             FormatAction.ToggleTask -> MarkdownEditing.toggleTask(text, cursor)
-            FormatAction.Indent -> MarkdownEditing.indent(text, cursor, end)
-            FormatAction.Outdent -> MarkdownEditing.outdent(text, cursor, end)
         }
         fieldValue = TextFieldValue(r.text, TextRange(r.selectStart, r.selectEnd))
         onContent(r.text)
-    }
-
-    // 工具栏状态高亮：光标在哪、带着什么格式，键就亮哪把
-    //（remember(fieldValue) 只在文本/选区变化时重算，不逐帧烧）
-    val formatStates = remember(fieldValue) {
-        MarkdownEditing.detectFormatStates(fieldValue.text, fieldValue.selection.min, fieldValue.selection.max)
     }
 
     // ── 导出 ──
@@ -596,10 +587,9 @@ private fun EditorScaffold(
             // 格式工具栏**编辑模式常驻**（用户拍板）：收起键盘就消失会连带把它的
             // ⋯ 菜单一起拆掉 —— 菜单一打开输入法就收起，于是菜单秒开秒关、页面抽搐（P0 bug B）
             FormatToolbar(
-                // 顺序（用户定的）：强调 → 标题 → 块 → 层级
-                groups = remember { listOf(emphasisGroup(), headingGroup(), blockGroup(), indentGroup()) },
+                // 顺序（用户定的）：强调 → 标题 → 块
+                groups = remember { listOf(emphasisGroup(), headingGroup(), blockGroup()) },
                 insertTools = remember { insertTools() },
-                states = formatStates,
                 onAction = { applyFormat(it) },
                 modifier = Modifier.imePadding(),
             )
