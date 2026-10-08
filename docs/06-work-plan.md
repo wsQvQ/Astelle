@@ -207,6 +207,14 @@
 26. **别吞异常**：`runCatching { }.getOrNull()` 把根因吃掉，我因此猜错两轮（先猜 OOM、再猜 copy 有 bug）。
     现在抓图失败带 `Log.w(..., e)`，报错 toast 带环节标记（`@copy` / `@encode` / `@write`）。
     有真机在手时，**先抓 logcat 栈顶再动手**，别根据 toast 猜。
+27. **不要给同一个子树叠加 imePadding**：正文和工具栏都加了，工具栏把自己顶到键盘上沿之后，
+    正文又按输入法高度内缩一次 = 双重扣减，真机上就是「首行被顶掉看不见」（P0 bug A）。
+    谁贴键盘谁加，别人不加。
+28. **别想接管屏幕左右边缘的横滑**：全面屏手势导航里那是「返回」，事件根本到不了 app ——
+    `setSystemGestureExclusionRects` 在 MIUI 上实测不生效，app 直接被滑回桌面。
+    想要「左缘滑开抽屉」要么调 `WindowInsetsCompat` 级别的系统设置，要么放弃（现状：顶栏按钮开）。
+29. **`install -r` + `force-stop` 又骗了我一次**（坑 1 说过了）：新代码的埋点一条日志都不出，
+    我一度以为 Compose 没跑那段代码。老老实实 `uninstall` + `install`。
 
 ---
 
