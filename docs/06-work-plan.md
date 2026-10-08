@@ -45,6 +45,13 @@
 - 入口：`⋯` 菜单「导出」→ 二级（Markdown 文件 / 图片），沿用「移动到分类」那招：同一个 `DropdownMenu` 换内容
 - ⚠️ 导出是**读操作**：全程只读内存 state，绝不落库、绝不碰 `updatedAt`
 
+**⑩ Markdown 格式工具栏** — 📋 计划稿见 [`docs/ui/06-format-toolbar.md`](ui/06-format-toolbar.md)，等用户拍板 3 件事再动工
+- 位置：键盘弹出时贴在键盘上沿，收起即隐藏；平板全展开、手机横向滚动
+- v1 清单：H1~H3 / 加粗 / 斜体 / 删除线 / 无序·有序·任务列表 / 引用 / 行内代码 / 代码块 / 链接 / 表格模板 / 分割线
+- 核心交互：有选区包住、无选中插模板光标居中、行级前缀**可切换**、一次操作 = 一次撤销
+- 唯一结构性改动：`BasicTextField` 从 `String` 换 `TextFieldValue`（要拿光标）
+- 待拍板：下划线/高亮要不要（非标准 Markdown）；表格模板要不要；状态高亮放 v1 还是 v2
+
 **④ 文件夹支持置顶**
 - `folders` 表加 `isPinned` 列 → **DB version 4→5**
 - ⚠️ `fallbackToDestructiveMigration()` 还在，升版本会清空数据。用户已确认**测试阶段无所谓**，
