@@ -7,6 +7,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -52,6 +53,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -108,10 +110,17 @@ internal fun FormatToolbar(
     onAction: (FormatAction) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // 对齐（用户 2026-10-08 晚定）：常规**居中**；大屏（侧栏地盘）**靠右**；
+    // **从不靠左** —— 左边是抽屉/侧栏（3️⃣ 平板常驻侧栏）的家。
+    // 大屏的尺和 3️⃣ 同一把：宽>高 且 ≥1100dp（RikkaHub 规则），侧栏上线后不用改这里
+    val config = LocalConfiguration.current
+    val largeScreen =
+        config.screenWidthDp > config.screenHeightDp && config.screenWidthDp >= 1100
     Row(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 10.dp, vertical = 6.dp),
+        horizontalArrangement = if (largeScreen) Arrangement.End else Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // ── 感叹号的「竖」：胶囊条（贴内容宽，超出则胶囊内滚动） ──
