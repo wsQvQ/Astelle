@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.net.Uri
 import android.util.Log
+import java.io.File
 import java.io.IOException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -49,46 +50,68 @@ object ExportFileWriter {
         withContext(Dispatchers.IO) {
             val stream = open(context, uri)
                 ?: return@withContext ExportResult.Failed("打不开目标文件")
-            val software = try {
-                softwareCopy(bitmap)
-            } catch (e: Throwable) {
-                Log.w(TAG, "位图转换失败", e)
-                return@withContext ExportResult.Failed("图片转换失败：${e.javaClass.simpleName}@copy")
-            }
+            val tmp = File(context.cacheDir, "astelle-export.png")
             try {
-                val ok = stream.use { software.compress(Bitmap.CompressFormat.PNG, 100, it) }
-                if (ok) ExportResult.Ok else ExportResult.Failed("图片压缩失败@compress")
+                // ① 先编码进私有临时文件：把「编码器」和「文档提供方的流」两件事拆开，
+                //    谁出错一眼看出来（@encode / @write）
+                if (!encodePng(bitmap, tmp)) {
+                    return@withContext ExportResult.Failed("图片编码失败@encode")
+                }
+                // ② 再分块拷进 SAF 流。分块比编码器直写温和，部分提供方的流
+                //    扛不住大块写入（手机上抛过 NullPointerException）
+                tmp.inputStream().use { input ->
+                    stream.use { out -> input.copyTo(out, bufferSize = 8 * 1024) }
+                }
+                ExportResult.Ok
             } catch (e: Throwable) {
-                // ⚠️ 出错环节写进文案（@copy / @compress）：手机上抛过 NullPointerException，
-                // 光看异常名定位不到，必须知道卡在哪一步
-                Log.w(TAG, "压缩写入失败", e)
-                ExportResult.Failed("图片压缩失败：${e.javaClass.simpleName}@compress")
+                Log.w(TAG, "写入失败", e)
+                ExportResult.Failed("图片写入失败：${e.javaClass.simpleName}@write")
+            } finally {
+                tmp.delete()
             }
         }
 
     /**
-     * 硬件位图先转成软件位图。
+     * 编码 PNG 到 [target]，失败自动换配置再试。
+     *
+     * 配置选择：短图用 **ARGB_8888**（无损、内嵌照片不掉色）；
+     * 长图（>4096px）先试 **RGB_565** —— 1440×12000 的图 34MB vs 69MB，手机吃不消后者，
+     * 纸色底 + 文字看不出差别。另一种配置作为兜底：RGB_565→PNG 在不同 Skia 版本上
+     * 行为不一致，而 ARGB 占内存大，各有各的坑，互相补。
+     * 两条路都不行才认输，报 @encode。
+     */
+    private fun encodePng(bitmap: Bitmap, target: File): Boolean {
+        val preferred =
+            if (bitmap.height > TALL_IMAGE_PX) Bitmap.Config.RGB_565 else Bitmap.Config.ARGB_8888
+        val fallback =
+            if (preferred == Bitmap.Config.RGB_565) Bitmap.Config.ARGB_8888 else Bitmap.Config.RGB_565
+        for (config in listOf(preferred, fallback)) {
+            try {
+                val software = toSoftware(bitmap, config)
+                val ok = target.outputStream().use { software.compress(Bitmap.CompressFormat.PNG, 100, it) }
+                software.recycle()
+                if (ok) return true
+            } catch (e: Throwable) {
+                Log.w(TAG, "encode($config) 失败", e)
+            }
+        }
+        return false
+    }
+
+    /**
+     * 硬件位图转成软件位图。
      *
      * `GraphicsLayer.toImageBitmap()` 产出的是 **HARDWARE 配置**位图（compose 内部
      * `Bitmap.createBitmap(Picture)` 造的），而 `Bitmap.compress()` 要锁像素，
      * 硬件位图锁不了、直接抛异常 —— 真机上「md 导得出、图导不出」就栽在这。
      *
      * 转换走 **`Canvas.drawBitmap`** 而不是 `Bitmap.copy`：copy 在部分机型上对
-     * 硬件位图行为不一致（手机上抛过 NullPointerException），画一遍是更老更稳的路子。
-     *
-     * **长图用 RGB_565**：1440×12000 的图 ARGB 要 69MB，转换期间新旧两张并存
-     * 接近 140MB，手机上吃不消（实测 800 字能导、4450 字不能）。RGB_565 只要一半，
-     * 纸色底 + 文字看不出差别，只有内嵌照片会有轻微色带。
-     * 转完立刻 recycle 源位图，后面压缩阶段只留一张。
+     * 硬件位图行为不一致，画一遍是更老更稳的路子（真机验过这步没问题）。
+     * 源位图**不在这里 recycle** —— 编码可能要试两次，用完再放。
      */
-    private fun softwareCopy(bitmap: Bitmap): Bitmap {
-        val config =
-            if (bitmap.height > TALL_IMAGE_PX) Bitmap.Config.RGB_565 else Bitmap.Config.ARGB_8888
+    private fun toSoftware(bitmap: Bitmap, config: Bitmap.Config): Bitmap {
         val copy = Bitmap.createBitmap(bitmap.width, bitmap.height, config)
         Canvas(copy).drawBitmap(bitmap, 0f, 0f, null)
-        if (bitmap.config == Bitmap.Config.HARDWARE) {
-            runCatching { bitmap.recycle() }
-        }
         return copy
     }
 
