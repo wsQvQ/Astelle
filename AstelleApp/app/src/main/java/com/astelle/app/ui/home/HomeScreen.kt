@@ -335,6 +335,8 @@ private fun EditorScaffold(
         SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()).format(Date(t))
     }
     var moreMenuOpen by remember { mutableStateOf(false) }
+    // 「刚被收起」时间戳：挡住弹层收起和按钮点击的竞态连击（见 onMore）
+    var moreMenuDismissedAt by remember { mutableStateOf(0L) }
 
     // ── 编辑框持有 TextFieldValue ──
     // 工具栏要拿光标/选区做「包住选中」「插模板光标落点」，String 拿不到这些。
@@ -473,8 +475,21 @@ private fun EditorScaffold(
             isDirty = state.isDirty,
             isSaving = state.isSaving,
             moreMenuOpen = moreMenuOpen,
-            onMore = { moreMenuOpen = true },
-            onDismissMore = { moreMenuOpen = false },
+            onMore = {
+                // 竞态（用户 2026-10-08 报的 bug）：菜单开着再点「更多」，弹层先按
+                // 「点外面」把自己收掉、按钮的点击紧跟着又把菜单**重新打开**。
+                // 再点应该**收回**才对 —— 用「刚被收起」250ms 闸门挡掉那次连击
+                val now = System.currentTimeMillis()
+                if (moreMenuOpen) {
+                    moreMenuOpen = false
+                } else if (now - moreMenuDismissedAt > 250) {
+                    moreMenuOpen = true
+                }
+            },
+            onDismissMore = {
+                moreMenuOpen = false
+                moreMenuDismissedAt = System.currentTimeMillis()
+            },
             currentNoteId = state.currentNoteId,
             isPinned = state.isPinned,
             isFavorite = state.isFavorite,

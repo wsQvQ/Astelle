@@ -74,6 +74,14 @@ val Accent = Color(0xFFB4651B)
 val AccentMist = lerp(Paper, Accent, 0.08f)
 
 /**
+ * 按压闪光（用户 2026-10-08：「好看一点但比较浅」）：比 [AccentMist] 再暖一档的浅橙。
+ *
+ * ⚠️ 动画淡出的透明态必须用 `PressGlow.copy(alpha = 0f)`，**不能用 `Color.Transparent`** ——
+ * 后者是透明**黑**，颜色插值会穿过灰色中间帧，用户看到的就是「闪一下灰的」（实测翻车点）。
+ */
+val PressGlow = lerp(Paper, Accent, 0.13f)
+
+/**
  * 分类容器的组头 = [Accent] 叠 7% 到 [Paper] 上，体 = 叠 3%。
  *
  * 同样从 [Accent] 推导（`lerp(paper, accent, a)` 就是「accent 以 alpha a 叠在

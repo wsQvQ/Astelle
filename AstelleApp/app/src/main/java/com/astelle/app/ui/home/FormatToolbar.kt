@@ -62,7 +62,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.PopupProperties
 import com.astelle.app.ui.components.MenuRow
 import com.astelle.app.ui.theme.Accent
-import com.astelle.app.ui.theme.AccentMist
+import com.astelle.app.ui.theme.PressGlow
 import com.astelle.app.ui.theme.Divider
 import com.astelle.app.ui.theme.Muted
 import com.astelle.app.ui.theme.SurfaceFloat
@@ -174,12 +174,15 @@ internal fun FormatToolbar(
 
         // ── 感叹号的「点」：＋ 球，插入型内容的入口（和胶囊同款底色描边） ──
         var insertOpen by remember { mutableStateOf(false) }
+        // 竞态闸门（和 ⋯ 菜单同款 bug）：弹层「点外面收起」+ 按钮点击会把菜单又打开；
+        // 「刚被收起」250ms 内的点击不重开 —— 再点球 = 收回
+        var insertDismissedAt by remember { mutableStateOf(0L) }
         Box {
             val interaction = remember { MutableInteractionSource() }
             val pressed by interaction.collectIsPressedAsState()
             // 点一下亮起、松手 120ms 淡出（用户定：只要瞬间动效，不要常亮）
             val ballBg by animateColorAsState(
-                targetValue = if (pressed) AccentMist else SurfaceFloat,
+                targetValue = if (pressed) PressGlow else SurfaceFloat,
                 animationSpec = tween(durationMillis = 120),
                 label = "ballBg",
             )
@@ -189,8 +192,15 @@ internal fun FormatToolbar(
                     .clip(CircleShape)
                     .background(ballBg)
                     .border(1.dp, Divider, CircleShape)
-                    // 再点一次要**收回**，不是反复打开（用户提的）
-                    .clickable(interactionSource = interaction, indication = null) { insertOpen = !insertOpen },
+                    // 再点一次要**收回**，不是反复打开（用户提的；竞态用闸门挡）
+                    .clickable(interactionSource = interaction, indication = null) {
+                        val now = System.currentTimeMillis()
+                        if (insertOpen) {
+                            insertOpen = false
+                        } else if (now - insertDismissedAt > 250) {
+                            insertOpen = true
+                        }
+                    },
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
@@ -204,7 +214,10 @@ internal fun FormatToolbar(
             }
             DropdownMenu(
                 expanded = insertOpen,
-                onDismissRequest = { insertOpen = false },
+                onDismissRequest = {
+                    insertOpen = false
+                    insertDismissedAt = System.currentTimeMillis()
+                },
                 shape = RoundedCornerShape(14.dp),
                 containerColor = SurfaceFloat,
                 border = androidx.compose.foundation.BorderStroke(1.dp, Divider),
@@ -252,8 +265,10 @@ private fun ToolButton(
     onRelease: () -> Unit,
     onClick: () -> Unit,
 ) {
+    // ⚠️ 透明态用 PressGlow.copy(alpha = 0f) 而不是 Color.Transparent（透明黑）——
+    // 否则淡出时颜色插值穿过灰色中间帧，用户看到「闪一下灰的」（翻过车）
     val bg by animateColorAsState(
-        targetValue = if (pressed) AccentMist else Color.Transparent,
+        targetValue = if (pressed) PressGlow else PressGlow.copy(alpha = 0f),
         animationSpec = tween(durationMillis = 120),
         label = "toolBg",
     )
