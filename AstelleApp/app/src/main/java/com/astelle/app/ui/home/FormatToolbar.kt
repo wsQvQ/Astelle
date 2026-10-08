@@ -3,6 +3,8 @@ package com.astelle.app.ui.home
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
@@ -13,8 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -39,6 +40,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -46,8 +48,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -57,7 +61,6 @@ import com.astelle.app.ui.theme.Accent
 import com.astelle.app.ui.theme.AccentMist
 import com.astelle.app.ui.theme.Divider
 import com.astelle.app.ui.theme.Muted
-import com.astelle.app.ui.theme.Paper
 import com.astelle.app.ui.theme.SurfaceFloat
 
 /** 工具栏动作：全是纯数据，落到 MarkdownEditing 里执行 */
@@ -84,12 +87,19 @@ data class ToolbarTool(
 data class ToolbarGroup(val tools: List<ToolbarTool>)
 
 /**
- * 横着的感叹号：一条横向工具条（感叹号的竖） + 右边一颗圆球（感叹号的点）。
+ * 横着的感叹号：一条胶囊（感叹号的竖） + 右边一颗圆球（感叹号的点），球和条隔 10dp。
  *
- * - **条**：文字格式，分组 + 竖线 —— H1/H2/H3 一组、B/I/U/删除线 一组
- * - **球**：`＋` = 插入型内容（链接/图片/音频/表格/分割线/代码块），单独一套 UI
+ * - **条**：文字格式，分组 —— B/I/U/删除线 一组、H1/H2/H3 一组、列表/有序/任务/引用 一组
+ * - **球**：插入型内容入口（链接/图片/音频/代码块/表格/分割线），单独一套 UI
  *
- * 材质：暖米底 `SurfaceFloat` + 发丝线 `Divider` + 静音图标，和菜单/卡片同一套语言。
+ * 材质（用户 2026-10-08 晚定稿，按外观图）：
+ * - **胶囊有底有描边**：`SurfaceFloat` 暖底 + `Divider` 发丝描边 + 24dp 圆角，
+ *   **宽度贴着按钮内容走**（⚠️ 不拉满整行 —— 拉满就成了用户不要的「矩形底」）；
+ *   组间竖线保留在胶囊内；**胶囊周边没有任何图层**，直接悬在正文上
+ * - **球有圆底**：同款 `SurfaceFloat` + 描边
+ * - 位置不变：贴键盘上沿、和输入法留一小段悬空气（悬空感）
+ * 按压反馈：`AccentMist` 暖底（颜色只表达状态）。
+ * 内容超出可用宽度时胶囊内横向滚动，左缘 `SurfaceFloat` 渐隐提示「右边还有」。
  */
 @Composable
 internal fun FormatToolbar(
@@ -104,29 +114,54 @@ internal fun FormatToolbar(
             .padding(horizontal = 10.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // ── 感叹号的「竖」：横向工具条 ──
-        Row(
+        // ── 感叹号的「竖」：胶囊条（贴内容宽，超出则胶囊内滚动） ──
+        val scrollState = rememberScrollState()
+        val canScrollBack by remember { derivedStateOf { scrollState.value > 0 } }
+        var pressedLabel by remember { mutableStateOf<String?>(null) }
+        Box(
             modifier = Modifier
-                .weight(1f)
                 .height(48.dp)
                 .clip(RoundedCornerShape(24.dp))
                 .background(SurfaceFloat)
                 .border(1.dp, Divider, RoundedCornerShape(24.dp)),
-            verticalAlignment = Alignment.CenterVertically,
+            contentAlignment = Alignment.CenterStart,
         ) {
-            LazyRow(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier.horizontalScroll(scrollState),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 groups.forEachIndexed { index, group ->
-                    if (index > 0) item(key = "sep$index") { ToolSeparator() }
-                    items(group.tools, key = { it.label }) { tool ->
-                        ToolButton(tool.label, tool.icon) { onAction(tool.action) }
+                    if (index > 0) ToolSeparator()
+                    group.tools.forEach { tool ->
+                        ToolButton(
+                            tool.label,
+                            tool.icon,
+                            pressed = pressedLabel == tool.label,
+                            onPress = { pressedLabel = tool.label },
+                            onRelease = { pressedLabel = null },
+                        ) { onAction(tool.action) }
                     }
                 }
+            }
+            // 左缘渐隐 = 「右边还有」（只在真能往回滚时出现）；渐隐到胶囊底色，不出胶囊
+            if (canScrollBack) {
+                Box(
+                    Modifier
+                        .align(Alignment.CenterStart)
+                        .width(16.dp)
+                        .height(48.dp)
+                        .background(
+                            Brush.horizontalGradient(
+                                colors = listOf(SurfaceFloat, Color.Transparent),
+                            ),
+                        ),
+                )
             }
         }
 
         Spacer(Modifier.width(10.dp))
 
-        // ── 感叹号的「点」：＋ 球，插入型内容的入口 ──
+        // ── 感叹号的「点」：＋ 球，插入型内容的入口（和胶囊同款底色描边） ──
         var insertOpen by remember { mutableStateOf(false) }
         Box {
             val interaction = remember { MutableInteractionSource() }
@@ -172,6 +207,7 @@ internal fun FormatToolbar(
     }
 }
 
+/** 组间竖线：胶囊内的分界（用户定稿：竖线保留） */
 @Composable
 private fun ToolSeparator() {
     Box(
@@ -183,21 +219,35 @@ private fun ToolSeparator() {
     )
 }
 
-/** 44dp 触控、20dp 图标、静音色、按压暖底 —— 和顶栏按钮同一套手感 */
+/**
+ * 44dp 触控、20dp 图标、静音色、按压暖底 —— 和顶栏按钮同一套手感。
+ * 按压反馈是「按下时 `AccentMist` 圆角块」：用 pressed 入参而不是
+ * `collectIsPressedAsState`，拖动/滚动取消时能可靠熄灭
+ */
 @Composable
 private fun ToolButton(
     label: String,
     icon: ImageVector?,
+    pressed: Boolean,
+    onPress: () -> Unit,
+    onRelease: () -> Unit,
     onClick: () -> Unit,
 ) {
-    val interaction = remember { MutableInteractionSource() }
-    val pressed by interaction.collectIsPressedAsState()
     Box(
         modifier = Modifier
             .size(44.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(if (pressed) AccentMist else Color.Transparent)
-            .clickable(interactionSource = interaction, indication = null, onClick = onClick),
+            .pointerInput(label) {
+                detectTapGestures(
+                    onPress = {
+                        onPress()
+                        tryAwaitRelease()
+                        onRelease()
+                    },
+                    onTap = { onClick() },
+                )
+            },
         contentAlignment = Alignment.Center,
     ) {
         if (icon != null) {
