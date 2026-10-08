@@ -1,5 +1,6 @@
 package com.astelle.app.ui.home
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -20,6 +21,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.FormatIndentDecrease
+import androidx.compose.material.icons.automirrored.outlined.FormatIndentIncrease
 import androidx.compose.material.icons.automirrored.outlined.FormatListBulleted
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Code
@@ -51,6 +54,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
@@ -58,11 +62,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.PopupProperties
+import com.astelle.app.data.editor.FormatKey
+import com.astelle.app.data.editor.FormatStates
 import com.astelle.app.ui.components.MenuRow
 import com.astelle.app.ui.theme.Accent
 import com.astelle.app.ui.theme.AccentMist
 import com.astelle.app.ui.theme.Divider
 import com.astelle.app.ui.theme.Muted
+import com.astelle.app.ui.theme.Paper
 import com.astelle.app.ui.theme.SurfaceFloat
 
 /** 工具栏动作：全是纯数据，落到 MarkdownEditing 里执行 */
@@ -71,6 +78,8 @@ sealed interface FormatAction {
     data class LinePrefix(val prefix: String) : FormatAction
     data class Insert(val snippet: String, val caret: Int) : FormatAction
     data object ToggleTask : FormatAction
+    data object Indent : FormatAction
+    data object Outdent : FormatAction
 }
 
 /**
@@ -83,6 +92,7 @@ data class ToolbarTool(
     val label: String,
     val icon: ImageVector? = null,   // 没有 icon 就用 label 当文字键（H1/H2/H3）
     val action: FormatAction,
+    val key: FormatKey? = null,      // 状态键：光标处已有这个格式就点亮
 )
 
 /** 一组工具，组与组之间用竖线分开 */
@@ -100,13 +110,15 @@ data class ToolbarGroup(val tools: List<ToolbarTool>)
  *   组间竖线保留在胶囊内；**胶囊周边没有任何图层**，直接悬在正文上
  * - **球有圆底**：同款 `SurfaceFloat` + 描边
  * - 位置不变：贴键盘上沿、和输入法留一小段悬空气（悬空感）
- * 按压反馈：`AccentMist` 暖底（颜色只表达状态）。
+ * 按压反馈：`AccentMist` 暖底；**状态高亮**（用户点名的「高级感」）：光标处已有某格式，
+ * 对应键常亮 —— 暖底 + 图标转 `Accent`，120ms 呼吸式过渡；再按 = 取消（颜色只表达状态）。
  * 内容超出可用宽度时胶囊内横向滚动，左缘 `SurfaceFloat` 渐隐提示「右边还有」。
  */
 @Composable
 internal fun FormatToolbar(
     groups: List<ToolbarGroup>,
     insertTools: List<ToolbarTool>,
+    states: FormatStates,
     onAction: (FormatAction) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -145,6 +157,7 @@ internal fun FormatToolbar(
                         ToolButton(
                             tool.label,
                             tool.icon,
+                            active = states.isActive(tool.key),
                             pressed = pressedLabel == tool.label,
                             onPress = { pressedLabel = tool.label },
                             onRelease = { pressedLabel = null },
@@ -231,22 +244,34 @@ private fun ToolSeparator() {
 /**
  * 44dp 触控、20dp 图标、静音色、按压暖底 —— 和顶栏按钮同一套手感。
  * 按压反馈是「按下时 `AccentMist` 圆角块」：用 pressed 入参而不是
- * `collectIsPressedAsState`，拖动/滚动取消时能可靠熄灭
+ * `collectIsPressedAsState`，拖动/滚动取消时能可靠熄灭。
+ *
+ * **状态高亮**：active = 光标处已有这个格式 —— 常亮暖底 + 图标转 `Accent`，
+ * 120ms 渐变过渡（亮/灭要呼吸，不要闪）；按压在亮起态上再深一档，反馈不丢。
+ * 文字键（H1/H2/H3）本来就是 `Accent`，亮起只加暖底。
  */
 @Composable
 private fun ToolButton(
     label: String,
     icon: ImageVector?,
+    active: Boolean,
     pressed: Boolean,
     onPress: () -> Unit,
     onRelease: () -> Unit,
     onClick: () -> Unit,
 ) {
+    val targetBg = when {
+        pressed -> if (active) lerp(Paper, Accent, 0.11f) else AccentMist
+        active -> AccentMist
+        else -> Color.Transparent
+    }
+    val bg by animateColorAsState(targetBg, label = "toolBg")
+    val tint by animateColorAsState(if (active) Accent else Muted, label = "toolTint")
     Box(
         modifier = Modifier
             .size(44.dp)
             .clip(RoundedCornerShape(12.dp))
-            .background(if (pressed) AccentMist else Color.Transparent)
+            .background(bg)
             .pointerInput(label) {
                 detectTapGestures(
                     onPress = {
@@ -260,7 +285,7 @@ private fun ToolButton(
         contentAlignment = Alignment.Center,
     ) {
         if (icon != null) {
-            Icon(icon, contentDescription = label, tint = Muted, modifier = Modifier.size(20.dp))
+            Icon(icon, contentDescription = label, tint = tint, modifier = Modifier.size(20.dp))
         } else {
             Text(label, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = Accent)
         }
@@ -272,29 +297,37 @@ private fun ToolButton(
 /** 第一类：标题 */
 internal fun headingGroup() = ToolbarGroup(
     listOf(
-        ToolbarTool("H1", action = FormatAction.LinePrefix("# ")),
-        ToolbarTool("H2", action = FormatAction.LinePrefix("## ")),
-        ToolbarTool("H3", action = FormatAction.LinePrefix("### ")),
+        ToolbarTool("H1", action = FormatAction.LinePrefix("# "), key = FormatKey.H1),
+        ToolbarTool("H2", action = FormatAction.LinePrefix("## "), key = FormatKey.H2),
+        ToolbarTool("H3", action = FormatAction.LinePrefix("### "), key = FormatKey.H3),
     ),
 )
 
 /** 第二类：行内强调 */
 internal fun emphasisGroup() = ToolbarGroup(
     listOf(
-        ToolbarTool("B", Icons.Outlined.FormatBold, FormatAction.Wrap("**")),
-        ToolbarTool("I", Icons.Outlined.FormatItalic, FormatAction.Wrap("*")),
-        ToolbarTool("U", Icons.Outlined.FormatUnderlined, FormatAction.Wrap("<u>", "</u>")),
-        ToolbarTool("S", Icons.Outlined.FormatStrikethrough, FormatAction.Wrap("~~")),
+        ToolbarTool("B", Icons.Outlined.FormatBold, FormatAction.Wrap("**"), FormatKey.BOLD),
+        ToolbarTool("I", Icons.Outlined.FormatItalic, FormatAction.Wrap("*"), FormatKey.ITALIC),
+        ToolbarTool("U", Icons.Outlined.FormatUnderlined, FormatAction.Wrap("<u>", "</u>"), FormatKey.UNDERLINE),
+        ToolbarTool("S", Icons.Outlined.FormatStrikethrough, FormatAction.Wrap("~~"), FormatKey.STRIKE),
     ),
 )
 
 /** 第三类：块 */
 internal fun blockGroup() = ToolbarGroup(
     listOf(
-        ToolbarTool("列表", Icons.AutoMirrored.Outlined.FormatListBulleted, FormatAction.LinePrefix("- ")),
-        ToolbarTool("有序", Icons.Outlined.FormatListNumbered, FormatAction.LinePrefix("1. ")),
-        ToolbarTool("任务", Icons.Outlined.TaskAlt, FormatAction.ToggleTask),
-        ToolbarTool("引用", Icons.Outlined.FormatQuote, FormatAction.LinePrefix("> ")),
+        ToolbarTool("列表", Icons.AutoMirrored.Outlined.FormatListBulleted, FormatAction.LinePrefix("- "), FormatKey.BULLET),
+        ToolbarTool("有序", Icons.Outlined.FormatListNumbered, FormatAction.LinePrefix("1. "), FormatKey.ORDERED),
+        ToolbarTool("任务", Icons.Outlined.TaskAlt, FormatAction.ToggleTask, FormatKey.TASK),
+        ToolbarTool("引用", Icons.Outlined.FormatQuote, FormatAction.LinePrefix("> "), FormatKey.QUOTE),
+    ),
+)
+
+/** 第四类：列表层级（缩进/反缩进）—— 动作型，不参与状态点亮 */
+internal fun indentGroup() = ToolbarGroup(
+    listOf(
+        ToolbarTool("缩进", Icons.AutoMirrored.Outlined.FormatIndentIncrease, FormatAction.Indent),
+        ToolbarTool("反缩进", Icons.AutoMirrored.Outlined.FormatIndentDecrease, FormatAction.Outdent),
     ),
 )
 
