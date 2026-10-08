@@ -77,6 +77,8 @@ sealed interface FormatAction {
     data object ToggleTask : FormatAction
     data object Indent : FormatAction
     data object Outdent : FormatAction
+    /** 选图（⑫）：不是插模板 —— 拉起系统相册，选中后异步插图片链接 */
+    data object PickImage : FormatAction
 }
 
 /**
@@ -343,7 +345,7 @@ internal fun indentGroup() = ToolbarGroup(
 /** ＋球里：插入型内容 */
 internal fun insertTools() = listOf(
     ToolbarTool("链接", Icons.Outlined.Link, FormatAction.Insert("[]()", 1)),
-    ToolbarTool("图片", Icons.Outlined.Image, FormatAction.Insert("![]()", 2)),
+    ToolbarTool("图片", Icons.Outlined.Image, FormatAction.PickImage),
     ToolbarTool("音频", Icons.Outlined.Mic, FormatAction.Insert("\n[音频]()\n", 5)),
     ToolbarTool("代码块", Icons.Outlined.DataObject, FormatAction.Insert("\n```\n\n```\n", 6)),
     ToolbarTool("表格", Icons.Outlined.TableChart, FormatAction.Insert(TABLE_TEMPLATE, TABLE_CARET)),

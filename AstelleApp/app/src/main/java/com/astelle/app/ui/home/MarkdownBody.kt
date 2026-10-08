@@ -10,8 +10,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.sp
+import coil.ImageLoader
+import com.astelle.app.data.image.ImageLinks
 import com.astelle.app.data.markdown.MarkdownCompat
 import com.astelle.app.ui.theme.Accent
 import com.astelle.app.ui.theme.Ink
@@ -48,6 +51,9 @@ internal fun MarkdownBody(
 ) {
     // 拿住底层 TextView：清选区要直接对它操作（MarkdownText 只给 set 的钩子）
     val textView = remember { mutableStateOf<TextView?>(null) }
+    // 图片渲染（⑫）：compose-markdown 内部挂 CoilImagesPlugin；本地图片先解析成 file:// 再喂给它
+    val context = LocalContext.current
+    val imageLoader = remember(context) { ImageLoader.Builder(context).build() }
     LaunchedEffect(clearSelectionTick) {
         if (clearSelectionTick > 0) {
             val tv = textView.value ?: return@LaunchedEffect
@@ -56,10 +62,13 @@ internal fun MarkdownBody(
         }
     }
     MarkdownText(
-        // 先过兼容性修补（表格前补空行之类），只影响显示、不动原文
-        markdown = MarkdownCompat.render(markdown),
+        // 先过兼容性修补（表格前补空行之类）+ 图片路径解析，只影响显示、不动原文
+        markdown = MarkdownCompat.render(
+            ImageLinks.resolveForDisplay(markdown, context.filesDir.absolutePath),
+        ),
         modifier = modifier.fillMaxWidth(),
         linkColor = Accent,
+        imageLoader = imageLoader,
         style = TextStyle(
             color = Ink,
             fontSize = 16.sp,

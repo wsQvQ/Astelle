@@ -112,7 +112,11 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.astelle.app.R
+import androidx.activity.result.PickVisualMediaRequest
 import com.astelle.app.data.editor.MarkdownEditing
+import com.astelle.app.data.image.ImageStore
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.astelle.app.data.exporter.ExportFileWriter
 import com.astelle.app.data.exporter.ExportResult
 import com.astelle.app.data.exporter.MarkdownExport
@@ -352,6 +356,29 @@ private fun EditorScaffold(
     @OptIn(ExperimentalLayoutApi::class)
     val imeVisible = WindowInsets.isImeVisible
 
+    // ── 图片插入（⑫ 图片管道）：相册选图 → 收进私有目录 → 正文插相对路径 ──
+    // 不存 content://（临时授权重启就废）；压缩在 IO 线程，别卡打字
+    val context = LocalContext.current
+    val importScope = rememberCoroutineScope()
+    val imagePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+    ) { uri ->
+        if (uri != null) {
+            importScope.launch(Dispatchers.IO) {
+                val relative = ImageStore.importImage(context, uri)
+                if (relative != null) {
+                    withContext(Dispatchers.Main) {
+                        val text = fieldValue.text
+                        val cursor = fieldValue.selection.min
+                        val r = MarkdownEditing.insert(text, cursor, "![]($relative)")
+                        fieldValue = TextFieldValue(r.text, TextRange(r.selectStart, r.selectEnd))
+                        onContent(r.text)
+                    }
+                }
+            }
+        }
+    }
+
     /** 工具栏动作落到纯函数；一次操作 = 一次撤销（走 onContent 一条路） */
     val applyFormat: (FormatAction) -> Unit = { action ->
         val text = fieldValue.text
@@ -364,16 +391,22 @@ private fun EditorScaffold(
             FormatAction.ToggleTask -> MarkdownEditing.toggleTask(text, cursor)
             FormatAction.Indent -> MarkdownEditing.indent(text, cursor, end)
             FormatAction.Outdent -> MarkdownEditing.outdent(text, cursor, end)
+            // 选图是异步的：拉起系统相册，选中后在回调里插链接（返回 null，不当场改文本）
+            FormatAction.PickImage -> {
+                imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                null
+            }
         }
-        fieldValue = TextFieldValue(r.text, TextRange(r.selectStart, r.selectEnd))
-        onContent(r.text)
+        if (r != null) {
+            fieldValue = TextFieldValue(r.text, TextRange(r.selectStart, r.selectEnd))
+            onContent(r.text)
+        }
     }
 
     // ── 导出 ──
     // Markdown 只是文本拼接，点保存框那一刻现生成就行；
     // 图片要临时挂一块 1440px 的屏幕外画布抓图（见 ExportImageCanvas）。
     // 整条链路只读内存里的 state，绝不落库 —— 导出是读操作，不该刷新 updatedAt
-    val context = LocalContext.current
     val exportScope = rememberCoroutineScope()
     val exportLayer = rememberGraphicsLayer()
     var exportCanvasShown by remember { mutableStateOf(false) }

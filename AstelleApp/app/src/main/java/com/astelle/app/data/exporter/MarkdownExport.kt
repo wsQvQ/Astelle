@@ -1,5 +1,7 @@
 package com.astelle.app.data.exporter
 
+import com.astelle.app.data.image.ImageLinks
+
 import com.astelle.app.domain.model.Note
 
 /**
@@ -29,7 +31,9 @@ object MarkdownExport {
 
     fun toMarkdown(title: String, content: String): String {
         val heading = title.trim()
-        val body = normalize(content).trim()
+        // .md 只导文本（⑫ 拍板）：图片换 [图片] 占位 —— 导出目录里没有 images/，
+        // 留相对路径就是死链，占位符更诚实
+        val body = ImageLinks.toMarkdownExport(normalize(content)).trim()
         return buildList {
             if (heading.isNotEmpty()) add("# $heading")
             if (body.isNotEmpty()) add(body)
