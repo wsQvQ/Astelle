@@ -1,5 +1,7 @@
 package com.astelle.app.ui.home
 
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -77,7 +79,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.graphicsLayer
@@ -305,8 +306,11 @@ private fun EditorScaffold(
     val exportScope = rememberCoroutineScope()
     val exportLayer = rememberGraphicsLayer()
     var exportCanvasShown by remember { mutableStateOf(false) }
+    var exportCanvasHeightPx by remember { mutableStateOf(0) }
+    var sliceOffsetPx by remember { mutableStateOf(0f) }
+    var sliceHeightPx by remember { mutableStateOf(0) }
     var pendingMarkdown by remember { mutableStateOf<String?>(null) }
-    var pendingPng by remember { mutableStateOf<ImageBitmap?>(null) }
+    var pendingPng by remember { mutableStateOf<Bitmap?>(null) }
     var pendingBaseName by remember { mutableStateOf(MarkdownExport.DEFAULT_NAME) }
 
     val exportMdLauncher = rememberLauncherForActivityResult(
@@ -328,7 +332,7 @@ private fun EditorScaffold(
         val bitmap = pendingPng
         if (uri == null || bitmap == null) return@rememberLauncherForActivityResult
         exportScope.launch {
-            val message = when (val result = ExportFileWriter.writePng(context, uri, bitmap.asAndroidBitmap())) {
+            val message = when (val result = ExportFileWriter.writePng(context, uri, bitmap)) {
                 is ExportResult.Ok -> "已导出图片"
                 is ExportResult.Failed -> "导出失败：${result.reason}"
             }
@@ -434,7 +438,35 @@ private fun EditorScaffold(
                         withFrameNanos { }
                         withFrameNanos { }
                         withFrameNanos { }
-                        val shot = runCatching { exportLayer.toImageBitmap() }.getOrNull()
+                        val totalHeight = exportCanvasHeightPx
+                        // 分片抓、拼整图：长图一次性读回内存会撞 GPU 纹理上限，
+                        // 手机上 4450 字的图就是这么在 @copy 环节炸的（见 MAX_SLICE_PX）
+                        val shot = if (totalHeight <= 0) {
+                            null
+                        } else {
+                            runCatching {
+                                val out = Bitmap.createBitmap(
+                                    EXPORT_IMAGE_WIDTH_PX,
+                                    totalHeight,
+                                    Bitmap.Config.RGB_565,
+                                )
+                                val canvas = Canvas(out)
+                                var y = 0
+                                while (y < totalHeight) {
+                                    val h = minOf(MAX_SLICE_PX, totalHeight - y)
+                                    sliceOffsetPx = y.toFloat()
+                                    sliceHeightPx = h
+                                    withFrameNanos { }
+                                    withFrameNanos { }
+                                    val part = exportLayer.toImageBitmap()
+                                    canvas.drawBitmap(part.asAndroidBitmap(), 0f, y.toFloat(), null)
+                                    y += h
+                                }
+                                out
+                            }.getOrNull()
+                        }
+                        sliceOffsetPx = 0f
+                        sliceHeightPx = 0
                         exportCanvasShown = false
                         if (shot == null) {
                             Toast.makeText(context, "导出失败，没能生成图片", Toast.LENGTH_SHORT).show()
@@ -475,6 +507,9 @@ private fun EditorScaffold(
                     title = state.title,
                     content = state.content,
                     graphicsLayer = exportLayer,
+                    sliceOffsetPx = sliceOffsetPx,
+                    sliceHeightPx = sliceHeightPx,
+                    onHeightChanged = { exportCanvasHeightPx = it },
                 )
             }
         }

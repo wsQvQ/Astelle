@@ -13,13 +13,16 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.layer.GraphicsLayer
 import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.astelle.app.ui.theme.Divider
@@ -48,16 +51,33 @@ internal fun ExportImageCanvas(
     title: String,
     content: String,
     graphicsLayer: GraphicsLayer,
+    /** 当前切片顶部（px）。整张图不高时传 0 */
+    sliceOffsetPx: Float = 0f,
+    /** 当前切片高度（px）。0 = 整张 */
+    sliceHeightPx: Int = 0,
+    /** 画布实际高度（px），抓图方靠它知道要拼多少片 */
+    onHeightChanged: (Int) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     CompositionLocalProvider(LocalDensity provides EXPORT_DENSITY) {
         Column(
             modifier = modifier
-                // requiredWidth 而不是 width：宿主是个 0 尺寸的 Box，
+                // requiredWidth 而不是 width：宿主是个 1px 的 Layout，
                 // 普通 width 会被父约束压成 0，图就没了
                 .requiredWidth(EXPORT_PAGE_WIDTH)
+                .onSizeChanged { onHeightChanged(it.height) }
                 .drawWithContent {
-                    graphicsLayer.record { this@drawWithContent.drawContent() }
+                    // 按切片 record：translate 把内容挪进切片窗口，每次只录一小片。
+                    // 整张录完一次读回会撞 GPU 纹理上限（见 MAX_SLICE_PX）
+                    val full = size.height.toInt()
+                    val h = if (sliceHeightPx > 0) {
+                        minOf(sliceHeightPx, full - sliceOffsetPx.toInt())
+                    } else {
+                        full
+                    }
+                    graphicsLayer.record(size = IntSize(size.width.toInt(), h.coerceAtLeast(1))) {
+                        translate(0f, -sliceOffsetPx) { this@drawWithContent.drawContent() }
+                    }
                     drawLayer(graphicsLayer)
                 }
                 .background(Paper)
@@ -93,6 +113,18 @@ private val EXPORT_DENSITY = Density(2f, 1f)
 
 /** 720dp × Density(2f) = 1440px。要改图片宽度只改这里 */
 private val EXPORT_PAGE_WIDTH = 720.dp
+
+/** 图片宽度（px），抓图方建输出位图时用 */
+internal const val EXPORT_IMAGE_WIDTH_PX = 1440
+
+/**
+ * 每次只抓这么高的一片。
+ *
+ * 长图整张读回内存会撞设备的 GPU 纹理上限（手机常见 8192，平板旗舰 16384）——
+ * 真机上 4450 字的图（约 12000px）在手机上 `@copy` 环节抛 NullPointerException，
+ * 800 字（约 2500px）没事，就是这个原因。分片后每片都在安全区内，再拼成整图。
+ */
+internal const val MAX_SLICE_PX = 2048
 
 /**
  * 屏幕外宿主：孩子照常排版、绘制、record，只是被裁在 1px² 里画不出来。
