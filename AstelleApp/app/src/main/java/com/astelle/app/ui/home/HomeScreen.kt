@@ -93,6 +93,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
@@ -139,6 +140,7 @@ import com.astelle.app.ui.theme.mono
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.abs
 import kotlinx.coroutines.launch
 
 /**
@@ -206,13 +208,17 @@ fun HomeRoute(
         if (drawerState.isOpen) selectionClearTick++
     }
 
-    // ⚠️ 抽屉的开合手势只留**关闭**：M3 的全屏拖拽在内容少（没有滚动）时极易
-    // 误触开抽屉（P0 bug C）。开启入口就是顶栏那个侧边栏按钮，不抢手势。
-    // （试过左缘感应条 + setSystemGestureExclusionRects：被系统「返回」手势吃掉，
-    //  MIUI 上排除矩形不生效 —— 别再走这条弯路）
+    // ⚠️ 抽屉手势（调研 RikkaHub + M3 源码的结论，见 docs/06 §3.30）：
+    // 起手区域是**整个内容区**（不是屏幕边缘），M3 默认阈值 = 拖过 50% 抽屉宽（150dp）
+    // 或 fling ≥400dp/s。RikkaHub 一行没改 —— 也就是说它同样容易被快速轻扫误触。
+    // 我们加两道自己的闸：
+    //  ① 方向锁：横向位移没到竖向两倍之前，横向残量一律不放给抽屉（滤掉斜滑）
+    //  ② 打字（输入法弹出）时不响应抽屉手势 —— 打字时的横向抖动最容易误触
+    val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+
     ModalNavigationDrawer(
         drawerState = drawerState,
-        gesturesEnabled = drawerState.isOpen,
+        gesturesEnabled = !imeVisible || drawerState.isOpen,
         scrimColor = Ink.copy(alpha = 0.18f),
         drawerContent = {
             ModalDrawerSheet(
@@ -261,7 +267,29 @@ fun HomeRoute(
             }
         },
     ) {
-        Box {
+        Box(
+            Modifier
+                .fillMaxSize()
+                // 方向锁闸：只放「明显横向」的滑动给抽屉，斜滑/竖滑的横向残量在这儿吃掉
+                // （子组件先消费，剩下的才到这儿，所以不伤点击、滚动、选中）
+                .pointerInput(Unit) {
+                    awaitEachGesture {
+                        awaitFirstDown(requireUnconsumed = false)
+                        var dx = 0f
+                        var dy = 0f
+                        while (true) {
+                            val ev = awaitPointerEvent()
+                            if (ev.changes.none { it.pressed }) break
+                            val change = ev.changes.first()
+                            dx += change.positionChange().x
+                            dy += change.positionChange().y
+                            if (abs(dx) < 2 * abs(dy)) {
+                                ev.changes.forEach { it.consume() }
+                            }
+                        }
+                    }
+                },
+        ) {
             EditorScaffold(
                 state = state,
                 clearSelectionTick = selectionClearTick,
@@ -576,6 +604,8 @@ private fun EditorScaffold(
             // 格式工具栏**编辑模式常驻**（用户拍板）：收起键盘就消失会连带把它的
             // ⋯ 菜单一起拆掉 —— 菜单一打开输入法就收起，于是菜单秒开秒关、页面抽搐（P0 bug B）
             FormatToolbar(
+                groups = remember { listOf(headingGroup(), emphasisGroup(), blockGroup()) },
+                insertTools = remember { insertTools() },
                 onAction = { applyFormat(it) },
                 modifier = Modifier.imePadding(),
             )
