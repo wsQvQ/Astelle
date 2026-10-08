@@ -604,7 +604,8 @@ private fun EditorScaffold(
             // 格式工具栏**编辑模式常驻**（用户拍板）：收起键盘就消失会连带把它的
             // ⋯ 菜单一起拆掉 —— 菜单一打开输入法就收起，于是菜单秒开秒关、页面抽搐（P0 bug B）
             FormatToolbar(
-                groups = remember { listOf(headingGroup(), emphasisGroup(), blockGroup()) },
+                // 顺序（用户定的）：强调 → 标题 → 块
+                groups = remember { listOf(emphasisGroup(), headingGroup(), blockGroup()) },
                 insertTools = remember { insertTools() },
                 onAction = { applyFormat(it) },
                 modifier = Modifier.imePadding(),

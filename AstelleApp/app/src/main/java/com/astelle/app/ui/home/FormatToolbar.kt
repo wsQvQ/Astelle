@@ -30,6 +30,7 @@ import androidx.compose.material.icons.outlined.FormatStrikethrough
 import androidx.compose.material.icons.outlined.FormatUnderlined
 import androidx.compose.material.icons.outlined.HorizontalRule
 import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.InsertLink
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.TableChart
@@ -136,11 +137,14 @@ internal fun FormatToolbar(
                     .clip(CircleShape)
                     .background(if (pressed) AccentMist else SurfaceFloat)
                     .border(1.dp, Divider, CircleShape)
-                    .clickable(interactionSource = interaction, indication = null) { insertOpen = true },
+                    // 再点一次要**收回**，不是反复打开（用户提的）
+                    .clickable(interactionSource = interaction, indication = null) { insertOpen = !insertOpen },
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    Icons.Outlined.Add,
+                    // 链接形状的符号（用户：别用加号）；要和菜单里的「链接」**不一样** ——
+                    // 那边是 Icons.Outlined.Link，这边用 InsertLink（链条带插件形状）
+                    Icons.Outlined.InsertLink,
                     contentDescription = "插入",
                     tint = Accent,
                     modifier = Modifier.size(22.dp),
