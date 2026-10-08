@@ -115,6 +115,59 @@ object MarkdownEditing {
         return null
     }
 
+    /* ==================== 缩进 / 反缩进（列表层级） ==================== */
+
+    /** 缩进一级：列表行按「内容列」缩进（`- `→2 空格、`1. `→3 空格），普通行 2 空格 */
+    fun indent(text: String, start: Int, end: Int): EditResult = shiftIndent(text, start, end, indent = true)
+
+    /** 反缩进一级：去掉行首至多一级空格，到底就停 */
+    fun outdent(text: String, start: Int, end: Int): EditResult = shiftIndent(text, start, end, indent = false)
+
+    /** 一级缩进的宽度：有序列表要对齐内容列（`1. ` 是 3、`10. ` 是 4），其余 2 */
+    private fun indentUnit(line: String): Int {
+        val body = line.trimStart()
+        return ORDERED.find(body)?.value?.length ?: 2
+    }
+
+    private fun shiftIndent(text: String, start: Int, end: Int, indent: Boolean): EditResult {
+        val s = start.coerceIn(0, text.length)
+        val e = end.coerceIn(s, text.length)
+        val effEnd = if (e > s && e >= 1 && text[e - 1] == '\n') e - 1 else e
+        val firstStart = text.lastIndexOf('\n', s - 1) + 1
+        val lastEnd = text.indexOf('\n', effEnd).let { if (it < 0) text.length else it }
+        if (lastEnd < firstStart) return EditResult(text, s, e)
+
+        val lines = text.substring(firstStart, lastEnd).split('\n')
+        val sb = StringBuilder()
+        var newS = s
+        var newE = e
+        var pos = firstStart
+        lines.forEachIndexed { index, line ->
+            // 空行不动：缩进空行只会留下一串看不见的尾随空格
+            if (line.isNotEmpty()) {
+                val unit = indentUnit(line)
+                if (indent) {
+                    sb.append(" ".repeat(unit)).append(line)
+                    if (pos <= s) newS += unit
+                    if (pos <= e) newE += unit
+                } else {
+                    val removed = minOf(unit, line.takeWhile { it == ' ' }.length)
+                    if (removed > 0) {
+                        if (s >= pos + removed) newS -= removed else if (s > pos) newS = pos
+                        if (e >= pos + removed) newE -= removed else if (e > pos) newE = pos
+                    }
+                    sb.append(line, removed, line.length)
+                }
+            } else {
+                sb.append(line)
+            }
+            if (index < lines.size - 1) sb.append('\n')
+            pos += line.length + 1
+        }
+        val out = text.substring(0, firstStart) + sb + text.substring(lastEnd)
+        return EditResult(out, newS, newE.coerceAtLeast(newS))
+    }
+
     private fun lineRange(text: String, cursor: Int): Pair<Int, Int> {
         val c = cursor.coerceIn(0, text.length)
         val start = text.lastIndexOf('\n', c - 1) + 1

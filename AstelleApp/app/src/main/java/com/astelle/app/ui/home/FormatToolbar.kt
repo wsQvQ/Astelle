@@ -22,6 +22,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.FormatIndentDecrease
+import androidx.compose.material.icons.automirrored.outlined.FormatIndentIncrease
 import androidx.compose.material.icons.automirrored.outlined.FormatListBulleted
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Code
@@ -73,6 +75,8 @@ sealed interface FormatAction {
     data class LinePrefix(val prefix: String) : FormatAction
     data class Insert(val snippet: String, val caret: Int) : FormatAction
     data object ToggleTask : FormatAction
+    data object Indent : FormatAction
+    data object Outdent : FormatAction
 }
 
 /**
@@ -325,6 +329,14 @@ internal fun blockGroup() = ToolbarGroup(
         ToolbarTool("有序", Icons.Outlined.FormatListNumbered, FormatAction.LinePrefix("1. ")),
         ToolbarTool("任务", Icons.Outlined.TaskAlt, FormatAction.ToggleTask),
         ToolbarTool("引用", Icons.Outlined.FormatQuote, FormatAction.LinePrefix("> ")),
+    ),
+)
+
+/** 第四类：列表层级（缩进/反缩进）—— 手机上的 Tab / Shift+Tab */
+internal fun indentGroup() = ToolbarGroup(
+    listOf(
+        ToolbarTool("缩进", Icons.AutoMirrored.Outlined.FormatIndentIncrease, FormatAction.Indent),
+        ToolbarTool("反缩进", Icons.AutoMirrored.Outlined.FormatIndentDecrease, FormatAction.Outdent),
     ),
 )
 

@@ -166,4 +166,47 @@ class MarkdownEditingTest {
         val r = MarkdownEditing.insert("你好", 1, "，世界", 3)
         assertEquals("你，世界好", r.text)
     }
+
+    /* ---------- 缩进 / 反缩进（从归档分支捡回，bug 修复版） ---------- */
+
+    @Test
+    fun `列表缩进两空格并推走选区`() {
+        val r = MarkdownEditing.indent("- 一", 0, 3)
+        assertEquals("  - 一", r.text)
+        assertEquals(2, r.selectStart)
+        assertEquals(5, r.selectEnd)
+    }
+
+    @Test
+    fun `有序列表按内容列缩进`() {
+        val r = MarkdownEditing.indent("1. 一", 2, 2)
+        assertEquals("   1. 一", r.text)
+        assertEquals(5, r.selectStart)
+    }
+
+    @Test
+    fun `多行一起缩进`() {
+        val r = MarkdownEditing.indent("- 一\n- 二", 0, 7)
+        assertEquals("  - 一\n  - 二", r.text)
+    }
+
+    @Test
+    fun `反缩进去掉一级`() {
+        val r = MarkdownEditing.outdent("    - 一", 4, 4)
+        assertEquals("  - 一", r.text)
+        assertEquals(2, r.selectStart)
+    }
+
+    @Test
+    fun `反缩进到底就停`() {
+        val r = MarkdownEditing.outdent("- 一", 0, 0)
+        assertEquals("- 一", r.text)
+    }
+
+    @Test
+    fun `普通行缩进也是两空格`() {
+        val r = MarkdownEditing.indent("你好", 2, 2)
+        assertEquals("  你好", r.text)
+        assertEquals(4, r.selectStart)
+    }
 }

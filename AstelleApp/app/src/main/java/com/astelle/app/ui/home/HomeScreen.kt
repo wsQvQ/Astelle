@@ -362,6 +362,8 @@ private fun EditorScaffold(
             is FormatAction.LinePrefix -> MarkdownEditing.toggleLinePrefix(text, cursor, action.prefix)
             is FormatAction.Insert -> MarkdownEditing.insert(text, cursor, action.snippet, action.caret)
             FormatAction.ToggleTask -> MarkdownEditing.toggleTask(text, cursor)
+            FormatAction.Indent -> MarkdownEditing.indent(text, cursor, end)
+            FormatAction.Outdent -> MarkdownEditing.outdent(text, cursor, end)
         }
         fieldValue = TextFieldValue(r.text, TextRange(r.selectStart, r.selectEnd))
         onContent(r.text)
@@ -602,8 +604,8 @@ private fun EditorScaffold(
             // 格式工具栏**编辑模式常驻**（用户拍板）：收起键盘就消失会连带把它的
             // ⋯ 菜单一起拆掉 —— 菜单一打开输入法就收起，于是菜单秒开秒关、页面抽搐（P0 bug B）
             FormatToolbar(
-                // 顺序（用户定的）：强调 → 标题 → 块
-                groups = remember { listOf(emphasisGroup(), headingGroup(), blockGroup()) },
+                // 顺序（用户定的）：强调 → 标题 → 块 → 层级
+                groups = remember { listOf(emphasisGroup(), headingGroup(), blockGroup(), indentGroup()) },
                 insertTools = remember { insertTools() },
                 onAction = { applyFormat(it) },
                 modifier = Modifier.imePadding(),
