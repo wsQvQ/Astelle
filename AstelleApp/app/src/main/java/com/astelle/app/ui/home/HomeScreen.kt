@@ -37,7 +37,9 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -218,7 +220,7 @@ fun HomeRoute(
 
     ModalNavigationDrawer(
         drawerState = drawerState,
-        gesturesEnabled = !imeVisible || drawerState.isOpen,
+        gesturesEnabled = true,
         scrimColor = Ink.copy(alpha = 0.18f),
         drawerContent = {
             ModalDrawerSheet(
@@ -267,29 +269,7 @@ fun HomeRoute(
             }
         },
     ) {
-        Box(
-            Modifier
-                .fillMaxSize()
-                // 方向锁闸：只放「明显横向」的滑动给抽屉，斜滑/竖滑的横向残量在这儿吃掉
-                // （子组件先消费，剩下的才到这儿，所以不伤点击、滚动、选中）
-                .pointerInput(Unit) {
-                    awaitEachGesture {
-                        awaitFirstDown(requireUnconsumed = false)
-                        var dx = 0f
-                        var dy = 0f
-                        while (true) {
-                            val ev = awaitPointerEvent()
-                            if (ev.changes.none { it.pressed }) break
-                            val change = ev.changes.first()
-                            dx += change.positionChange().x
-                            dy += change.positionChange().y
-                            if (abs(dx) < 2 * abs(dy)) {
-                                ev.changes.forEach { it.consume() }
-                            }
-                        }
-                    }
-                },
-        ) {
+        Box {
             EditorScaffold(
                 state = state,
                 clearSelectionTick = selectionClearTick,
@@ -365,7 +345,10 @@ private fun EditorScaffold(
             fieldValue = TextFieldValue(state.content, selection = TextRange(state.content.length))
         }
     }
-    val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0 // 保留：键盘态以后还要用
+    // ⚠️ 别用 WindowInsets.ime.getBottom() 判断键盘开关：它在键盘收起后**不一定归零**
+    // （MIUI 实测如此），会把抽屉手势一直锁死。用 Compose 的 isImeVisible
+    @OptIn(ExperimentalLayoutApi::class)
+    val imeVisible = WindowInsets.isImeVisible
 
     /** 工具栏动作落到纯函数；一次操作 = 一次撤销（走 onContent 一条路） */
     val applyFormat: (FormatAction) -> Unit = { action ->
