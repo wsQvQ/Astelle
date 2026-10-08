@@ -95,6 +95,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.astelle.app.R
 import com.astelle.app.data.exporter.ExportFileWriter
+import com.astelle.app.data.exporter.ExportResult
 import com.astelle.app.data.exporter.MarkdownExport
 import com.astelle.app.data.importer.MarkdownFileReader
 import com.astelle.app.data.importer.MarkdownImport
@@ -314,12 +315,11 @@ private fun EditorScaffold(
         val text = pendingMarkdown
         if (uri == null || text == null) return@rememberLauncherForActivityResult
         exportScope.launch {
-            val ok = ExportFileWriter.writeText(context, uri, text)
-            Toast.makeText(
-                context,
-                if (ok) "已导出 Markdown 文件" else "导出失败，没能写进文件",
-                Toast.LENGTH_SHORT,
-            ).show()
+            val message = when (val result = ExportFileWriter.writeText(context, uri, text)) {
+                is ExportResult.Ok -> "已导出 Markdown 文件"
+                is ExportResult.Failed -> "导出失败：${result.reason}"
+            }
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
         }
     }
     val exportPngLauncher = rememberLauncherForActivityResult(
@@ -328,12 +328,13 @@ private fun EditorScaffold(
         val bitmap = pendingPng
         if (uri == null || bitmap == null) return@rememberLauncherForActivityResult
         exportScope.launch {
-            val ok = ExportFileWriter.writePng(context, uri, bitmap.asAndroidBitmap())
-            Toast.makeText(
-                context,
-                if (ok) "已导出图片" else "导出失败，没能写进文件",
-                Toast.LENGTH_SHORT,
-            ).show()
+            val message = when (val result = ExportFileWriter.writePng(context, uri, bitmap.asAndroidBitmap())) {
+                is ExportResult.Ok -> "已导出图片"
+                is ExportResult.Failed -> "导出失败：${result.reason}"
+            }
+            // 位图写完就撒手：长图占内存不小，别一直攥在手里
+            pendingPng = null
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
         }
     }
 
