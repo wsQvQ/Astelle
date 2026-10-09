@@ -297,7 +297,10 @@ internal fun DrawerSheet(
                         Modifier
                             .clip(RoundedCornerShape(999.dp))
                             .background(Paper.copy(alpha = 0.7f))
-                            .padding(horizontal = 9.dp, vertical = 3.dp),
+                            // 高度和右边的密度钮共用 22dp —— 两枚胶囊要一般高（用户 10-10）
+                            .height(22.dp)
+                            .padding(horizontal = 9.dp),
+                        contentAlignment = Alignment.Center,
                     ) {
                         Text("${notes.size} 篇", fontFamily = mono, fontSize = 11.sp, color = Muted)
                     }
@@ -314,7 +317,9 @@ internal fun DrawerSheet(
                             .clickable(interactionSource = densityInteraction, indication = null) {
                                 compactCards = !compactCards
                             }
-                            .padding(6.dp),
+                            // 和「N 篇」胶囊一般高（22dp），两枚才像一套（用户 10-10）
+                            .height(22.dp)
+                            .padding(horizontal = 6.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
@@ -455,7 +460,7 @@ internal fun DrawerSheet(
                             Icons.Outlined.CreateNewFolder,
                             contentDescription = "新建分类",
                             tint = if (folderPressed || showCatInput) Accent else Ghost,
-                            modifier = Modifier.size(22.dp),
+                            modifier = Modifier.size(26.dp),
                         )
                         Spacer(Modifier.width(4.dp))
                         Text(
