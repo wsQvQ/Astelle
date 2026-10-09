@@ -136,6 +136,7 @@ import com.astelle.app.data.importer.MarkdownImport
 import com.astelle.app.domain.model.NoteSummary
 import com.astelle.app.ui.components.AstelleIcons
 import com.astelle.app.ui.components.MenuDivider
+import com.astelle.app.ui.components.ScrollProgress
 import com.astelle.app.ui.components.MenuRow
 import com.astelle.app.ui.navigation.AstelleDestination
 // 色板统一取自 ui/theme —— 本文件不再自己抄一份
@@ -701,6 +702,8 @@ private fun EditorScaffold(
             // 实心底色 + 描边，四周的矩形地带**全部透明** —— 文字从下面滚过，
             // 不再被一条实心横带切断
             Box(paneModifier) {
+                // 滚动进度条（10-10）：右缘细轨，贴着正文滚动，安静不抢戏
+                val bodyScroll = rememberScrollState()
                 // 正文滚动搬到外层（用户 10-09「不用二选一」）：文字全程流过胶囊底下
                 //（矩形地带透视 ✓），文末余量垫在**滚动内容里**（末尾 Spacer）——
                 // 滚到底文末自然停在胶囊上方（可达 ✓）。内边距做不到两者兼得，所以搬家
@@ -711,7 +714,7 @@ private fun EditorScaffold(
                         // 键盘收起时**不套 imePadding**：MIUI 的 ime inset 收起后不一定归零，
                         // 残留高度会顶出「怎么滑都看不到」的死区（用户实测的 P0 就有它一份）
                         .then(if (imeVisible) Modifier.imePadding() else Modifier)
-                        .verticalScroll(rememberScrollState()),
+                        .verticalScroll(bodyScroll),
                 ) {
                     // 开头 12dp 也垫在**滚动内容里**（用户 10-09 细化）：停在顶部时首行和
                     // 分界线之间有呼吸（12dp 好看），往上滑它跟着内容走 ——
@@ -735,6 +738,14 @@ private fun EditorScaffold(
                     // 文末的呼吸位（72dp > 胶囊顶边 66dp）：滚到底，文末停在胶囊上方
                     Spacer(Modifier.height(72.dp))
                 }
+                // 阅读进度条：贴在编辑栏右缘（工具栏浮层之上不放，避免和胶囊打架）
+                ScrollProgress(
+                    state = bodyScroll,
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .then(if (imeVisible) Modifier.imePadding() else Modifier)
+                        .padding(end = 3.dp, bottom = 12.dp),
+                )
                 // 格式工具栏**编辑模式常驻**（用户拍板）：收起键盘就消失会连带把它的
                 // ⋯ 菜单一起拆掉 —— 菜单一打开输入法就收起，于是菜单秒开秒关、页面抽搐（P0 bug B）
                 FormatToolbar(
@@ -1110,12 +1121,13 @@ private fun BodyPreview(
     clearSelectionTick: Int = 0,
 ) {
     val scroll = rememberScrollState()
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .verticalScroll(scroll)
-            .padding(horizontal = 20.dp, vertical = 18.dp),
-    ) {
+    Box(modifier) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(scroll)
+                .padding(horizontal = 20.dp, vertical = 18.dp),
+        ) {
         if (content.isBlank()) {
             Text("还没有内容，请切换到「编辑」输入文字", color = Ghost, fontSize = 14.sp)
         } else {
@@ -1128,6 +1140,12 @@ private fun BodyPreview(
                 clearSelectionTick = clearSelectionTick,
             )
         }
+        }
+        // 预览栏的阅读进度条（10-10）：和编辑栏同一根安静的细轨
+        ScrollProgress(
+            state = scroll,
+            modifier = Modifier.align(Alignment.CenterEnd).padding(end = 3.dp),
+        )
     }
 }
 

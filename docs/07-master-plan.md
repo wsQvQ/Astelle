@@ -243,3 +243,34 @@ P0 文末不可达 · MIUI 残留 inset · 收藏星/图钉不显示 · 置顶�
 ### 合并验收单（一次交齐一次验）
 设置三组渲染对（照 DSH 那张图的气质）· 三个设置项都**持久**（杀进程重启还在）·
 三栏三态顺手 · 工具栏跟着编辑栏 · 手机不退化 · 导出/图片管道回归无损。
+
+## 14. 🎛️ 莫奈取色接口 + 侧栏顶栏设计（10-09 计划）
+
+### 莫奈（Material You）取色 —— 接口代码骨架
+> 原则：**现有色板 = 默认品牌色，永不被覆盖**；动态取色是**显式开关**（默认关）。
+
+```kotlin
+// Color.kt 加「动态覆盖」槽（token 桥的第二级）：
+private val dynamicOverride = mutableStateOf<AstelleColors?>(null)
+internal fun setDynamicPalette(colors: AstelleColors?) { dynamicOverride.value = colors }
+
+// token 取值顺序：动态覆盖 → 明暗双列
+val Accent: Color get() = dynamicOverride.value?.accent
+    ?: if (paletteDark.value) AccentDark else AccentLight
+
+// AstelleTheme 里换算（API 31+ 才有 dynamicColorScheme）：
+// 开关开 → dynamicLightColorScheme/dynamicDarkColorScheme 映射 AstelleColors；
+// 关/低版本 → setDynamicPalette(null)，品牌色原样
+```
+- 设置页「动态取色」开关（默认关）→ `SettingsStore.dynamicColor` → `AstelleTheme(dynamicColor=)`
+- 品牌纪律：动态色只换 **Accent 家族 + 面**；Paper/Ink 的冷暖关系靠 lerp 推导保持
+- 半晚量；API<31 开关置灰（副标「需要 Android 12+」）
+
+### 侧栏顶栏（Astelle | N 篇 | ✕）功能设计
+现状：品牌字 + 篇数胶囊 + 密度钮 + 问候语。候选（按「好看且实用」排）：
+1. **明暗快捷**（☀/☾ 单击切浅深、长按跟随系统）—— 最高频设置放最顺手处 ⭐推荐
+2. **收起侧栏**（大屏常驻时变「« 收窄」钮）—— 大屏实用 ⭐推荐
+3. 今日小计（N 篇 · M 字）—— 并进篇数胶囊，别加新块
+4. 排序切换（更新时间/标题）—— v2，先不动
+**审美纪律**：顶栏保持「品牌 + 数字 + 两枚圆钮」的最小阵容；新功能一律进圆钮，
+不加文字按钮、不加底色块。收窄钮图标用 `ChevronLeft`（✕ 的语义是关，不对）。
