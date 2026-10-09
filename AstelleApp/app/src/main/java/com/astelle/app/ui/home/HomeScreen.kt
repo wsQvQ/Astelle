@@ -645,6 +645,10 @@ private fun EditorScaffold(
                         .then(if (imeVisible) Modifier.imePadding() else Modifier)
                         .verticalScroll(rememberScrollState()),
                 ) {
+                    // 开头 12dp 也垫在**滚动内容里**（用户 10-09 细化）：停在顶部时首行和
+                    // 分界线之间有呼吸（12dp 好看），往上滑它跟着内容走 ——
+                    // 文字直接顶到分界线被切断，零空隙
+                    Spacer(Modifier.height(12.dp))
                     BodyEditor(
                         value = fieldValue,
                         onValueChange = { new ->
