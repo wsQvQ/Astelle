@@ -81,6 +81,21 @@ object MarkdownEditing {
     }
 
     /**
+     * 插入**独立成块**的一段（图片用，用户 10-09 拍板）：光标在行内就前后断行，
+     * 让内容独占一段 —— 不把句子劈开。
+     */
+    fun insertBlock(text: String, cursor: Int, snippet: String): EditResult {
+        val at = cursor.coerceIn(0, text.length)
+        val before = text.substring(0, at)
+        val after = text.substring(at)
+        val lead = if (before.isEmpty() || before.endsWith("\n")) "" else "\n"
+        val trail = if (after.isEmpty() || after.startsWith("\n")) "" else "\n"
+        val out = before + lead + snippet + trail + after
+        val caret = at + lead.length + snippet.length
+        return EditResult(out, caret, caret)
+    }
+
+    /**
      * 回车时自动续列表/引用。返回 null = 不接管（普通换行）。
      *
      * 只在「正好插入一个换行」时接管，其余情况（粘贴、撤销、输入法整段替换）一律放行。

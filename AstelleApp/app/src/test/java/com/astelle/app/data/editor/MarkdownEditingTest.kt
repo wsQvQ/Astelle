@@ -209,4 +209,31 @@ class MarkdownEditingTest {
         assertEquals("  你好", r.text)
         assertEquals(4, r.selectStart)
     }
+
+    /* ---------- 独立成块插入（图片，用户 10-09 拍板） ---------- */
+
+    @Test
+    fun `行内插入图片自动断行`() {
+        val r = MarkdownEditing.insertBlock("前段文字", 2, "![](images/1.jpg)")
+        assertEquals("前段\n![](images/1.jpg)\n文字", r.text)
+        assertEquals(2 + 1 + "![](images/1.jpg)".length, r.selectStart)
+    }
+
+    @Test
+    fun `行首插入不用补前行`() {
+        val r = MarkdownEditing.insertBlock("文字", 0, "![图](x)")
+        assertEquals("![图](x)\n文字", r.text)
+    }
+
+    @Test
+    fun `行尾插入不用补后行`() {
+        val r = MarkdownEditing.insertBlock("文字", 2, "![图](x)")
+        assertEquals("文字\n![图](x)", r.text)
+    }
+
+    @Test
+    fun `已有空行时不再堆行`() {
+        val r = MarkdownEditing.insertBlock("文\n\n", 3, "![图](x)")
+        assertEquals("文\n\n![图](x)", r.text)
+    }
 }

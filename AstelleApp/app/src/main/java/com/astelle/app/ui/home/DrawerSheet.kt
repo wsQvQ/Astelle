@@ -57,6 +57,7 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.PushPin
@@ -404,8 +405,9 @@ internal fun DrawerSheet(
                 )
                 Box(
                     modifier = Modifier
-                        .size(32.dp)
-                        .clip(RoundedCornerShape(9.dp))
+                        // 无底色（③ 拍板）：这颗是**新建文件夹**（文件夹图标 +「新建」二字），
+                        // 和顶栏 ✎ 新建笔记区分；按压才亮暖底
+                        .clip(RoundedCornerShape(8.dp))
                         .background(if (folderPressed || showCatInput) AccentMist else Color.Transparent)
                         .clickable(interactionSource = folderInteraction, indication = null) {
                             when {
@@ -414,17 +416,24 @@ internal fun DrawerSheet(
                                 catName.isNotBlank() -> submitCategory()
                                 else -> closeCategoryInput()
                             }
-                        },
+                        }
+                        .padding(horizontal = 8.dp, vertical = 5.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(
-                        Icons.Outlined.Add,
-                        contentDescription = "新建分类",
-                        tint = if (folderPressed || showCatInput) Accent else Ghost,
-                        modifier = Modifier
-                            .size(20.dp)
-                            .rotate(plusRotation),
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Outlined.Folder,
+                            contentDescription = "新建分类",
+                            tint = if (folderPressed || showCatInput) Accent else Ghost,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            "新建",
+                            fontSize = 12.sp,
+                            color = if (folderPressed || showCatInput) Accent else Muted,
+                        )
+                    }
                 }
             }
 

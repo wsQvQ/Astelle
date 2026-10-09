@@ -120,10 +120,8 @@ internal fun FormatToolbar(
 ) {
     // 对齐（用户 2026-10-08 晚定）：常规**居中**；大屏（侧栏地盘）**靠右**；
     // **从不靠左** —— 左边是抽屉/侧栏（3️⃣ 平板常驻侧栏）的家。
-    // 大屏的尺和 3️⃣ 同一把：宽>高 且 ≥1100dp（RikkaHub 规则），侧栏上线后不用改这里
-    val config = LocalConfiguration.current
-    val largeScreen =
-        config.screenWidthDp > config.screenHeightDp && config.screenWidthDp >= 1100
+    // 尺子统一收在 isLargeScreen()（和常驻侧栏同一把，改尺只改一处）
+    val largeScreen = isLargeScreen()
     Row(
         modifier = modifier
             .fillMaxWidth()

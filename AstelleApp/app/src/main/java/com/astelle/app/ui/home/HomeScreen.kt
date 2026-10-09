@@ -42,7 +42,9 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
@@ -60,6 +62,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.PermanentDrawerSheet
+import androidx.compose.material3.PermanentNavigationDrawer
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDrawerState
@@ -84,6 +88,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
@@ -225,61 +232,57 @@ fun HomeRoute(
     //  ② 打字（输入法弹出）时不响应抽屉手势 —— 打字时的横向抖动最容易误触
     val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
 
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        gesturesEnabled = true,
-        scrimColor = Ink.copy(alpha = 0.18f),
-        drawerContent = {
-            ModalDrawerSheet(
-                modifier = Modifier.width(300.dp),
-                drawerShape = RoundedCornerShape(topEnd = 20.dp, bottomEnd = 20.dp),
-                drawerContainerColor = DrawerBg,
-                drawerTonalElevation = 0.dp,
-                windowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp),
-            ) {
-                DrawerSheet(
-                    notes = notes,
-                    folders = folders,
-                    currentNoteId = state.currentNoteId,
-                    searchQuery = state.searchQuery,
-                    filter = state.filter,
-                    onSearch = { viewModel.onEvent(HomeUiEvent.SearchChanged(it)) },
-                    onFilter = { viewModel.onEvent(HomeUiEvent.SetFilter(it)) },
-                    onOpenNote = {
-                        scope.launch { drawerState.close() }
-                        viewModel.onEvent(HomeUiEvent.OpenNote(it))
-                    },
-                    onTogglePin = { viewModel.onEvent(HomeUiEvent.TogglePin(it)) },
-                    onToggleFavorite = { viewModel.onEvent(HomeUiEvent.ToggleFavorite(it)) },
-                    onRequestDelete = { viewModel.onEvent(HomeUiEvent.RequestDelete(it)) },
-                    onImportMarkdown = {
-                        scope.launch { drawerState.close() }
-                        importLauncher.launch(MARKDOWN_MIME_TYPES)
-                    },
-                    onAddFolder = { viewModel.onEvent(HomeUiEvent.AddFolder(it)) },
-                    onRenameFolder = { id, name ->
-                        viewModel.onEvent(HomeUiEvent.RenameFolder(id, name))
-                    },
-                    onDeleteFolder = { viewModel.onEvent(HomeUiEvent.DeleteFolder(it)) },
-                    onMoveNoteToFolder = { noteId, folderId ->
-                        viewModel.onEvent(HomeUiEvent.MoveNoteToFolder(noteId, folderId))
-                    },
-                    onNewNoteInFolder = { folderId ->
-                        scope.launch { drawerState.close() }
-                        viewModel.onEvent(HomeUiEvent.NewNoteInFolder(folderId))
-                    },
-                    onNavigate = {
-                        scope.launch { drawerState.close() }
-                        onNavigate(it)
-                    },
-                )
-            }
-        },
-    ) {
+    // ── 形态分流（10-09 拍板）：大屏**常驻侧栏**（无 R 角、无遮罩、右缘发丝线、
+    // 没有手势开关）；小屏/手机一切不变（Modal + 全区域右滑）──
+    val largeScreen = isLargeScreen()
+    val closeDrawer: () -> Unit = { if (!largeScreen) scope.launch { drawerState.close() } }
+
+    // 抽屉内容一份，两种容器共用
+    val drawerSheet: @Composable ColumnScope.() -> Unit = {
+        DrawerSheet(
+            notes = notes,
+            folders = folders,
+            currentNoteId = state.currentNoteId,
+            searchQuery = state.searchQuery,
+            filter = state.filter,
+            onSearch = { viewModel.onEvent(HomeUiEvent.SearchChanged(it)) },
+            onFilter = { viewModel.onEvent(HomeUiEvent.SetFilter(it)) },
+            onOpenNote = {
+                closeDrawer()
+                viewModel.onEvent(HomeUiEvent.OpenNote(it))
+            },
+            onTogglePin = { viewModel.onEvent(HomeUiEvent.TogglePin(it)) },
+            onToggleFavorite = { viewModel.onEvent(HomeUiEvent.ToggleFavorite(it)) },
+            onRequestDelete = { viewModel.onEvent(HomeUiEvent.RequestDelete(it)) },
+            onImportMarkdown = {
+                closeDrawer()
+                importLauncher.launch(MARKDOWN_MIME_TYPES)
+            },
+            onAddFolder = { viewModel.onEvent(HomeUiEvent.AddFolder(it)) },
+            onRenameFolder = { id, name ->
+                viewModel.onEvent(HomeUiEvent.RenameFolder(id, name))
+            },
+            onDeleteFolder = { viewModel.onEvent(HomeUiEvent.DeleteFolder(it)) },
+            onMoveNoteToFolder = { noteId, folderId ->
+                viewModel.onEvent(HomeUiEvent.MoveNoteToFolder(noteId, folderId))
+            },
+            onNewNoteInFolder = { folderId ->
+                closeDrawer()
+                viewModel.onEvent(HomeUiEvent.NewNoteInFolder(folderId))
+            },
+            onNavigate = {
+                closeDrawer()
+                onNavigate(it)
+            },
+        )
+    }
+
+    val editorContent: @Composable () -> Unit = {
         Box {
             EditorScaffold(
                 state = state,
                 clearSelectionTick = selectionClearTick,
+                drawerButtonVisible = !largeScreen,
                 onOpenDrawer = { scope.launch { drawerState.open() } },
                 onTitle = { viewModel.onEvent(HomeUiEvent.TitleChanged(it)) },
                 onContent = { viewModel.onEvent(HomeUiEvent.ContentChanged(it)) },
@@ -292,6 +295,52 @@ fun HomeRoute(
                 onRequestDelete = { id -> viewModel.onEvent(HomeUiEvent.RequestDelete(id)) },
             )
         }
+    }
+
+    if (largeScreen) {
+        PermanentNavigationDrawer(
+            drawerContent = {
+                PermanentDrawerSheet(
+                    // 常驻态的分界：右缘一道 1dp 发丝线（产品口径：边界靠描边，
+                    // 不靠 R 角不靠填色；它是页面结构，不是弹出物）
+                    modifier = Modifier
+                        .width(300.dp)
+                        .drawBehind {
+                            drawLine(
+                                color = Divider,
+                                start = Offset(size.width - 1f, 0f),
+                                end = Offset(size.width - 1f, size.height),
+                                strokeWidth = 1f,
+                            )
+                        },
+                    drawerShape = RectangleShape,
+                    drawerContainerColor = DrawerBg,
+                    drawerTonalElevation = 0.dp,
+                    windowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp),
+                ) {
+                    drawerSheet()
+                }
+            },
+            content = editorContent,
+        )
+    } else {
+        ModalNavigationDrawer(
+            drawerState = drawerState,
+            gesturesEnabled = true,
+            scrimColor = Ink.copy(alpha = 0.18f),
+            drawerContent = {
+                ModalDrawerSheet(
+                    modifier = Modifier.width(300.dp),
+                    drawerShape = RoundedCornerShape(topEnd = 20.dp, bottomEnd = 20.dp),
+                    drawerContainerColor = DrawerBg,
+                    drawerTonalElevation = 0.dp,
+                    windowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp),
+                ) {
+                    drawerSheet()
+                }
+            },
+            content = editorContent,
+        )
     }
 
     // 删除二次确认
@@ -326,6 +375,8 @@ fun HomeRoute(
 private fun EditorScaffold(
     state: HomeUiState,
     clearSelectionTick: Int = 0,
+    /** 常驻侧栏时没有「打开抽屉」这回事，侧栏钮也不该出现 */
+    drawerButtonVisible: Boolean = true,
     onOpenDrawer: () -> Unit,
     onTitle: (String) -> Unit,
     onContent: (String) -> Unit,
@@ -373,7 +424,7 @@ private fun EditorScaffold(
                     withContext(Dispatchers.Main) {
                         val text = fieldValue.text
                         val cursor = fieldValue.selection.min
-                        val r = MarkdownEditing.insert(text, cursor, "![]($relative)")
+                        val r = MarkdownEditing.insertBlock(text, cursor, "![]($relative)")
                         fieldValue = TextFieldValue(r.text, TextRange(r.selectStart, r.selectEnd))
                         onContent(r.text)
                     }
@@ -451,13 +502,17 @@ private fun EditorScaffold(
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Paper)
-            .statusBarsPadding()
-            .navigationBarsPadding(),
-    ) {
+    // 大屏正文**小限宽居中**（10-09 拍板）：全宽一行字太长阅读累，收在 720dp；
+    // 小屏不限（Dp.Unspecified = 不设上限）
+    Box(Modifier.fillMaxSize().background(Paper)) {
+        Column(
+            modifier = Modifier
+                .fillMaxHeight()
+                .widthIn(max = if (isLargeScreen()) 720.dp else Dp.Unspecified)
+                .align(Alignment.TopCenter)
+                .statusBarsPadding()
+                .navigationBarsPadding(),
+        ) {
         // ── 顶栏行 ──
         Row(
             modifier = Modifier
@@ -465,9 +520,11 @@ private fun EditorScaffold(
                 .padding(horizontal = 8.dp, vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // 侧栏钮单独再圆一点，手感更软
-            IconBtn(onClick = onOpenDrawer, shape = CircleShape) {
-                Icon(AstelleIcons.Sidebar, contentDescription = "侧边栏", tint = Muted, modifier = Modifier.size(24.dp))
+            // 侧栏钮单独再圆一点，手感更软（常驻侧栏时整个消失——侧栏就在眼前）
+            if (drawerButtonVisible) {
+                IconBtn(onClick = onOpenDrawer, shape = CircleShape) {
+                    Icon(AstelleIcons.Sidebar, contentDescription = "侧边栏", tint = Muted, modifier = Modifier.size(24.dp))
+                }
             }
             // 设计稿 §2.1：撤销 / 重做无历史时 32% 透明禁用
             IconBtn(onClick = onUndo, enabled = state.canUndo) {
@@ -703,6 +760,7 @@ private fun EditorScaffold(
                 )
             }
         }
+    }
     }
 }
 
