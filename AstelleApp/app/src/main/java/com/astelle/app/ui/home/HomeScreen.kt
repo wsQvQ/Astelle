@@ -646,25 +646,17 @@ private fun EditorScaffold(
                             onContent(new.text)
                         }
                     },
-                    // ⚠️ 正文**不加 imePadding**：工具栏已经用 imePadding 把自己顶到键盘上沿、
-                    // 也占掉了自己的高度；正文再按输入法高度内缩一次就是双重扣减 ——
-                    // 真机上表现为「打字区被顶上去一格，第一行看不见」（P0 bug A）
+                    // P0（用户 10-09）：正文要**认识输入法** —— 键盘弹起时按 ime 内缩，
+                    // 文末才滚得进可见区（否则最后一段永远躲在键盘后面，怎么滑都看不到）。
+                    // 旧注释说的「双重扣减」是叠层布局时代的事，现在工具栏是浮层、不再占位
                     modifier = Modifier
                         .fillMaxSize()
-                        // 打字时给正文留出「工具栏高度」的尾部余量（66dp = 球48+上6+下12）：
-                        // 光标到文末也不被胶囊挡住（用户报的大 bug）。
-                        // 键盘收起时归 0 —— 那时要的是文字一路流到屏幕底的全透明
-                        .padding(bottom = if (imeVisible) 66.dp else 0.dp),
-                )
-                // 分割线下的渐隐带（用户 10-09）：文字爬到分割线底下最后一程逐渐淡出、
-                // 再被分割线盖住 —— 消掉断层。真模糊要按区域上 RenderEffect（成本高），
-                // 2dp 渐隐的观感几乎一致
-                Box(
-                    Modifier
-                        .align(Alignment.TopCenter)
-                        .fillMaxWidth()
-                        .height(2.dp)
-                        .background(Brush.verticalGradient(listOf(Paper, Paper.copy(alpha = 0f)))),
+                        // 键盘收起时**不套 imePadding**：MIUI 的 ime inset 收起后不一定归零，
+                        // 残留高度会顶出一段「怎么滑都看不到」的死区（用户实测的 P0 就有它一份）
+                        .then(if (imeVisible) Modifier.imePadding() else Modifier)
+                        // 尾部余量 64dp（胶囊顶边在 60dp 处）：文末稳停在胶囊上方，
+                        // 不滑进胶囊底下（用户：肯定要修）
+                        .padding(bottom = 64.dp),
                 )
                 // 格式工具栏**编辑模式常驻**（用户拍板）：收起键盘就消失会连带把它的
                 // ⋯ 菜单一起拆掉 —— 菜单一打开输入法就收起，于是菜单秒开秒关、页面抽搐（P0 bug B）
@@ -675,7 +667,9 @@ private fun EditorScaffold(
                     onAction = { applyFormat(it) },
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .imePadding(),
+                        // ⚠️ 键盘收起时**不套 imePadding**：MIUI 的 ime inset 收起后可能不归零，
+                        // 残留高度会把工具栏吊在半空 —— 「胶囊底边到屏幕底的不透明地带」就是它（用户实测）
+                        .then(if (imeVisible) Modifier.imePadding() else Modifier),
                 )
             }
         } else {
@@ -968,7 +962,7 @@ private fun BodyEditor(
         onValueChange = onValueChange,
         modifier = modifier
             .fillMaxWidth()
-            .padding(start = 20.dp, end = 20.dp, top = 2.dp),
+            .padding(start = 20.dp, end = 20.dp),
         textStyle = LocalTextStyle.current.copy(
             fontSize = 16.sp,
             color = Ink,
