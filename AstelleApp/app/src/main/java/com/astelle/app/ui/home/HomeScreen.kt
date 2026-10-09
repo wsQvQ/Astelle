@@ -629,33 +629,40 @@ private fun EditorScaffold(
 
         // ── 正文 ──
         if (state.mode == EditorMode.Edit) {
-            BodyEditor(
-                value = fieldValue,
-                onValueChange = { new ->
-                    // 回车续列表/引用：只在「正好插入一个换行」时接管
-                    val continued = MarkdownEditing.autoContinue(fieldValue.text, new.text, new.selection.min)
-                    if (continued != null) {
-                        fieldValue = TextFieldValue(continued.text, TextRange(continued.selectStart, continued.selectEnd))
-                        onContent(continued.text)
-                    } else {
-                        fieldValue = new
-                        onContent(new.text)
-                    }
-                },
-                // ⚠️ 正文**不加 imePadding**：工具栏已经用 imePadding 把自己顶到键盘上沿、
-                // 也占掉了自己的高度；正文再按输入法高度内缩一次就是双重扣减 ——
-                // 真机上表现为「打字区被顶上去一格，第一行看不见」（P0 bug A）
-                modifier = Modifier.weight(1f),
-            )
-            // 格式工具栏**编辑模式常驻**（用户拍板）：收起键盘就消失会连带把它的
-            // ⋯ 菜单一起拆掉 —— 菜单一打开输入法就收起，于是菜单秒开秒关、页面抽搐（P0 bug B）
-            FormatToolbar(
-                // 顺序（用户定的）：强调 → 标题 → 块 → 层级
-                groups = remember { listOf(emphasisGroup(), headingGroup(), blockGroup(), indentGroup()) },
-                insertTools = remember { insertTools() },
-                onAction = { applyFormat(it) },
-                modifier = Modifier.imePadding(),
-            )
+            // 工具栏**悬浮**在正文上（用户 2026-10-09）：除了胶囊和球这两个形状自己的
+            // 实心底色 + 描边，四周的矩形地带**全部透明** —— 文字从下面滚过，
+            // 不再被一条实心横带切断
+            Box(Modifier.weight(1f)) {
+                BodyEditor(
+                    value = fieldValue,
+                    onValueChange = { new ->
+                        // 回车续列表/引用：只在「正好插入一个换行」时接管
+                        val continued = MarkdownEditing.autoContinue(fieldValue.text, new.text, new.selection.min)
+                        if (continued != null) {
+                            fieldValue = TextFieldValue(continued.text, TextRange(continued.selectStart, continued.selectEnd))
+                            onContent(continued.text)
+                        } else {
+                            fieldValue = new
+                            onContent(new.text)
+                        }
+                    },
+                    // ⚠️ 正文**不加 imePadding**：工具栏已经用 imePadding 把自己顶到键盘上沿、
+                    // 也占掉了自己的高度；正文再按输入法高度内缩一次就是双重扣减 ——
+                    // 真机上表现为「打字区被顶上去一格，第一行看不见」（P0 bug A）
+                    modifier = Modifier.fillMaxSize(),
+                )
+                // 格式工具栏**编辑模式常驻**（用户拍板）：收起键盘就消失会连带把它的
+                // ⋯ 菜单一起拆掉 —— 菜单一打开输入法就收起，于是菜单秒开秒关、页面抽搐（P0 bug B）
+                FormatToolbar(
+                    // 顺序（用户定的）：强调 → 标题 → 块 → 层级
+                    groups = remember { listOf(emphasisGroup(), headingGroup(), blockGroup(), indentGroup()) },
+                    insertTools = remember { insertTools() },
+                    onAction = { applyFormat(it) },
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .imePadding(),
+                )
+            }
         } else {
             BodyPreview(
                 content = state.content,
@@ -946,7 +953,7 @@ private fun BodyEditor(
         onValueChange = onValueChange,
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 12.dp),
+            .padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 12.dp),
         textStyle = LocalTextStyle.current.copy(
             fontSize = 16.sp,
             color = Ink,

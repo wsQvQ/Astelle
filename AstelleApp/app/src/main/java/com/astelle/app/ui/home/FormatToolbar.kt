@@ -127,7 +127,8 @@ internal fun FormatToolbar(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 10.dp, vertical = 6.dp),
+            // 底边比顶边多 6dp：工具栏整体往上抬一点，和键盘之间的「悬空气」更足（用户 10-09）
+            .padding(start = 10.dp, end = 10.dp, top = 6.dp, bottom = 12.dp),
         horizontalArrangement = if (largeScreen) Arrangement.End else Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
