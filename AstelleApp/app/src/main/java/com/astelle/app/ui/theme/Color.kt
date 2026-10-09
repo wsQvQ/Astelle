@@ -1,5 +1,6 @@
 package com.astelle.app.ui.theme
 
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 
@@ -27,41 +28,67 @@ import androidx.compose.ui.graphics.lerp
  * 改完请跑 `python tools/palette-audit.py`。配色靠眼睛吵不出结果。
  */
 
+/* ==================== 明 / 暗双色板的桥（10-10 色板搬家） ====================
+ *
+ * 下面每个 token 都是**计算属性**：跟着 [paletteDark] 开关在明 / 暗两列间取值。
+ * 这样全项目一百多处 `Paper` / `Ink` 调用点**一行不改**就获得暗色支持 ——
+ * 比逐点替换成 `colors.*` 安全一个数量级；要调色只改这两列。
+ *
+ * 推导类浅底（[AccentMist] / [SurfaceFloat] / [FolderHead]…）从当前
+ * [Paper] + [Accent] 现算，两套主题自动跟随，别给它们单列暗色值。
+ *
+ * `AstelleTheme` 换主题时调 [setPaletteDark]；新代码优先用 `LocalAstelleColors`。
+ */
+private val paletteDark = mutableStateOf(false)
+
+internal fun setPaletteDark(dark: Boolean) {
+    paletteDark.value = dark
+}
+
 /* ---------- 面：三层 + 一档发丝线 ---------- */
 
 /** 纸 / 卡片 / 分类容器体 / 编辑器纸。所有可书写、可阅读的面 */
-val Paper = Color(0xFFF9F5EF)
+val Paper: Color
+    get() = if (paletteDark.value) Color(0xFF201C17) else Color(0xFFF9F5EF)
 
 /** 按下态、输入框底。比纸深一档，只用来表示「被按住了」 */
-val PaperWarm = Color(0xFFF2ECE2)
+val PaperWarm: Color
+    get() = if (paletteDark.value) Color(0xFF191510) else Color(0xFFF2ECE2)
 
 /** 页面底 / 抽屉底。比纸深一档，卡片靠这层温度差浮起来 */
-val DrawerBg = Color(0xFFEDE6DB)
+val DrawerBg: Color
+    get() = if (paletteDark.value) Color(0xFF14100C) else Color(0xFFEDE6DB)
 
 /** 发丝分割线。对抽屉底的亮度差 6.2，看得见 */
-val Divider = Color(0xFFDED4C5)
+val Divider: Color
+    get() = if (paletteDark.value) Color(0xFF3B342A) else Color(0xFFDED4C5)
 
 /* ---------- 墨：中性偏暖，色度压到花笺 / granola 的量级 ---------- */
 
 /** 主文字。色度 2.1，和暖纸拉开色相 */
-val Ink = Color(0xFF232320)
+val Ink: Color
+    get() = if (paletteDark.value) Color(0xFFF4EDE2) else Color(0xFF232320)
 
 /** 次文字：卡片标题、次级正文 */
-val InkSoft = Color(0xFF44443F)
+val InkSoft: Color
+    get() = if (paletteDark.value) Color(0xFFDAD1C3) else Color(0xFF44443F)
 
 /** 弱文字：日期、字数这类元信息。**不承载正文** */
-val Muted = Color(0xFF7E7C76)
+val Muted: Color
+    get() = if (paletteDark.value) Color(0xFFA2988A) else Color(0xFF7E7C76)
 
 /** 占位符、禁用态。对比度只有 2.1，**不承载任何信息** */
-val Ghost = Color(0xFFAFADA6)
+val Ghost: Color
+    get() = if (paletteDark.value) Color(0xFF776E62) else Color(0xFFAFADA6)
 
 /* ---------- 强调：一个橙，三种浓度 ---------- */
 
 /**
  * 主强调。比 v1 的 #D4843A 深一档 —— 用在文字上才有对比度，
- * 也更像「印章/印刷」而不是「荧光笔」。
+ * 也更像「印章/印刷」而不是「荧光笔」。暗底上提亮一档保证可读。
  */
-val Accent = Color(0xFFB4651B)
+val Accent: Color
+    get() = if (paletteDark.value) Color(0xFFE0913F) else Color(0xFFB4651B)
 
 /**
  * 主强调的浅底 = [Accent] 叠 8% 到 [Paper] 上。
@@ -71,7 +98,8 @@ val Accent = Color(0xFFB4651B)
  * 用 alpha 推导的理由是**颜色只有一个来源**：以后调 [Accent]，所有浅底
  * 自动跟着走。（低透明度下 Lab 色相被底色带偏是物理必然，别拿色相当指标。）
  */
-val AccentMist = lerp(Paper, Accent, 0.08f)
+val AccentMist: Color
+    get() = lerp(Paper, Accent, 0.08f)
 
 /**
  * 按压闪光（用户 2026-10-08：「好看一点但比较浅」）：比 [AccentMist] 再暖一档的浅橙。
@@ -79,7 +107,8 @@ val AccentMist = lerp(Paper, Accent, 0.08f)
  * ⚠️ 动画淡出的透明态必须用 `PressGlow.copy(alpha = 0f)`，**不能用 `Color.Transparent`** ——
  * 后者是透明**黑**，颜色插值会穿过灰色中间帧，用户看到的就是「闪一下灰的」（实测翻车点）。
  */
-val PressGlow = lerp(Paper, Accent, 0.13f)
+val PressGlow: Color
+    get() = lerp(Paper, Accent, 0.13f)
 
 /**
  * 分类容器的组头 = [Accent] 叠 7% 到 [Paper] 上，体 = 叠 3%。
@@ -94,11 +123,14 @@ val PressGlow = lerp(Paper, Accent, 0.13f)
  * 抽屉底（L*≈91.6）撞上，这块区域压根没被画出来。真正把它立起来的是
  * `Divider` 那圈描边 —— 花笺的 `border border-bamboo/15` 一直是我漏掉的那条。
  */
-val FolderHead = lerp(Paper, Accent, 0.07f)
-val FolderBody = lerp(Paper, Accent, 0.03f)
+val FolderHead: Color
+    get() = lerp(Paper, Accent, 0.07f)
+val FolderBody: Color
+    get() = lerp(Paper, Accent, 0.03f)
 
 /** 按压态的次级强调 */
-val AccentSoft = Color(0xFFE8A45C)
+val AccentSoft: Color
+    get() = if (paletteDark.value) Color(0xFFEDB06A) else Color(0xFFE8A45C)
 
 /**
  * 浮层：菜单、弹窗。[Accent] 叠 6% 到 [Paper] 上的暖奶油底。
@@ -114,16 +146,20 @@ val AccentSoft = Color(0xFFE8A45C)
  * 这个浓度下浮层和纸面差别很小，**边界全靠 `Divider` 描边 + 投影**——
  * 正是分类容器那条「边界靠描边，不靠填色撞色」的路子。要调只改这个系数。
  */
-val SurfaceFloat = lerp(Paper, Accent, 0.042f)
+val SurfaceFloat: Color
+    get() = lerp(Paper, Accent, 0.042f)
 
 /* ---------- 危险 ---------- */
 
 /** 仅用于删除。深一档，用在文字上才读得清 */
-val Danger = Color(0xFFA94242)
+val Danger: Color
+    get() = if (paletteDark.value) Color(0xFFE08080) else Color(0xFFA94242)
 
 /** 危险操作的浅底，同 [AccentMist] 的推导方式（Danger 叠 8% 到 Paper） */
-val DangerBg = Color(0xFFF6ECEC)
+val DangerBg: Color
+    get() = if (paletteDark.value) Color(0xFF3A2422) else Color(0xFFF6ECEC)
 
 /* ---------- 保存胶囊「已保存」态的文字色 ----------
  * 比 [Accent] 再深一档：它落在 AccentMist 上，需要更高的对比度 */
-val SavedText = Color(0xFF8F5212)
+val SavedText: Color
+    get() = if (paletteDark.value) Color(0xFFD9A05B) else Color(0xFF8F5212)

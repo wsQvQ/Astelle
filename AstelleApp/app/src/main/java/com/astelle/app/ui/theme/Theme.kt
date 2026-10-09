@@ -162,21 +162,12 @@ fun AstelleTheme(
     darkTheme: Boolean = false,
     content: @Composable () -> Unit,
 ) {
+    // 色板桥（10-10）：静态 token 是计算属性，跟着这个开关走 ——
+    // 全项目调用点零改动。必须在取色之前设，本帧就取对
+    setPaletteDark(darkTheme)
     val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
-    val astelleColors = if (darkTheme) {
-        AstelleColors(
-            paper = Ink,
-            paperWarm = InkSoft,
-            divider = InkSoft,
-            ink = Paper,
-            inkSoft = Ghost,
-            muted = Muted,
-            ghost = Muted,
-            surfaceFloat = InkSoft,
-        )
-    } else {
-        AstelleColors()
-    }
+    // token 已是目标主题的值，AstelleColors() 的默认参数自动取对
+    val astelleColors = AstelleColors()
 
     CompositionLocalProvider(LocalAstelleColors provides astelleColors) {
         MaterialTheme(
