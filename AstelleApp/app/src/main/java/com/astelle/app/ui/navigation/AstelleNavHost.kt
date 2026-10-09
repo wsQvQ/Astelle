@@ -69,7 +69,11 @@ fun AstelleNavHost(
             PlansScreen(onOpenDrawer = openDrawerThenHome)
         }
         composable(AstelleDestination.Settings.route) {
-            SettingsScreen(onOpenDrawer = openDrawerThenHome)
+            SettingsScreen(
+                // 退出设置（用户 10-10 里程碑：可以打开、可以退出）
+                onBack = { navController.popBackStack() },
+                onOpenDrawer = openDrawerThenHome,
+            )
         }
     }
 }
