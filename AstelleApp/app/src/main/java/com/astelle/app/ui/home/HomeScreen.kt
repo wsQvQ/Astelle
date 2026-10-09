@@ -633,31 +633,36 @@ private fun EditorScaffold(
             // 实心底色 + 描边，四周的矩形地带**全部透明** —— 文字从下面滚过，
             // 不再被一条实心横带切断
             Box(Modifier.weight(1f)) {
-                BodyEditor(
-                    value = fieldValue,
-                    onValueChange = { new ->
-                        // 回车续列表/引用：只在「正好插入一个换行」时接管
-                        val continued = MarkdownEditing.autoContinue(fieldValue.text, new.text, new.selection.min)
-                        if (continued != null) {
-                            fieldValue = TextFieldValue(continued.text, TextRange(continued.selectStart, continued.selectEnd))
-                            onContent(continued.text)
-                        } else {
-                            fieldValue = new
-                            onContent(new.text)
-                        }
-                    },
-                    // P0（用户 10-09）：正文要**认识输入法** —— 键盘弹起时按 ime 内缩，
-                    // 文末才滚得进可见区（否则最后一段永远躲在键盘后面，怎么滑都看不到）。
-                    // 旧注释说的「双重扣减」是叠层布局时代的事，现在工具栏是浮层、不再占位
-                    modifier = Modifier
+                // 正文滚动搬到外层（用户 10-09「不用二选一」）：文字全程流过胶囊底下
+                //（矩形地带透视 ✓），文末余量垫在**滚动内容里**（末尾 Spacer）——
+                // 滚到底文末自然停在胶囊上方（可达 ✓）。内边距做不到两者兼得，所以搬家
+                Column(
+                    Modifier
                         .fillMaxSize()
+                        // P0：正文要**认识输入法** —— 键盘弹起按 ime 内缩，文末才滚得进可见区。
                         // 键盘收起时**不套 imePadding**：MIUI 的 ime inset 收起后不一定归零，
-                        // 残留高度会顶出一段「怎么滑都看不到」的死区（用户实测的 P0 就有它一份）
+                        // 残留高度会顶出「怎么滑都看不到」的死区（用户实测的 P0 就有它一份）
                         .then(if (imeVisible) Modifier.imePadding() else Modifier)
-                        // 尾部余量 64dp（胶囊顶边在 60dp 处）：文末稳停在胶囊上方，
-                        // 不滑进胶囊底下（用户：肯定要修）
-                        .padding(bottom = 64.dp),
-                )
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    BodyEditor(
+                        value = fieldValue,
+                        onValueChange = { new ->
+                            // 回车续列表/引用：只在「正好插入一个换行」时接管
+                            val continued = MarkdownEditing.autoContinue(fieldValue.text, new.text, new.selection.min)
+                            if (continued != null) {
+                                fieldValue = TextFieldValue(continued.text, TextRange(continued.selectStart, continued.selectEnd))
+                                onContent(continued.text)
+                            } else {
+                                fieldValue = new
+                                onContent(new.text)
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    // 文末的呼吸位（64dp > 胶囊顶边 60dp）：滚到底，文末停在胶囊上方
+                    Spacer(Modifier.height(64.dp))
+                }
                 // 格式工具栏**编辑模式常驻**（用户拍板）：收起键盘就消失会连带把它的
                 // ⋯ 菜单一起拆掉 —— 菜单一打开输入法就收起，于是菜单秒开秒关、页面抽搐（P0 bug B）
                 FormatToolbar(
@@ -970,7 +975,8 @@ private fun BodyEditor(
         ),
         cursorBrush = SolidColor(Accent),
         decorationBox = { innerTextField: @Composable () -> Unit ->
-            Box(Modifier.fillMaxSize()) {
+            // ⚠️ fillMaxWidth 而不是 fillMaxSize：外层滚动后高度无界，fillMaxSize 会炸约束
+            Box(Modifier.fillMaxWidth()) {
                 if (value.text.isEmpty()) {
                     Column {
                         Text(
