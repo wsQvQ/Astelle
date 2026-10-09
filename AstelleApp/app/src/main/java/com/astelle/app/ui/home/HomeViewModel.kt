@@ -54,7 +54,8 @@ class HomeViewModel @Inject constructor(
     ) { notes, filter ->
         when (filter) {
             NoteFilter.All -> notes
-            NoteFilter.Pinned -> notes.filter { it.isPinned }
+            // 文件夹视图：分组里点开才见文章，所以笔记要全量带过去（隐藏由视图层做）
+            NoteFilter.Folders -> notes
             NoteFilter.Favorite -> notes.filter { it.isFavorite }
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())

@@ -2,7 +2,8 @@ package com.astelle.app.ui.home
 
 import com.astelle.app.data.importer.ImportedNote
 
-enum class NoteFilter { All, Pinned, Favorite }
+/** 筛选（10-09 改版）：全部 / 文件夹（只显分类，点开才见文章）/ 收藏。置顶交给排序语义 */
+enum class NoteFilter { All, Folders, Favorite }
 
 data class HomeUiState(
     val currentNoteId: String? = null,

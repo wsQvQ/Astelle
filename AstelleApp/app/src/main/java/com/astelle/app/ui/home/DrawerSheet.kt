@@ -388,8 +388,8 @@ internal fun DrawerSheet(
                     closeCategoryInput(); onFilter(NoteFilter.All)
                 }
                 Spacer(Modifier.width(8.dp))
-                Chip("置顶", selected = filter == NoteFilter.Pinned) {
-                    closeCategoryInput(); onFilter(NoteFilter.Pinned)
+                Chip("文件夹", selected = filter == NoteFilter.Folders) {
+                    closeCategoryInput(); onFilter(NoteFilter.Folders)
                 }
                 Spacer(Modifier.width(8.dp))
                 Chip("收藏", selected = filter == NoteFilter.Favorite) {
@@ -512,13 +512,22 @@ internal fun DrawerSheet(
             // 折叠态。默认全展开，所以只记「被折叠的」。
             // （花笺反过来：它默认全部收起。我们打开抽屉是为了看笔记，
             //   默认收起等于先甩你一张目录，多一步。）
+            // 例外：「文件夹」视图默认**全收起** —— 它就是一张目录，点开才见文章（用户 10-09）
+            val foldersOnly = filter == NoteFilter.Folders
             val collapsed = remember { mutableStateMapOf<String, Boolean>() }
-            val collapsedKeys = collapsed.filterValues { it }.keys
             // 搜索时压平列表：搜索是「我要那一篇」，此时还按分类铺开会把结果
-            // 埋在一串组头里。筛选（置顶/收藏）则保留分组，只是空组不再占位
+            // 埋在一串组头里。筛选保留分组，只是空组不再占位
             val flat = searchQuery.isNotBlank()
-            val groups = groupNotes(notes, folders, hideEmpty = filter != NoteFilter.All)
+            // 文件夹视图要看空分类（分类本身就是内容）；收藏视图的空组只是噪音
+            val groups = groupNotes(notes, folders, hideEmpty = filter == NoteFilter.Favorite)
+            // 一个 map 两种语义：常规记「被折叠的」（默认展开）；
+            // 文件夹视图记「被展开的」（默认收起）—— onToggle 两种都兼容
+            val toggledOn = collapsed.filterValues { it }.keys
+            val collapsedKeys =
+                if (foldersOnly) (groups.map { it.key }.toSet() - toggledOn) else toggledOn
             val rows = buildRows(groups, collapsedKeys, flat = flat)
+                // 文件夹视图：只留分类容器，收件箱的平铺卡不掺和
+                .filter { !foldersOnly || it is DrawerRow.FolderGroup }
 
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 LazyColumn(
@@ -908,7 +917,7 @@ private fun FolderHeader(
 /** 列表空的时候说清楚「为什么空」，比一片留白好 */
 private fun emptyHint(query: String, filter: NoteFilter): String = when {
     query.isNotBlank() -> "没有匹配「$query」的笔记"
-    filter == NoteFilter.Pinned -> "还没有置顶的笔记"
+    filter == NoteFilter.Folders -> "还没有分类，右上角「新建」开一个"
     filter == NoteFilter.Favorite -> "还没有收藏的笔记"
     else -> "还没有笔记，去写第一条吧"
 }
