@@ -15,6 +15,7 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.layer.GraphicsLayer
+import io.noties.markwon.image.AsyncDrawable
 import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.onSizeChanged
@@ -57,6 +58,8 @@ internal fun ExportImageCanvas(
     sliceHeightPx: Int = 0,
     /** 画布实际高度（px），抓图方靠它知道要拼多少片 */
     onHeightChanged: (Int) -> Unit = {},
+    /** 图片 drawable 的就绪状态出口（⑫）：抓图前要等全部 hasResult */
+    onImageDrawables: (List<AsyncDrawable>) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     CompositionLocalProvider(LocalDensity provides EXPORT_DENSITY) {
@@ -103,7 +106,11 @@ internal fun ExportImageCanvas(
                         .background(Divider.copy(alpha = 0.55f)),
                 )
             }
-            MarkdownBody(markdown = content, modifier = Modifier.fillMaxWidth())
+            MarkdownBody(
+                markdown = content,
+                modifier = Modifier.fillMaxWidth(),
+                onImageDrawables = onImageDrawables,
+            )
         }
     }
 }

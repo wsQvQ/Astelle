@@ -115,8 +115,11 @@ import com.astelle.app.R
 import androidx.activity.result.PickVisualMediaRequest
 import com.astelle.app.data.editor.MarkdownEditing
 import com.astelle.app.data.image.ImageStore
+import io.noties.markwon.image.AsyncDrawable
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import com.astelle.app.data.exporter.ExportFileWriter
 import com.astelle.app.data.exporter.ExportResult
 import com.astelle.app.data.exporter.MarkdownExport
@@ -411,6 +414,8 @@ private fun EditorScaffold(
     val exportLayer = rememberGraphicsLayer()
     var exportCanvasShown by remember { mutableStateOf(false) }
     var exportCanvasHeightPx by remember { mutableStateOf(0) }
+    // 导出画布里的图片 drawable（⑫）：抓图前要等它们全部就绪
+    var exportImageDrawables by remember { mutableStateOf<List<AsyncDrawable>>(emptyList()) }
     var sliceOffsetPx by remember { mutableStateOf(0f) }
     var sliceHeightPx by remember { mutableStateOf(0) }
     var pendingMarkdown by remember { mutableStateOf<String?>(null) }
@@ -555,6 +560,14 @@ private fun EditorScaffold(
                         withFrameNanos { }
                         withFrameNanos { }
                         withFrameNanos { }
+                        // 图片是 Coil 异步加载的（⑫）：不等就绪就抓图，长图里图片
+                        // 只剩一小截/整块空白（用户实测）。Markwon 的自愈是 setText 整体重排，
+                        // 就绪后再等它落定两帧 —— 高度也随图片撑开
+                        withTimeoutOrNull(3000L) {
+                            while (exportImageDrawables.any { !it.hasResult() }) delay(50)
+                        }
+                        withFrameNanos { }
+                        withFrameNanos { }
                         val totalHeight = exportCanvasHeightPx
                         // 分片抓、拼整图：长图一次性读回内存会撞 GPU 纹理上限，
                         // 手机上 4450 字的图就是这么在 @copy 环节炸的（见 MAX_SLICE_PX）
@@ -661,6 +674,7 @@ private fun EditorScaffold(
                     sliceOffsetPx = sliceOffsetPx,
                     sliceHeightPx = sliceHeightPx,
                     onHeightChanged = { exportCanvasHeightPx = it },
+                    onImageDrawables = { exportImageDrawables = it },
                 )
             }
         }

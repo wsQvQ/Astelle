@@ -134,9 +134,15 @@ internal fun FormatToolbar(
         // ── 感叹号的「竖」：胶囊条（贴内容宽，超出则胶囊内滚动） ──
         val scrollState = rememberScrollState()
         val canScrollBack by remember { derivedStateOf { scrollState.value > 0 } }
+        val canScrollForth by remember {
+            derivedStateOf { scrollState.value < scrollState.maxValue }
+        }
         var pressedLabel by remember { mutableStateOf<String?>(null) }
         Box(
             modifier = Modifier
+                // ⚠️ 必须 weight(fill=false)：让球先拿走固定 48dp，胶囊只吃**剩下的**宽度。
+                // 不加 weight 时胶囊先量先吃，窄屏把球挤成 0 宽 —— 「感叹号的点」整个消失（用户实测）
+                .weight(1f, fill = false)
                 .height(48.dp)
                 .clip(RoundedCornerShape(24.dp))
                 .background(SurfaceFloat)
@@ -160,7 +166,7 @@ internal fun FormatToolbar(
                     }
                 }
             }
-            // 左缘渐隐 = 「右边还有」（只在真能往回滚时出现）；渐隐到胶囊底色，不出胶囊
+            // 左缘渐隐 = 「左边还有」（只在真能往回滚时出现）；渐隐到胶囊底色，不出胶囊
             if (canScrollBack) {
                 Box(
                     Modifier
@@ -170,6 +176,21 @@ internal fun FormatToolbar(
                         .background(
                             Brush.horizontalGradient(
                                 colors = listOf(SurfaceFloat, Color.Transparent),
+                            ),
+                        ),
+                )
+            }
+            // 右缘渐隐 = 「右边还有」—— 手机上缩进/反缩进就藏在视野外（用户实测找不到），
+            // 没有提示等于不存在。方向反过来画
+            if (canScrollForth) {
+                Box(
+                    Modifier
+                        .align(Alignment.CenterEnd)
+                        .width(16.dp)
+                        .height(48.dp)
+                        .background(
+                            Brush.horizontalGradient(
+                                colors = listOf(Color.Transparent, SurfaceFloat),
                             ),
                         ),
                 )

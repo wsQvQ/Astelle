@@ -21,6 +21,8 @@ import com.astelle.app.ui.theme.Ink
 import com.astelle.app.ui.theme.PaperWarm
 import dev.jeziellago.compose.markdowntext.MarkdownText
 import io.noties.markwon.ext.tables.TableRowSpan
+import io.noties.markwon.image.AsyncDrawable
+import io.noties.markwon.image.AsyncDrawableSpan
 
 /**
  * 正文的真 Markdown 渲染。编辑器预览与导出图片共用这一份配置 ——
@@ -48,6 +50,8 @@ internal fun MarkdownBody(
     selectable: Boolean = false,
     /** 递增一次就清掉选区（用户：打开侧边栏时选中不该留着） */
     clearSelectionTick: Int = 0,
+    /** 把图片 drawable 交出去：导出抓图前要等它们全部就绪（⑫，异步加载） */
+    onImageDrawables: (List<AsyncDrawable>) -> Unit = {},
 ) {
     // 拿住底层 TextView：清选区要直接对它操作（MarkdownText 只给 set 的钩子）
     val textView = remember { mutableStateOf<TextView?>(null) }
@@ -79,6 +83,10 @@ internal fun MarkdownBody(
         beforeSetMarkdown = { tv, spanned ->
             textView.value = tv
             fixTableRelayout(tv, spanned)
+            onImageDrawables(
+                spanned.getSpans(0, spanned.length, AsyncDrawableSpan::class.java)
+                    .map { it.drawable },
+            )
         },
     )
 }
