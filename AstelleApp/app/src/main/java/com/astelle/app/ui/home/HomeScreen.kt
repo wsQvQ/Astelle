@@ -138,8 +138,10 @@ import com.astelle.app.ui.components.MenuDivider
 import com.astelle.app.ui.components.MenuRow
 import com.astelle.app.ui.navigation.AstelleDestination
 // 色板统一取自 ui/theme —— 本文件不再自己抄一份
+import androidx.compose.ui.text.TextStyle
 import com.astelle.app.ui.theme.Accent
 import com.astelle.app.ui.theme.AccentMist
+import com.astelle.app.ui.theme.CenteredLineHeight
 import com.astelle.app.ui.theme.Danger
 import com.astelle.app.ui.theme.Divider
 import com.astelle.app.ui.theme.DrawerBg
@@ -831,6 +833,8 @@ private fun ViewPill(mode: EditorMode, onMode: (EditorMode) -> Unit) {
                         fontSize = 12.sp,
                         fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
                         color = if (selected) Accent else Ghost,
+                        // 滑块里的字要**真的**居中（中文行盒裁剪，见 CenteredLineHeight）
+                        style = TextStyle(lineHeightStyle = CenteredLineHeight),
                     )
                 }
             }

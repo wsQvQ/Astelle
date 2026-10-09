@@ -109,6 +109,7 @@ import com.astelle.app.ui.theme.FolderBody
 import com.astelle.app.ui.theme.FolderHead
 import com.astelle.app.ui.theme.Ghost
 import com.astelle.app.ui.theme.Ink
+import com.astelle.app.ui.theme.CenteredLineHeight
 import com.astelle.app.ui.theme.InkSoft
 import com.astelle.app.ui.theme.Muted
 import com.astelle.app.ui.theme.Paper
@@ -302,7 +303,13 @@ internal fun DrawerSheet(
                             .padding(horizontal = 11.dp),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text("${notes.size} 篇", fontFamily = mono, fontSize = 11.sp, color = Muted)
+                        Text(
+                            "${notes.size} 篇",
+                            fontFamily = mono,
+                            fontSize = 11.sp,
+                            color = Muted,
+                            style = TextStyle(lineHeightStyle = CenteredLineHeight),
+                        )
                     }
                     // 「N 篇」右边：**卡片密度开关**（用户 10-09 C）—— 一下把所有
                     // 笔记卡收成「标题 + 日期」，再点展开。放这儿而不是新建按钮旁：
@@ -404,7 +411,13 @@ internal fun DrawerSheet(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(AstelleIcons.Import, contentDescription = null, tint = Muted, modifier = Modifier.size(14.dp))
                     Spacer(Modifier.width(7.dp))
-                    Text("导入 Markdown", fontSize = 12.sp, color = Muted)
+                    Text(
+                        "导入 Markdown",
+                        fontSize = 12.sp,
+                        color = Muted,
+                        // 不再「沉下去」：中文行盒裁剪后才真居中
+                        style = TextStyle(lineHeightStyle = CenteredLineHeight),
+                    )
                 }
             }
 
@@ -467,6 +480,10 @@ internal fun DrawerSheet(
                         Text(
                             "新建",
                             fontSize = 14.sp,
+                            // 窄栏/大字号下不许折成「新\n建」两行（10-10 实测翻车）
+                            maxLines = 1,
+                            softWrap = false,
+                            style = TextStyle(lineHeightStyle = CenteredLineHeight),
                             color = if (folderPressed || showCatInput) Accent else Muted,
                         )
                     }
@@ -692,6 +709,7 @@ private fun Chip(text: String, selected: Boolean, onClick: () -> Unit) {
             fontSize = 12.sp,
             fontWeight = if (active) FontWeight.Medium else FontWeight.Normal,
             color = if (active) Accent else Muted,
+            style = TextStyle(lineHeightStyle = CenteredLineHeight),
         )
     }
 }
