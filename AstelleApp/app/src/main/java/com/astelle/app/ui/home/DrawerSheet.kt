@@ -297,9 +297,9 @@ internal fun DrawerSheet(
                         Modifier
                             .clip(RoundedCornerShape(999.dp))
                             .background(Paper.copy(alpha = 0.7f))
-                            // 高度和右边的密度钮共用 22dp —— 两枚胶囊要一般高（用户 10-10）
-                            .height(22.dp)
-                            .padding(horizontal = 9.dp),
+                            // 和密度钮一般高（28dp）—— 还原到原来的体量并一起做大（用户 10-10）
+                            .height(28.dp)
+                            .padding(horizontal = 11.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text("${notes.size} 篇", fontFamily = mono, fontSize = 11.sp, color = Muted)
@@ -317,16 +317,16 @@ internal fun DrawerSheet(
                             .clickable(interactionSource = densityInteraction, indication = null) {
                                 compactCards = !compactCards
                             }
-                            // 和「N 篇」胶囊一般高（22dp），两枚才像一套（用户 10-10）
-                            .height(22.dp)
-                            .padding(horizontal = 6.dp),
+                            // 做大（用户 10-10：是把密度钮做大，不是把胶囊做小）—— 28dp 和「N 篇」齐平
+                            .height(28.dp)
+                            .padding(horizontal = 7.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
                             if (compactCards) Icons.Outlined.UnfoldMore else Icons.Outlined.UnfoldLess,
                             contentDescription = if (compactCards) "展开卡片" else "收起卡片",
                             tint = if (compactCards) Accent else Muted,
-                            modifier = Modifier.size(14.dp),
+                            modifier = Modifier.size(17.dp),
                         )
                     }
                 }
@@ -456,16 +456,17 @@ internal fun DrawerSheet(
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
-                            // 文件夹带 ＋（用户 10-09 选的图标）：一眼是「新建文件夹」
-                            Icons.Outlined.CreateNewFolder,
+                            // 文件夹带 ＋，细线自绘版（用户 10-10：大小不动、线做细）；
+                            // 一眼是「新建文件夹」，和顶栏 ✎ 新建笔记区分
+                            AstelleIcons.FolderPlus,
                             contentDescription = "新建分类",
                             tint = if (folderPressed || showCatInput) Accent else Ghost,
                             modifier = Modifier.size(26.dp),
                         )
-                        Spacer(Modifier.width(4.dp))
+                        Spacer(Modifier.width(5.dp))
                         Text(
                             "新建",
-                            fontSize = 12.sp,
+                            fontSize = 14.sp,
                             color = if (folderPressed || showCatInput) Accent else Muted,
                         )
                     }

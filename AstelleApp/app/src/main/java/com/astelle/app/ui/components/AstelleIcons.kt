@@ -256,6 +256,37 @@ object AstelleIcons {
             }
         }.build()
     }
+
+    /**
+     * 新建文件夹：文件夹带 ＋（Lucide folder-plus）。
+     * 用户 10-10：图标**大小不动、线要细** —— Material 的实心图标没有线宽可调，
+     * 照自家描边画法自绘（1.5f 细线，和 Settings 同族）。
+     */
+    val FolderPlus: ImageVector by lazy {
+        ImageVector.Builder("FolderPlus", 24.dp, 24.dp, 24f, 24f).apply {
+            path(stroke = SolidColor(Muted), strokeLineWidth = 1.5f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
+                // 文件夹外框（Lucide folder，逐段搬的弧）
+                moveTo(4f, 20f)
+                lineTo(20f, 20f)
+                arcTo(2f, 2f, 0f, isMoreThanHalf = false, isPositiveArc = false, x1 = 22f, y1 = 18f)
+                lineTo(22f, 8f)
+                arcTo(2f, 2f, 0f, isMoreThanHalf = false, isPositiveArc = false, x1 = 20f, y1 = 6f)
+                lineTo(12.1f, 6f)
+                arcTo(2f, 2f, 0f, isMoreThanHalf = false, isPositiveArc = true, x1 = 10.41f, y1 = 5.1f)
+                lineTo(9.6f, 3.9f)
+                arcTo(2f, 2f, 0f, isMoreThanHalf = false, isPositiveArc = false, x1 = 7.93f, y1 = 3f)
+                lineTo(4f, 3f)
+                arcTo(2f, 2f, 0f, isMoreThanHalf = false, isPositiveArc = false, x1 = 2f, y1 = 5f)
+                lineTo(2f, 18f)
+                curveTo(2f, 19.1f, 2.9f, 20f, 4f, 20f)
+                // ＋（folder-plus）
+                moveTo(12f, 10f)
+                lineTo(12f, 16f)
+                moveTo(9f, 13f)
+                lineTo(15f, 13f)
+            }
+        }.build()
+    }
 }
 
 private fun PathBuilder.addOval(l: Float, t: Float, r: Float, b: Float) {
