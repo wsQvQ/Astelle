@@ -105,6 +105,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
@@ -185,6 +186,7 @@ fun HomeRoute(
     val folders by viewModel.folders.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val keyboard = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
     val context = LocalContext.current
 
     // 导入 .md：挑文件 → 读文本 → 纯函数解析 → 交给 ViewModel 落库。
@@ -217,7 +219,11 @@ fun HomeRoute(
         scope.launch { drawerState.close() }
     }
     LaunchedEffect(drawerState.isOpen) {
-        if (drawerState.isOpen) keyboard?.hide()
+        if (drawerState.isOpen) {
+            keyboard?.hide()
+            // 开抽屉 = 离开编辑（用户 10-10）：光标一并取消，别留个闪烁的竖线
+            focusManager.clearFocus(force = true)
+        }
     }
 
     // 打开侧边栏就清掉预览里的选区（用户：选中不该留着）—— tick 递增，下游自己清
@@ -404,7 +410,9 @@ private fun EditorScaffold(
     var fieldValue by remember { mutableStateOf(TextFieldValue("")) }
     LaunchedEffect(state.currentNoteId, state.content) {
         if (fieldValue.text != state.content) {
-            fieldValue = TextFieldValue(state.content, selection = TextRange(state.content.length))
+            // ⚠️ 光标初始化到**文首**不是文末（10-10 修「顶飞」）：文末光标会在
+            // 第一次聚焦时把「文末」抢先带进视野 —— 整篇飞到底，光标却在半山腰
+            fieldValue = TextFieldValue(state.content, selection = TextRange(0))
         }
     }
     // ⚠️ 别用 WindowInsets.ime.getBottom() 判断键盘开关：它在键盘收起后**不一定归零**
@@ -510,7 +518,7 @@ private fun EditorScaffold(
         Column(
             modifier = Modifier
                 .fillMaxHeight()
-                .widthIn(max = if (isLargeScreen()) 880.dp else Dp.Unspecified)
+                .widthIn(max = if (isLargeScreen() && state.mode != EditorMode.Split) 880.dp else Dp.Unspecified)
                 .align(Alignment.TopCenter)
                 .statusBarsPadding()
                 .navigationBarsPadding(),
