@@ -649,7 +649,22 @@ private fun EditorScaffold(
                     // ⚠️ 正文**不加 imePadding**：工具栏已经用 imePadding 把自己顶到键盘上沿、
                     // 也占掉了自己的高度；正文再按输入法高度内缩一次就是双重扣减 ——
                     // 真机上表现为「打字区被顶上去一格，第一行看不见」（P0 bug A）
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        // 打字时给正文留出「工具栏高度」的尾部余量（66dp = 球48+上6+下12）：
+                        // 光标到文末也不被胶囊挡住（用户报的大 bug）。
+                        // 键盘收起时归 0 —— 那时要的是文字一路流到屏幕底的全透明
+                        .padding(bottom = if (imeVisible) 66.dp else 0.dp),
+                )
+                // 分割线下的渐隐带（用户 10-09）：文字爬到分割线底下最后一程逐渐淡出、
+                // 再被分割线盖住 —— 消掉断层。真模糊要按区域上 RenderEffect（成本高），
+                // 2dp 渐隐的观感几乎一致
+                Box(
+                    Modifier
+                        .align(Alignment.TopCenter)
+                        .fillMaxWidth()
+                        .height(2.dp)
+                        .background(Brush.verticalGradient(listOf(Paper, Paper.copy(alpha = 0f)))),
                 )
                 // 格式工具栏**编辑模式常驻**（用户拍板）：收起键盘就消失会连带把它的
                 // ⋯ 菜单一起拆掉 —— 菜单一打开输入法就收起，于是菜单秒开秒关、页面抽搐（P0 bug B）
@@ -953,7 +968,7 @@ private fun BodyEditor(
         onValueChange = onValueChange,
         modifier = modifier
             .fillMaxWidth()
-            .padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 12.dp),
+            .padding(start = 20.dp, end = 20.dp, top = 2.dp),
         textStyle = LocalTextStyle.current.copy(
             fontSize = 16.sp,
             color = Ink,
