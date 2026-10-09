@@ -159,4 +159,14 @@ class DrawerGroupsTest {
         assertTrue(keys.contains("g:f1"))
         assertTrue(keys.contains("n:a"))
     }
+
+    @Test
+    fun `置顶分类排在未分类之前`() {
+        val groups = groupNotes(
+            listOf(note("a"), note("b", "f2")),
+            listOf(folder("f1", "置顶的").copy(isPinned = true), folder("f2", "普通")),
+        )
+        // ④：置顶整屏最前 —— 连「未分类」都要排在它后面（用户实测踩过）
+        assertEquals(listOf("f1", INBOX_KEY, "f2"), groups.map { it.key })
+    }
 }

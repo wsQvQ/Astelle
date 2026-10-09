@@ -59,10 +59,11 @@ import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.CreateNewFolder
 import androidx.compose.material.icons.outlined.FolderOpen
-import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.StarBorder
+import androidx.compose.material.icons.outlined.UnfoldLess
+import androidx.compose.material.icons.outlined.UnfoldMore
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -148,6 +149,8 @@ internal fun DrawerSheet(
     // 长按分类组头弹出的重命名 / 删除确认
     var renaming by remember { mutableStateOf<Folder?>(null) }
     var deleting by remember { mutableStateOf<Folder?>(null) }
+    // 卡片密度（用户 10-09 C）：收起 = 只留「标题 + 日期」，展开 = 全卡
+    var compactCards by remember { mutableStateOf(false) }
 
     if (renaming != null) {
         val target = renaming!!
@@ -298,6 +301,29 @@ internal fun DrawerSheet(
                     ) {
                         Text("${notes.size} 篇", fontFamily = mono, fontSize = 11.sp, color = Muted)
                     }
+                    // 「N 篇」右边：**卡片密度开关**（用户 10-09 C）—— 一下把所有
+                    // 笔记卡收成「标题 + 日期」，再点展开。放这儿而不是新建按钮旁：
+                    // 它是「列表怎么看」的视图开关，和统计同族；新建那边是「创造」，语义不掺和
+                    Spacer(Modifier.width(6.dp))
+                    val densityInteraction = remember { MutableInteractionSource() }
+                    val densityPressed by densityInteraction.collectIsPressedAsState()
+                    Box(
+                        Modifier
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(if (densityPressed) AccentMist else Paper.copy(alpha = 0.7f))
+                            .clickable(interactionSource = densityInteraction, indication = null) {
+                                compactCards = !compactCards
+                            }
+                            .padding(6.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            if (compactCards) Icons.Outlined.UnfoldMore else Icons.Outlined.UnfoldLess,
+                            contentDescription = if (compactCards) "展开卡片" else "收起卡片",
+                            tint = if (compactCards) Accent else Muted,
+                            modifier = Modifier.size(14.dp),
+                        )
+                    }
                 }
                 Spacer(Modifier.height(4.dp))
                 Text(
@@ -429,7 +455,7 @@ internal fun DrawerSheet(
                             Icons.Outlined.CreateNewFolder,
                             contentDescription = "新建分类",
                             tint = if (folderPressed || showCatInput) Accent else Ghost,
-                            modifier = Modifier.size(18.dp),
+                            modifier = Modifier.size(22.dp),
                         )
                         Spacer(Modifier.width(4.dp))
                         Text(
@@ -555,11 +581,13 @@ internal fun DrawerSheet(
                                 onToggleFavorite = onToggleFavorite,
                                 onRequestDelete = onRequestDelete,
                                 onMoveToFolder = onMoveNoteToFolder,
+                                compact = compactCards,
                             )
                             is DrawerRow.FlatNote -> NoteItem(
                                 note = row.summary,
                                 selected = row.summary.id == currentNoteId,
                                 contained = false,
+                                compact = compactCards,
                                 folders = folders,
                                 onClick = { closeCategoryInput(); onOpenNote(row.summary.id) },
                                 onTogglePin = { onTogglePin(row.summary.id) },
@@ -689,6 +717,8 @@ private fun FolderCard(
     onToggleFavorite: (String) -> Unit,
     onRequestDelete: (String) -> Unit,
     onMoveToFolder: (String, String?) -> Unit,
+    /** 紧凑卡（用户 10-09 C）：透传给组内条目 */
+    compact: Boolean = false,
 ) {
     Column(
         Modifier
@@ -746,6 +776,7 @@ private fun FolderCard(
                             note = note,
                             selected = note.id == currentNoteId,
                             contained = true,
+                            compact = compact,
                             folders = allFolders,
                             onClick = { onOpenNote(note.id) },
                             onTogglePin = { onTogglePin(note.id) },
@@ -935,6 +966,8 @@ private fun NoteItem(
     note: NoteSummary,
     selected: Boolean,
     contained: Boolean,
+    /** 紧凑卡（用户 10-09 C）：只留标题 + 日期 */
+    compact: Boolean = false,
     folders: List<Folder>,
     onClick: () -> Unit,
     onTogglePin: () -> Unit,
@@ -1030,37 +1063,53 @@ private fun NoteItem(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f),
                     )
+                    // 状态徽标（②，用户 10-09 实测：图钉压根没画、星被挤成 8dp 隐形）——
+                    // 置顶图钉 + 收藏星，13dp 起步，间距走 Spacer 不吃图标尺寸
+                    if (note.isPinned) {
+                        Spacer(Modifier.width(4.dp))
+                        Icon(
+                            Icons.Outlined.PushPin,
+                            contentDescription = "已置顶",
+                            tint = Accent,
+                            modifier = Modifier.size(13.dp),
+                        )
+                    }
                     if (note.isFavorite) {
+                        Spacer(Modifier.width(4.dp))
                         Icon(
                             AstelleIcons.Sparkle,
                             contentDescription = "已收藏",
                             tint = Accent,
-                            modifier = Modifier.size(12.dp).padding(end = 4.dp),
+                            modifier = Modifier.size(13.dp),
                         )
                     }
+                    Spacer(Modifier.width(5.dp))
                     Text(dateLabel, fontFamily = mono, fontSize = 10.sp, color = Ghost)
                 }
                 // 摘要与字数都来自投影，不再从正文全文里现算
                 val sum = note.preview
-                // sum != headline：标题为空时 headline 就是正文首行，再显示一遍纯属重复
-                if (sum.isNotBlank() && sum != headline) {
+                // 紧凑卡只留标题 + 日期（用户 10-09 C）
+                if (!compact) {
+                    // sum != headline：标题为空时 headline 就是正文首行，再显示一遍纯属重复
+                    if (sum.isNotBlank() && sum != headline) {
+                        Text(
+                            sum,
+                            fontSize = 12.sp,
+                            lineHeight = 18.sp,
+                            color = Muted,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(top = 3.dp),
+                        )
+                    }
                     Text(
-                        sum,
-                        fontSize = 12.sp,
-                        lineHeight = 18.sp,
-                        color = Muted,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
+                        "$timeLabel · ${note.charCount} 字",
+                        fontFamily = mono,
+                        fontSize = 10.sp,
+                        color = Ghost,
                         modifier = Modifier.padding(top = 3.dp),
                     )
                 }
-                Text(
-                    "$timeLabel · ${note.charCount} 字",
-                    fontFamily = mono,
-                    fontSize = 10.sp,
-                    color = Ghost,
-                    modifier = Modifier.padding(top = 3.dp),
-                )
             }
         }
 

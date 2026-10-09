@@ -43,9 +43,13 @@ internal fun groupNotes(
     val byFolder = notes.groupBy { it.folderId?.takeIf(known::contains) }
 
     return buildList {
+        // ④ 置顶分类**整屏最前** —— 连「未分类」都要排到它们后面。
+        // （用户实测踩过：只在「文件夹内部」排最前 = 看起来根本没生效）
+        val (pinned, unpinned) = folders.partition { it.isPinned }
+        pinned.forEach { folder -> add(NoteGroup(folder, byFolder[folder.id].orEmpty())) }
         val inbox = byFolder[null].orEmpty()
         if (inbox.isNotEmpty()) add(NoteGroup(folder = null, notes = inbox))
-        folders.forEach { folder ->
+        unpinned.forEach { folder ->
             val owned = byFolder[folder.id].orEmpty()
             if (owned.isNotEmpty() || !hideEmpty) add(NoteGroup(folder, owned))
         }
