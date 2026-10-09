@@ -10,8 +10,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -73,7 +75,11 @@ fun SettingsScreen(
     Column(
         Modifier
             .fillMaxSize()
-            .background(colors.paper)
+            // ⚠️ 状态栏/导航栏内缩（10-10 修：返回箭头撞时钟、侧栏撞电池）
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            // 深底浅卡：页面比卡片深一档（照参考图的层次）
+            .background(colors.paperWarm)
             .verticalScroll(rememberScrollState()),
     ) {
         // 顶栏：返回（退出设置）+ 侧栏
@@ -81,11 +87,22 @@ fun SettingsScreen(
             Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            QuietIconBtn(Icons.AutoMirrored.Outlined.ArrowBack, "返回", onBack)
+            Box(
+                Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(999.dp))
+                    // 参考图的返回钮：一枚浅色圆钮，不裸奔
+                    .background(colors.paper)
+                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onBack),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回", tint = InkSoft)
+            }
             Spacer(Modifier.weight(1f))
             Box(
                 Modifier
                     .clip(RoundedCornerShape(999.dp))
+                    .background(colors.paper)
                     .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onOpenDrawer)
                     .padding(horizontal = 14.dp, vertical = 9.dp),
             ) {

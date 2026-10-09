@@ -26,8 +26,20 @@ class SettingsStore(context: Context) {
             ThemeModeHolder.mode.value = value
         }
 
+    /**
+     * 返回手势开关（10-10：接口先留，设置页的开关行下一批补）。
+     * 预测性返回（Predictive Back）的 manifest 开关已就位；
+     * 这个偏好以后接「手势返回」的启停。
+     */
+    var backGestureEnabled: Boolean
+        get() = prefs.getBoolean(KEY_BACK_GESTURE, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_BACK_GESTURE, value).apply()
+        }
+
     private companion object {
         const val KEY_COLOR_MODE = "colorMode"
+        const val KEY_BACK_GESTURE = "backGestureEnabled"
     }
 }
 

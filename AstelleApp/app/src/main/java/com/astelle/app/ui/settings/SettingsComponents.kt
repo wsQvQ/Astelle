@@ -62,22 +62,24 @@ internal fun SettingRow(
     trailing: @Composable (() -> Unit)? = null,
     onClick: (() -> Unit)? = null,
 ) {
+    val colors = com.astelle.app.ui.theme.LocalAstelleColors.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(bottom = 10.dp)
             .clip(RoundedCornerShape(16.dp))
-            .background(Paper)
+            // 深底浅卡（用户 10-10：照参考图）—— 页面用 paperWarm，卡用 paper
+            .background(colors.paper)
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(icon, contentDescription = null, tint = InkSoft, modifier = Modifier.size(22.dp))
+        Icon(icon, contentDescription = null, tint = colors.inkSoft, modifier = Modifier.size(22.dp))
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
-            Text(title, fontSize = 15.sp, fontWeight = FontWeight.Medium, color = Ink)
+            Text(title, fontSize = 15.sp, fontWeight = FontWeight.Medium, color = colors.ink)
             if (subtitle != null) {
-                Text(subtitle, fontSize = 12.sp, color = Muted, modifier = Modifier.padding(top = 3.dp))
+                Text(subtitle, fontSize = 12.sp, color = colors.muted, modifier = Modifier.padding(top = 3.dp))
             }
         }
         if (trailing != null) {
