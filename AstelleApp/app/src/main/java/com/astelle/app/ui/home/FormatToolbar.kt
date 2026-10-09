@@ -5,6 +5,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -125,8 +126,14 @@ internal fun FormatToolbar(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            // 底边比顶边多 6dp：工具栏整体往上抬一点，和键盘之间的「悬空气」更足（用户 10-09）
-            .padding(start = 10.dp, end = 10.dp, top = 6.dp, bottom = 12.dp),
+            // 底边 18dp：工具栏再往上抬一点，和键盘之间的「悬空气」更足（用户 10-09 二调）
+            .padding(start = 10.dp, end = 10.dp, top = 6.dp, bottom = 18.dp)
+            // 工具栏窄带自己吃掉横滑（用户 10-09：右滑工具栏误触开侧栏）：
+            // 胶囊能滚时它的横滚先消费、这里自动退场；滚不动/球上/空隙上的横滑
+            // 一律吃掉，不给抽屉手势留活口
+            .pointerInput(Unit) {
+                detectHorizontalDragGestures { change, _ -> change.consume() }
+            },
         horizontalArrangement = if (largeScreen) Arrangement.End else Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {

@@ -508,7 +508,7 @@ private fun EditorScaffold(
         Column(
             modifier = Modifier
                 .fillMaxHeight()
-                .widthIn(max = if (isLargeScreen()) 720.dp else Dp.Unspecified)
+                .widthIn(max = if (isLargeScreen()) 880.dp else Dp.Unspecified)
                 .align(Alignment.TopCenter)
                 .statusBarsPadding()
                 .navigationBarsPadding(),
@@ -721,8 +721,8 @@ private fun EditorScaffold(
                         },
                         modifier = Modifier.fillMaxWidth(),
                     )
-                    // 文末的呼吸位（64dp > 胶囊顶边 60dp）：滚到底，文末停在胶囊上方
-                    Spacer(Modifier.height(64.dp))
+                    // 文末的呼吸位（72dp > 胶囊顶边 66dp）：滚到底，文末停在胶囊上方
+                    Spacer(Modifier.height(72.dp))
                 }
                 // 格式工具栏**编辑模式常驻**（用户拍板）：收起键盘就消失会连带把它的
                 // ⋯ 菜单一起拆掉 —— 菜单一打开输入法就收起，于是菜单秒开秒关、页面抽搐（P0 bug B）

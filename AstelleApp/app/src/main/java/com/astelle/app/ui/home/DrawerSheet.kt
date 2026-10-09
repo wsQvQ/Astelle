@@ -57,7 +57,7 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.CreateNewFolder
 import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.PushPin
@@ -422,7 +422,8 @@ internal fun DrawerSheet(
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
-                            Icons.Outlined.Folder,
+                            // 文件夹带 ＋（用户 10-09 选的图标）：一眼是「新建文件夹」
+                            Icons.Outlined.CreateNewFolder,
                             contentDescription = "新建分类",
                             tint = if (folderPressed || showCatInput) Accent else Ghost,
                             modifier = Modifier.size(18.dp),
