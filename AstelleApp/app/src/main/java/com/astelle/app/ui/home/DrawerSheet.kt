@@ -461,7 +461,7 @@ internal fun DrawerSheet(
                             AstelleIcons.FolderPlus,
                             contentDescription = "新建分类",
                             tint = if (folderPressed || showCatInput) Accent else Ghost,
-                            modifier = Modifier.size(26.dp),
+                            modifier = Modifier.size(24.dp),
                         )
                         Spacer(Modifier.width(5.dp))
                         Text(
