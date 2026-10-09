@@ -28,7 +28,8 @@ data class HomeUiState(
     val charCount: Int get() = content.length
 }
 
-enum class EditorMode { Edit, Preview }
+/** 编辑形态：编辑 / 分栏（花笺三栏，仅大屏）/ 预览 */
+enum class EditorMode { Edit, Split, Preview }
 
 sealed interface HomeUiEvent {
     data class TitleChanged(val title: String) : HomeUiEvent

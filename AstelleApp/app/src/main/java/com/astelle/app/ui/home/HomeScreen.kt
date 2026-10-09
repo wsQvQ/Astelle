@@ -304,10 +304,9 @@ fun HomeRoute(
         PermanentNavigationDrawer(
             drawerContent = {
                 PermanentDrawerSheet(
-                    // 常驻态的分界：右缘一道 1dp 发丝线（产品口径：边界靠描边，
-                    // 不靠 R 角不靠填色；它是页面结构，不是弹出物）
+                    // 常驻侧栏 330dp（用户 10-10：比 300 再宽一点点）；弹出式抽屉仍 300
                     modifier = Modifier
-                        .width(300.dp)
+                        .width(330.dp)
                         .drawBehind {
                             drawLine(
                                 color = Divider,
@@ -547,7 +546,7 @@ private fun EditorScaffold(
                 )
             }
             Spacer(Modifier.weight(1f))
-            ViewPill(mode = state.mode, onMode = onMode)
+            ViewPill(mode = state.mode, largeScreen = isLargeScreen(), onMode = onMode)
             Spacer(Modifier.width(4.dp))
             IconBtn(onClick = onNewNote) {
                 Image(
@@ -688,11 +687,12 @@ private fun EditorScaffold(
         )
 
         // ── 正文 ──
-        if (state.mode == EditorMode.Edit) {
+        // 编辑栏抽成一份：编辑 / 分栏 两个形态共用（花笺三栏，10-10）
+        val editorPane: @Composable (Modifier) -> Unit = { paneModifier ->
             // 工具栏**悬浮**在正文上（用户 2026-10-09）：除了胶囊和球这两个形状自己的
             // 实心底色 + 描边，四周的矩形地带**全部透明** —— 文字从下面滚过，
             // 不再被一条实心横带切断
-            Box(Modifier.weight(1f)) {
+            Box(paneModifier) {
                 // 正文滚动搬到外层（用户 10-09「不用二选一」）：文字全程流过胶囊底下
                 //（矩形地带透视 ✓），文末余量垫在**滚动内容里**（末尾 Spacer）——
                 // 滚到底文末自然停在胶囊上方（可达 ✓）。内边距做不到两者兼得，所以搬家
@@ -741,8 +741,30 @@ private fun EditorScaffold(
                         .then(if (imeVisible) Modifier.imePadding() else Modifier),
                 )
             }
-        } else {
-            BodyPreview(
+        }
+        when (state.mode) {
+            EditorMode.Edit -> editorPane(Modifier.weight(1f))
+            EditorMode.Split -> Row(Modifier.weight(1f)) {
+                // 工具栏挂在**编辑栏**（对齐跟着栏走），键盘也只推编辑栏
+                editorPane(Modifier.weight(1f))
+                Box(Modifier.fillMaxHeight().width(1.dp).background(Divider.copy(alpha = 0.55f)))
+                Column(Modifier.weight(1f)) {
+                    // 预览小标（花笺同款：Ghost 小字、无框无底，靠中缝发丝线分界）
+                    Text(
+                        "预览",
+                        fontSize = 11.sp,
+                        color = Ghost,
+                        modifier = Modifier.padding(start = 20.dp, top = 12.dp, bottom = 2.dp),
+                        style = TextStyle(lineHeightStyle = CenteredLineHeight),
+                    )
+                    BodyPreview(
+                        content = state.content,
+                        modifier = Modifier.weight(1f),
+                        clearSelectionTick = clearSelectionTick,
+                    )
+                }
+            }
+            EditorMode.Preview -> BodyPreview(
                 content = state.content,
                 modifier = Modifier.weight(1f),
                 clearSelectionTick = clearSelectionTick,
@@ -788,10 +810,16 @@ private fun IconBtn(
 }
 
 @Composable
-private fun ViewPill(mode: EditorMode, onMode: (EditorMode) -> Unit) {
-    val target = if (mode == EditorMode.Edit) 0f else 1f
+private fun ViewPill(mode: EditorMode, largeScreen: Boolean, onMode: (EditorMode) -> Unit) {
+    // 三段只在大屏出现（花笺三栏，10-10）；手机维持二段，别挤
+    val segments = if (largeScreen) {
+        listOf(EditorMode.Edit to "编辑", EditorMode.Split to "分栏", EditorMode.Preview to "预览")
+    } else {
+        listOf(EditorMode.Edit to "编辑", EditorMode.Preview to "预览")
+    }
+    val index = segments.indexOfFirst { it.first == mode }.let { if (it < 0) 0 else it }
     val animated by animateFloatAsState(
-        targetValue = target,
+        targetValue = index.toFloat(),
         animationSpec = tween(durationMillis = 250, easing = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)),
         label = "viewPillThumb",
     )
@@ -799,24 +827,25 @@ private fun ViewPill(mode: EditorMode, onMode: (EditorMode) -> Unit) {
     Box(
         modifier = Modifier
             .height(32.dp)
-            .width(100.dp)
+            .width(if (largeScreen) 150.dp else 100.dp)
             .clip(RoundedCornerShape(10.dp))
             .background(PaperWarm.copy(alpha = 0.8f))
             .border(1.dp, Divider, RoundedCornerShape(10.dp))
             .padding(3.dp),
     ) {
-        // 滑块：白底，用 graphicsLayer 平移（避免 offset + shadow 发灰）
+        // 滑块：用 graphicsLayer 平移（避免 offset + shadow 发灰）；
+        // 底色走 Paper 而不是白色 —— 白色在暗色下穿帮（色板搬家同批修）
         Box(
             modifier = Modifier
                 .align(Alignment.CenterStart)
                 .fillMaxHeight()
-                .fillMaxWidth(0.5f)
+                .fillMaxWidth(1f / segments.size)
                 .graphicsLayer { translationX = size.width * animated }
                 .clip(RoundedCornerShape(8.dp))
-                .background(Color.White),
+                .background(Paper),
         )
         Row(Modifier.fillMaxSize()) {
-            listOf(EditorMode.Edit to "编辑", EditorMode.Preview to "预览").forEach { (m, label) ->
+            segments.forEach { (m, label) ->
                 val selected = mode == m
                 Box(
                     modifier = Modifier
