@@ -9,5 +9,6 @@ data class Folder(
     val id: String,
     val name: String,
     val sortOrder: Int = 0,
+    val isPinned: Boolean = false,
     val createdAt: Long,
 )

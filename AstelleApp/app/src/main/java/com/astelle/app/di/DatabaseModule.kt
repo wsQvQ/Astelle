@@ -22,7 +22,9 @@ object DatabaseModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): AstelleDatabase =
         Room.databaseBuilder(context, AstelleDatabase::class.java, AstelleDatabase.NAME)
-            .fallbackToDestructiveMigration()
+            .addMigrations(AstelleDatabase.MIGRATION_4_5)
+            // 只有**降级**才砸库（开发机装了旧包）；升级一律走真 Migration —— 数据是用户的（红线）
+            .fallbackToDestructiveMigrationOnDowngrade()
             .build()
 
     @Provides

@@ -26,6 +26,10 @@ class FolderRepositoryImpl @Inject constructor(
         folderDao.rename(id, name)
     }
 
+    override suspend fun togglePinned(id: String) {
+        folderDao.togglePinned(id)
+    }
+
     override suspend fun nextSortOrder(): Int = folderDao.nextSortOrder()
 
     override suspend fun delete(id: String) {

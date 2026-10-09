@@ -95,6 +95,7 @@ fun FolderEntity.toDomain(): Folder = Folder(
     id = id,
     name = name,
     sortOrder = sortOrder,
+    isPinned = isPinned,
     createdAt = createdAt,
 )
 
@@ -102,5 +103,6 @@ fun Folder.toEntity(): FolderEntity = FolderEntity(
     id = id,
     name = name,
     sortOrder = sortOrder,
+    isPinned = isPinned,
     createdAt = createdAt,
 )

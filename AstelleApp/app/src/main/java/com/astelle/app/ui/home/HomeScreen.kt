@@ -263,6 +263,7 @@ fun HomeRoute(
                 viewModel.onEvent(HomeUiEvent.RenameFolder(id, name))
             },
             onDeleteFolder = { viewModel.onEvent(HomeUiEvent.DeleteFolder(it)) },
+            onToggleFolderPin = { viewModel.onEvent(HomeUiEvent.ToggleFolderPin(it)) },
             onMoveNoteToFolder = { noteId, folderId ->
                 viewModel.onEvent(HomeUiEvent.MoveNoteToFolder(noteId, folderId))
             },

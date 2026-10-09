@@ -66,7 +66,10 @@ internal class FakeFolderRepository : FolderRepository {
     private val flow = MutableStateFlow<List<Folder>>(emptyList())
 
     private fun publish() {
-        flow.value = stored.values.sortedWith(compareBy({ it.sortOrder }, { it.createdAt }))
+        // 和 DAO 同一把排序尺：置顶最前，其余按 sortOrder、createdAt
+        flow.value = stored.values.sortedWith(
+            compareByDescending<Folder> { it.isPinned }.thenBy { it.sortOrder }.thenBy { it.createdAt },
+        )
     }
 
     override fun observeFolders(): Flow<List<Folder>> = flow
@@ -78,6 +81,10 @@ internal class FakeFolderRepository : FolderRepository {
 
     override suspend fun rename(id: String, name: String) {
         stored[id]?.let { stored[id] = it.copy(name = name); publish() }
+    }
+
+    override suspend fun togglePinned(id: String) {
+        stored[id]?.let { stored[id] = it.copy(isPinned = !it.isPinned); publish() }
     }
 
     override suspend fun nextSortOrder(): Int =

@@ -57,6 +57,9 @@ sealed interface HomeUiEvent {
     data class RenameFolder(val id: String, val name: String) : HomeUiEvent
     data class DeleteFolder(val id: String) : HomeUiEvent
 
+    /** 文件夹置顶切换（④）：不碰 updatedAt */
+    data class ToggleFolderPin(val id: String) : HomeUiEvent
+
     /** [folderId] 传 null = 移回「未分类」 */
     data class MoveNoteToFolder(val noteId: String, val folderId: String?) : HomeUiEvent
 }

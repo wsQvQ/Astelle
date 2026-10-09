@@ -282,6 +282,9 @@ class HomeViewModel @Inject constructor(
                 viewModelScope.launch { folderRepository.rename(event.id, name) }
             }
 
+            is HomeUiEvent.ToggleFolderPin ->
+                viewModelScope.launch { folderRepository.togglePinned(event.id) }
+
             is HomeUiEvent.DeleteFolder -> viewModelScope.launch {
                 folderRepository.delete(event.id)
                 // 关键：库里 detachNotes 只改了数据库，内存里的 activeNote

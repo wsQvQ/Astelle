@@ -10,7 +10,8 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface FolderDao {
 
-    @Query("SELECT * FROM folders ORDER BY sortOrder ASC, createdAt ASC")
+    /** 排序（④）：置顶整屏最前，其余按 sortOrder、创建时间 */
+    @Query("SELECT * FROM folders ORDER BY isPinned DESC, sortOrder ASC, createdAt ASC")
     fun observeAll(): Flow<List<FolderEntity>>
 
     @Query("SELECT * FROM folders WHERE id = :id LIMIT 1")
@@ -22,6 +23,10 @@ interface FolderDao {
     /** 改名走原地 UPDATE：不必先读出来再整行回写，也就没有读写之间的竞态 */
     @Query("UPDATE folders SET name = :name WHERE id = :id")
     suspend fun rename(id: String, name: String)
+
+    /** 置顶切换（④）：原地 UPDATE，不碰别的字段 —— 置顶不是内容修改 */
+    @Query("UPDATE folders SET isPinned = NOT isPinned WHERE id = :id")
+    suspend fun togglePinned(id: String)
 
     /**
      * 新分类排到末尾。

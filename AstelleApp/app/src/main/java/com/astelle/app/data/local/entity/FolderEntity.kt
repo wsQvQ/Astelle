@@ -15,5 +15,7 @@ data class FolderEntity(
     @PrimaryKey val id: String,
     val name: String,
     val sortOrder: Int = 0,
+    /** 文件夹置顶（④）：置顶只属于单篇笔记和文件夹，文件夹里的文章没有置顶 */
+    val isPinned: Boolean = false,
     val createdAt: Long,
 )

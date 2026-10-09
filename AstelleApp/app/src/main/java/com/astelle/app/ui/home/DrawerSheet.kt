@@ -59,6 +59,7 @@ import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.CreateNewFolder
 import androidx.compose.material.icons.outlined.FolderOpen
+import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.StarBorder
@@ -138,6 +139,8 @@ internal fun DrawerSheet(
     onAddFolder: (String) -> Unit,
     onRenameFolder: (String, String) -> Unit,
     onDeleteFolder: (String) -> Unit,
+    /** 文件夹置顶切换（④） */
+    onToggleFolderPin: (String) -> Unit,
     onMoveNoteToFolder: (String, String?) -> Unit,
     onNewNoteInFolder: (String) -> Unit,
     onNavigate: (AstelleDestination) -> Unit,
@@ -536,6 +539,7 @@ internal fun DrawerSheet(
                                 },
                                 onRename = { renaming = row.group.folder },
                                 onDelete = { deleting = row.group.folder },
+                                onToggleFolderPin = { row.group.folder?.let { onToggleFolderPin(it.id) } },
                                 onOpenNote = { closeCategoryInput(); onOpenNote(it) },
                                 onAddNote = { closeCategoryInput(); onNewNoteInFolder(it) },
                                 onTogglePin = onTogglePin,
@@ -669,6 +673,8 @@ private fun FolderCard(
     onRename: () -> Unit,
     onDelete: () -> Unit,
     onOpenNote: (String) -> Unit,
+    /** 文件夹置顶切换（④） */
+    onToggleFolderPin: () -> Unit,
     onAddNote: (String) -> Unit,
     onTogglePin: (String) -> Unit,
     onToggleFavorite: (String) -> Unit,
@@ -688,9 +694,11 @@ private fun FolderCard(
             name = group.name,
             count = group.notes.size,
             collapsed = collapsed,
+            pinned = group.folder?.isPinned == true,
             onToggle = onToggle,
             onRename = onRename,
             onDelete = onDelete,
+            onTogglePinFolder = onToggleFolderPin,
             onAddNote = group.folder?.let { folder -> { onAddNote(folder.id) } },
         )
 
@@ -770,6 +778,9 @@ private fun FolderHeader(
     onToggle: () -> Unit,
     onRename: () -> Unit,
     onDelete: () -> Unit,
+    /** 文件夹置顶（④）：置顶态要在名字旁亮出来，菜单里给切换入口 */
+    pinned: Boolean = false,
+    onTogglePinFolder: () -> Unit = {},
     /** 在这个分类里新建一篇。不传就不显示那枚按钮 */
     onAddNote: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
@@ -832,6 +843,16 @@ private fun FolderHeader(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
+            // 置顶态亮在名字旁（颜色只表达状态）
+            if (pinned) {
+                Spacer(Modifier.width(4.dp))
+                Icon(
+                    Icons.Outlined.PushPin,
+                    contentDescription = "已置顶",
+                    tint = Accent,
+                    modifier = Modifier.size(12.dp),
+                )
+            }
             Text("$count", fontFamily = mono, fontSize = 11.sp, color = Ghost)
             // 「在这个分类里新建一篇」。用 Material 的 Add 图标，不用文字「＋」——
             // 全角 ＋ 的字形在行盒里偏下，和计数对不齐
@@ -867,6 +888,11 @@ private fun FolderHeader(
             tonalElevation = 0.dp,
             shadowElevation = 8.dp,
         ) {
+            MenuRow(
+                label = if (pinned) "取消置顶" else "置顶",
+                icon = Icons.Outlined.PushPin,
+            ) { menuOpen = false; onTogglePinFolder() }
+            MenuDivider()
             MenuRow(label = "重命名", icon = Icons.Outlined.Edit) { menuOpen = false; onRename() }
             MenuDivider()
             MenuRow(

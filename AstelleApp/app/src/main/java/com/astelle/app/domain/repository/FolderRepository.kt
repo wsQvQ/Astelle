@@ -11,6 +11,9 @@ interface FolderRepository {
     /** 改名。只走 UPDATE，不整行回写 */
     suspend fun rename(id: String, name: String)
 
+    /** 置顶切换（④）。不碰 updatedAt —— 置顶不是内容修改 */
+    suspend fun togglePinned(id: String)
+
     /** 下一个排序位；新分类排在末尾 */
     suspend fun nextSortOrder(): Int
 
