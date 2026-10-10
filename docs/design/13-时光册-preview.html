@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Astelle · 待办页 v2 预览</title>
+<title>Astelle · 待办页 v3 预览</title>
 <style>
   :root{
     --paper:#F6F1E8; --card:#FFFCF7; --ink:#2B2620; --ink-soft:#6B6258;
@@ -15,14 +15,26 @@
   *{margin:0;padding:0;box-sizing:border-box}
   body{background:#EDE7DC;font-family:var(--sans);color:var(--ink);-webkit-font-smoothing:antialiased}
   .frame{max-width:430px;margin:0 auto;background:var(--paper);min-height:100vh;
-         box-shadow:0 0 60px rgba(43,38,32,.10);padding-bottom:40px}
+         box-shadow:0 0 60px rgba(43,38,32,.10);padding-bottom:40px;position:relative}
 
-  /* ── 页头 ── */
-  .head{padding:30px 22px 8px;display:flex;align-items:flex-end;justify-content:space-between}
-  .head h1{font-family:var(--serif);font-size:30px;font-weight:600;letter-spacing:.02em}
-  .head .today{font-size:11px;letter-spacing:.22em;color:var(--muted);padding-bottom:6px}
+  /* ── 顶栏（同设置页语言） ── */
+  .topbar{display:flex;align-items:center;gap:10px;padding:18px 16px 0;position:relative}
+  .icon-btn{width:42px;height:42px;border-radius:50%;background:var(--card);
+            border:1px solid var(--divider);display:flex;align-items:center;justify-content:center;flex:none}
+  .icon-btn svg{width:18px;height:18px}
+  .spacer{flex:1}
+  h1{font-family:var(--serif);font-size:34px;font-weight:600;letter-spacing:.02em;padding:6px 20px 2px}
 
-  /* ── 分区标题 ── */
+  /* 新建菜单（点右上 ＋ 展开） */
+  .menu{position:absolute;top:64px;right:16px;background:var(--card);border:1px solid var(--divider);
+        border-radius:14px;padding:6px;box-shadow:0 8px 24px rgba(43,38,32,.10);width:150px;z-index:5}
+  .menu-item{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:10px;font-size:13.5px}
+  .menu-item svg{width:16px;height:16px;flex:none}
+  .menu-line{height:1px;background:var(--divider);margin:4px 10px}
+
+  .note{font-size:11px;color:var(--muted);letter-spacing:.08em;padding:10px 22px 2px;line-height:1.9}
+
+  /* ── 分区 ── */
   .sec{display:flex;align-items:center;gap:10px;padding:22px 22px 12px}
   .sec .name{font-size:12px;letter-spacing:.35em;color:var(--accent)}
   .sec.timer .name{color:var(--ink-soft)}
@@ -33,7 +45,7 @@
   /* ── 待办项 ── */
   .todo{margin:0 14px 8px;background:var(--card);border:1px solid var(--divider);
         border-radius:14px;padding:14px 16px;display:flex;gap:13px;align-items:flex-start}
-  .cbox{width:22px;height:22px;border-radius:50%;border:1.6px solid var(--ink-soft);
+  .c\boxed{width:22px;height:22px;border-radius:50%;border:1.6px solid var(--ink-soft);
         flex:none;margin-top:1px;display:flex;align-items:center;justify-content:center}
   .cbox.sm{width:17px;height:17px;border-width:1.4px}
   .cbox.done{background:var(--accent);border-color:var(--accent)}
@@ -48,12 +60,14 @@
   .t-right{font-family:var(--serif);font-size:15px;color:var(--accent);white-space:nowrap;padding-top:2px}
   .t-right.over{color:var(--danger)}
   .t-right small{font-family:var(--sans);font-size:10px;color:var(--muted);letter-spacing:.15em}
+  /* 母项进度细线 */
+  .progress{height:2.5px;background:var(--divider);border-radius:2px;margin-top:10px;overflow:hidden}
+  .progress i{display:block;height:100%;background:var(--accent);border-radius:2px}
 
   /* ── 子项（树形） ── */
-  .sub{margin:0 14px 8px 34px;background:transparent;border:none;border-radius:12px;
-       padding:9px 14px;display:flex;gap:12px;align-items:center;position:relative}
+  .sub{margin:0 14px 8px 34px;padding:9px 14px;display:flex;gap:12px;align-items:center;position:relative}
   .sub::before{content:"";position:absolute;left:-9px;top:-9px;bottom:50%;width:1.5px;background:var(--divider)}
-  .sub.last::before{bottom:calc(50% + 2px);border-radius:2px}
+  .sub.last::before{bottom:calc(50% + 2px)}
   .sub .t-title{font-size:14.5px}
   .sub .t-right{font-size:13px}
 
@@ -63,19 +77,16 @@
   .fold .arrow{margin-left:auto;font-size:11px}
   .fold .strike{color:var(--muted);text-decoration:line-through;font-family:var(--serif);letter-spacing:0}
 
-  /* ── 计时项 ── */
+  /* ── 历时项 ── */
   .timer-row{margin:0 14px 8px;background:var(--card);border:1px solid var(--divider);
              border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:13px}
   .tm-body{flex:1}
-  .tm-title{font-family:var(--serif);font-size:16.5px}
+  .tm-title{font-family:var(--serif);font-size:16.5px;display:flex;align-items:center;gap:8px}
+  .tm-title svg{width:13px;height:13px;opacity:.55}
   .tm-meta{font-size:11px;color:var(--muted);margin-top:5px;letter-spacing:.05em}
   .tm-right{text-align:right;min-width:86px}
   .tm-right .num{font-family:var(--serif);font-size:30px;line-height:1;letter-spacing:-.02em;color:var(--ink-soft)}
   .tm-right .unit{font-size:10px;letter-spacing:.22em;color:var(--muted);margin-top:5px}
-
-  /* ── 新建入口 ── */
-  .add{margin:18px 14px 0;border:1.5px dashed var(--divider);border-radius:14px;
-       padding:14px;text-align:center;color:var(--muted);font-size:12px;letter-spacing:.25em}
 
   .foot{font-size:11px;color:var(--muted);letter-spacing:.25em;text-align:center;padding:38px 0 8px}
 </style>
@@ -83,10 +94,38 @@
 <body>
 <div class="frame">
 
-  <div class="head">
-    <h1>待办</h1>
-    <div class="today">今天 · 2026-10-11</div>
+  <!-- ═══════ 顶栏：同设置页语言 ═══════ -->
+  <div class="topbar">
+    <div class="icon-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#2B2620" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M15 5l-7 7 7 7"/>
+      </svg>
+    </div>
+    <div class="spacer"></div>
+    <div class="icon-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#B85C38" stroke-width="1.6" stroke-linecap="round">
+        <path d="M12 6v12M6 12h12"/>
+      </svg>
+    </div>
+
+    <!-- 点 ＋ 展开的新建菜单 -->
+    <div class="menu">
+      <div class="menu-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#6B6258" stroke-width="1.5"><circle cx="12" cy="12" r="8"/></svg>
+        新建待办
+      </div>
+      <div class="menu-line"></div>
+      <div class="menu-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#6B6258" stroke-width="1.5">
+          <circle cx="12" cy="13" r="7"/><path d="M12 13V9.5M9.5 4h5"/>
+        </svg>
+        新建历时
+      </div>
+    </div>
   </div>
+
+  <h1>待办</h1>
+  <div class="note">顶栏与设置页同语言：返回圆钮常驻 · 大标题上滑收缩（34→18sp）· 右上 ＋ 弹出「新建待办 / 新建历时」</div>
 
   <!-- ═══════ 待办区 ═══════ -->
   <div class="sec">
@@ -98,6 +137,7 @@
     <div class="t-body">
       <div class="t-title">冰岛行程准备</div>
       <div class="t-meta"><span class="chip due">截止 11-02</span><span>2 / 3 已完成</span></div>
+      <div class="progress"><i style="width:66%"></i></div>
     </div>
     <div class="t-right">23 <small>天</small></div>
   </div>
@@ -142,16 +182,19 @@
     <div class="arrow">▾</div>
   </div>
 
-  <div class="add">＋ 新 建 待 办</div>
-
-  <!-- ═══════ 计时区 ═══════ -->
+  <!-- ═══════ 历时区 ═══════ -->
   <div class="sec timer">
-    <div class="name">计 时</div><div class="count">2</div><div class="line"></div>
+    <div class="name">历 时</div><div class="count">2</div><div class="line"></div>
   </div>
 
   <div class="timer-row">
     <div class="tm-body">
-      <div class="tm-title">在一起</div>
+      <div class="tm-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#2B2620" stroke-width="1.5" stroke-linecap="round">
+          <path d="M9 4h6M12 4v7M7 11h10l-1.5 8h-7z"/>
+        </svg>
+        在一起
+      </div>
       <div class="tm-meta">起始 2023-08-14 · 那天的晚霞很好看</div>
     </div>
     <div class="tm-right">
@@ -171,9 +214,7 @@
     </div>
   </div>
 
-  <div class="add">＋ 新 建 计 时</div>
-
-  <div class="foot">ASTELLE · 待办 · 计时</div>
+  <div class="foot">ASTELLE · 待办 · 历时</div>
 </div>
 </body>
 </html>
