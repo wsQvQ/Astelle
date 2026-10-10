@@ -21,19 +21,18 @@ import java.util.UUID
 object ImageStore {
 
     private const val DIR = "images"
-    private const val MAX_DIM = 1600
-    private const val QUALITY = 85
 
-    /** 把外部图片收进私有目录，返回正文里的相对路径；失败返回 null */
-    fun importImage(context: Context, uri: Uri): String? {
+    /** 把外部图片收进私有目录，返回正文里的相对路径；失败返回 null。
+     *  [maxDim]/[quality] 由设置页的压缩档位供给（默认 = 标准档） */
+    fun importImage(context: Context, uri: Uri, maxDim: Int = 1600, quality: Int = 85): String? {
         return try {
             val source = decode(context, uri) ?: return null
-            val scaled = scaleDown(source)
+            val scaled = scaleDown(source, maxDim)
             val dir = File(context.filesDir, DIR).apply { mkdirs() }
             val name = "${UUID.randomUUID()}.jpg"
             val target = File(dir, name)
             target.outputStream().use { out ->
-                scaled.compress(Bitmap.CompressFormat.JPEG, QUALITY, out)
+                scaled.compress(Bitmap.CompressFormat.JPEG, quality, out)
             }
             if (scaled !== source) scaled.recycle()
             source.recycle()
@@ -69,10 +68,10 @@ object ImageStore {
         }
     }
 
-    private fun scaleDown(bitmap: Bitmap): Bitmap {
+    private fun scaleDown(bitmap: Bitmap, maxDim: Int): Bitmap {
         val max = maxOf(bitmap.width, bitmap.height)
-        if (max <= MAX_DIM) return bitmap
-        val ratio = MAX_DIM.toFloat() / max
+        if (max <= maxDim) return bitmap
+        val ratio = maxDim.toFloat() / max
         val w = (bitmap.width * ratio).toInt().coerceAtLeast(1)
         val h = (bitmap.height * ratio).toInt().coerceAtLeast(1)
         return Bitmap.createScaledBitmap(bitmap, w, h, true)

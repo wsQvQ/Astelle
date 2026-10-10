@@ -21,6 +21,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.BrightnessAuto
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.List
+import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.Info
@@ -38,13 +42,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.astelle.app.BuildConfig
 import com.astelle.app.data.settings.ColorMode
+import com.astelle.app.data.settings.ImageQuality
 import com.astelle.app.data.settings.SettingsStore
 import com.astelle.app.ui.components.MenuRow
+import com.astelle.app.ui.theme.Accent
+import com.astelle.app.ui.theme.AccentMist
+import com.astelle.app.ui.theme.CenteredLineHeight
 import com.astelle.app.ui.theme.Divider
 import com.astelle.app.ui.theme.Ink
 import com.astelle.app.ui.theme.InkSoft
@@ -71,6 +80,9 @@ fun SettingsScreen(
     val store = remember { SettingsStore(context) }
     // 本地镜像一份：选完立刻反映在副标上（持久化走 store）
     var mode by remember { mutableStateOf(store.colorMode) }
+    var dynamic by remember { mutableStateOf(store.dynamicColor) }
+    var compactDefault by remember { mutableStateOf(store.compactCardsDefault) }
+    var imageQuality by remember { mutableStateOf(store.imageQuality) }
 
     Column(
         Modifier
@@ -126,6 +138,53 @@ fun SettingsScreen(
                 subtitle = mode.label(),
                 trailing = { ModeDropdown(mode) { store.colorMode = it; mode = it } },
             )
+            SettingRow(
+                icon = Icons.Outlined.Palette,
+                title = "动态取色",
+                subtitle = if (android.os.Build.VERSION.SDK_INT >= 31) {
+                    "跟随壁纸取色（Material You）"
+                } else {
+                    "需要 Android 12+"
+                },
+                trailing = {
+                    TogglePill(
+                        on = dynamic,
+                        enabled = android.os.Build.VERSION.SDK_INT >= 31,
+                    ) {
+                        store.dynamicColor = !dynamic
+                        dynamic = !dynamic
+                    }
+                },
+            )
+            SettingRow(
+                icon = Icons.Outlined.List,
+                title = "卡片默认密度",
+                subtitle = if (compactDefault) "收起（标题 + 日期）" else "展开（全卡）",
+                trailing = {
+                    PillDropdown(if (compactDefault) "收起" else "展开") {
+                        listOf(
+                            "展开" to { store.compactCardsDefault = false; compactDefault = false },
+                            "收起" to { store.compactCardsDefault = true; compactDefault = true },
+                        )
+                    }
+                },
+            )
+        }
+
+        // ── 编辑与数据 ──
+        SettingSection("编辑与数据") {
+            SettingRow(
+                icon = Icons.Outlined.Image,
+                title = "图片压缩档位",
+                subtitle = imageQuality.subtitle(),
+                trailing = {
+                    PillDropdown(imageQuality.label()) {
+                        ImageQuality.entries.map { q ->
+                            q.label() to { store.imageQuality = q; imageQuality = q }
+                        }
+                    }
+                },
+            )
         }
 
         // ── 关于 ──
@@ -155,6 +214,18 @@ private fun ColorMode.label(): String = when (this) {
     ColorMode.LIGHT -> "浅色"
     ColorMode.DARK -> "深色"
     ColorMode.SYSTEM -> "跟随系统"
+}
+
+private fun ImageQuality.label(): String = when (this) {
+    ImageQuality.HIGH -> "高质量"
+    ImageQuality.STANDARD -> "标准"
+    ImageQuality.SAVING -> "省空间"
+}
+
+private fun ImageQuality.subtitle(): String = when (this) {
+    ImageQuality.HIGH -> "2400px / 92%，几乎无损"
+    ImageQuality.STANDARD -> "1600px / 85%，均衡（默认）"
+    ImageQuality.SAVING -> "1280px / 78%，最省空间"
 }
 
 /** 无涟漪圆钮（和抽屉/工具栏同一手感口径） */
@@ -205,5 +276,62 @@ private fun ModeDropdown(current: ColorMode, onPick: (ColorMode) -> Unit) {
             MenuRow(label = "深色", icon = Icons.Outlined.DarkMode) { open = false; onPick(ColorMode.DARK) }
             MenuRow(label = "跟随系统", icon = Icons.Outlined.BrightnessAuto) { open = false; onPick(ColorMode.SYSTEM) }
         }
+    }
+}
+
+/** 通用「胶囊 + ∨ 下拉」：卡片密度、压缩档位等二/三选一都用它 */
+@Composable
+private fun PillDropdown(currentLabel: String, options: () -> List<Pair<String, () -> Unit>>) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        Row(
+            Modifier
+                .clip(RoundedCornerShape(999.dp))
+                .background(PaperWarm)
+                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { open = !open }
+                .padding(horizontal = 12.dp, vertical = 7.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(currentLabel, fontSize = 13.sp, color = Ink, style = TextStyle(lineHeightStyle = CenteredLineHeight))
+            Spacer(Modifier.width(6.dp))
+            Text("∨", fontSize = 11.sp, color = Muted)
+        }
+        DropdownMenu(
+            expanded = open,
+            onDismissRequest = { open = false },
+            shape = RoundedCornerShape(14.dp),
+            containerColor = SurfaceFloat,
+            border = BorderStroke(1.dp, Divider),
+            tonalElevation = 0.dp,
+            shadowElevation = 8.dp,
+        ) {
+            options().forEach { (label, action) ->
+                MenuRow(label = label, icon = Icons.Outlined.Check) { open = false; action() }
+            }
+        }
+    }
+}
+
+/** 「开 / 关」小胶囊（动态取色等开关） */
+@Composable
+private fun TogglePill(on: Boolean, enabled: Boolean = true, onToggle: () -> Unit) {
+    Row(
+        Modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(if (on) AccentMist else PaperWarm)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                enabled = enabled,
+            ) { onToggle() }
+            .padding(horizontal = 14.dp, vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            if (on) "开" else "关",
+            fontSize = 13.sp,
+            color = if (on) Accent else Muted,
+            style = TextStyle(lineHeightStyle = CenteredLineHeight),
+        )
     }
 }

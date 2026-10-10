@@ -23,6 +23,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         // 颜色模式播种（10-10）：设置页改的是 ThemeModeHolder，主题实时跟着走
         ThemeModeHolder.mode.value = SettingsStore(this).colorMode
+        ThemeModeHolder.dynamicColor.value = SettingsStore(this).dynamicColor
         setContent {
             val mode = ThemeModeHolder.mode.value
             val systemDark = isSystemInDarkTheme()
@@ -32,6 +33,7 @@ class MainActivity : ComponentActivity() {
                     ColorMode.DARK -> true
                     ColorMode.SYSTEM -> systemDark
                 },
+                dynamicColor = ThemeModeHolder.dynamicColor.value,
             ) {
                 val colors = LocalAstelleColors.current
                 Surface(

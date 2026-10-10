@@ -146,12 +146,15 @@ internal fun DrawerSheet(
     onMoveNoteToFolder: (String, String?) -> Unit,
     onNewNoteInFolder: (String) -> Unit,
     onNavigate: (AstelleDestination) -> Unit,
+    /** 卡片默认密度（设置页）：true = 默认收起 */
+    initialCompactCards: Boolean = false,
 ) {
     // 长按分类组头弹出的重命名 / 删除确认
     var renaming by remember { mutableStateOf<Folder?>(null) }
     var deleting by remember { mutableStateOf<Folder?>(null) }
-    // 卡片密度（用户 10-09 C）：收起 = 只留「标题 + 日期」，展开 = 全卡
-    var compactCards by remember { mutableStateOf(false) }
+    // 卡片密度（用户 10-09 C）：收起 = 只留「标题 + 日期」，展开 = 全卡。
+    // 默认值由设置页「卡片默认密度」供给（10-10）
+    var compactCards by remember { mutableStateOf(initialCompactCards) }
 
     if (renaming != null) {
         val target = renaming!!

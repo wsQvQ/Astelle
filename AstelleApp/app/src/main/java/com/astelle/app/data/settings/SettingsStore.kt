@@ -37,13 +37,50 @@ class SettingsStore(context: Context) {
             prefs.edit().putBoolean(KEY_BACK_GESTURE, value).apply()
         }
 
+    /** 动态取色（莫奈）开关。默认关 = 品牌色；API 31+ 才真的生效 */
+    var dynamicColor: Boolean
+        get() = prefs.getBoolean(KEY_DYNAMIC_COLOR, false)
+        set(value) {
+            prefs.edit().putBoolean(KEY_DYNAMIC_COLOR, value).apply()
+            ThemeModeHolder.dynamicColor.value = value
+        }
+
+    /** 卡片默认密度：true = 默认收起（只留标题+日期） */
+    var compactCardsDefault: Boolean
+        get() = prefs.getBoolean(KEY_COMPACT_DEFAULT, false)
+        set(value) {
+            prefs.edit().putBoolean(KEY_COMPACT_DEFAULT, value).apply()
+        }
+
+    /** 图片压缩档位（10-10）：标准 / 高质量 / 省空间 */
+    var imageQuality: ImageQuality
+        get() = runCatching {
+            ImageQuality.valueOf(prefs.getString(KEY_IMAGE_QUALITY, ImageQuality.STANDARD.name).orEmpty())
+        }.getOrDefault(ImageQuality.STANDARD)
+        set(value) {
+            prefs.edit().putString(KEY_IMAGE_QUALITY, value.name).apply()
+        }
+
     private companion object {
         const val KEY_COLOR_MODE = "colorMode"
         const val KEY_BACK_GESTURE = "backGestureEnabled"
+        const val KEY_DYNAMIC_COLOR = "dynamicColor"
+        const val KEY_COMPACT_DEFAULT = "compactCardsDefault"
+        const val KEY_IMAGE_QUALITY = "imageQuality"
     }
 }
 
-/** 全局可观察的颜色模式：MainActivity 启动时播种，设置页改它即实时生效 */
+/** 图片压缩档位：max 边长 / JPEG 质量（以「不明显变糊」为准的手感档） */
+enum class ImageQuality(val maxDim: Int, val quality: Int) {
+    HIGH(2400, 92),
+    STANDARD(1600, 85),
+    SAVING(1280, 78),
+}
+
+/** 全局可观察：MainActivity 启动时播种，设置页改它即实时生效 */
 object ThemeModeHolder {
     val mode: MutableState<ColorMode> = mutableStateOf(ColorMode.SYSTEM)
+
+    /** 动态取色开关（同上，实时生效） */
+    val dynamicColor: MutableState<Boolean> = mutableStateOf(false)
 }

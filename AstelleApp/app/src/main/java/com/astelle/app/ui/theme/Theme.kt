@@ -3,12 +3,16 @@ package com.astelle.app.ui.theme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -155,16 +159,49 @@ private val DarkColorScheme = darkColorScheme(
 )
 
 /**
- * 品牌主题：始终使用 Astelle 色板，不启用 Material You 动态取色。
+ * 品牌主题。默认使用 Astelle 色板（品牌色永不被覆盖）；
+ * 设置里显式打开「动态取色」且 API 31+ 时，才把 Material You 的动态色
+ * 映射进 [AstelleColors]（10-10 莫奈接口）。
  */
 @Composable
 fun AstelleTheme(
     darkTheme: Boolean = false,
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     // 色板桥（10-10）：静态 token 是计算属性，跟着这个开关走 ——
     // 全项目调用点零改动。必须在取色之前设，本帧就取对
     setPaletteDark(darkTheme)
+
+    // 莫奈取色槽：null = 品牌色原样（默认）。映射纪律：
+    // 只换「Accent 家族 + 面 + 墨梯度」，浅底类从 primary/surface 现算保持同一关系
+    val context = LocalContext.current
+    setDynamicPalette(
+        if (dynamicColor && android.os.Build.VERSION.SDK_INT >= 31) {
+            val m3 = if (darkTheme) {
+                dynamicDarkColorScheme(context)
+            } else {
+                dynamicLightColorScheme(context)
+            }
+            AstelleColors(
+                paper = m3.surface,
+                paperWarm = lerp(m3.surface, m3.onSurface, 0.05f),
+                divider = m3.outlineVariant,
+                ink = m3.onSurface,
+                inkSoft = lerp(m3.onSurface, m3.surface, 0.15f),
+                muted = lerp(m3.onSurface, m3.surface, 0.42f),
+                ghost = lerp(m3.onSurface, m3.surface, 0.58f),
+                accent = m3.primary,
+                accentMist = lerp(m3.surface, m3.primary, 0.08f),
+                surfaceFloat = lerp(m3.surface, m3.primary, 0.042f),
+                danger = m3.error,
+                dangerBg = lerp(m3.surface, m3.error, 0.08f),
+            )
+        } else {
+            null
+        },
+    )
+
     val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
     // token 已是目标主题的值，AstelleColors() 的默认参数自动取对
     val astelleColors = AstelleColors()

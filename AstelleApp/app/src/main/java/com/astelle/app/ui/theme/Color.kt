@@ -6,80 +6,80 @@ import androidx.compose.ui.graphics.lerp
 
 /**
  * 纸感品牌色板 —— 与 `docs/ui/01-home-screen.md` §1 的设计 Token 表一一对应，
- * 不跟随系统动态取色。
+ * 不跟随系统动态取色（除非设置里**显式**打开「动态取色」，见 [setDynamicPalette]）。
  *
- * **全项目只此一份，不要在别处再抄一遍。** 之前 HomeScreen.kt 自己重抄了
- * 13 个同名常量，导致调品牌色要改两处、漏一处就两边不一致。
+ * **全项目只此一份，不要在别处再抄一遍。**
  *
- * ## 这一版怎么来的
+ * ## 三级取值顺序（10-10 莫奈接口）
  *
- * v1 的问题是「暖到糊」：纸是暖的、墨也是暖的，连强调色的浅底都是暖米色，
- * 全屏同一色相、同一明度区间，眼睛找不到任何一个确定的东西。
+ * 1. **动态覆盖槽**（Monet / Material You）—— 只在设置里开了才非空
+ * 2. **明暗双列** —— 跟着 [setPaletteDark] 的开关
+ * 3. 推导类浅底从当前 [Paper] + [Accent] 现算，三级自动跟随
  *
- * v2 的三条改动（数字与完整推理见 `docs/ui/05-visual-direction.md`）：
- *
- * 1. **墨改成中性**（纸保持暖）。主文字色度 9.6 → 2.1。暖纸配中性墨才有
- *    印刷感的清爽；暖纸配暖墨就是一锅粥。
- * 2. **强调色加深一档，浅底浓度降下来。** [AccentMist] 从「一块实色」改成
- *    「主色叠 8%」，于是它自动贴着 [Accent] 走。
- * 3. **面收成三层**，分割线要真的看得见 —— v1 的 Divider 与抽屉底只差 0.9
- *    亮度，等于没画。
- *
- * 改完请跑 `python tools/palette-audit.py`。配色靠眼睛吵不出结果。
+ * 这样：**现有色板 = 默认品牌色，永不被覆盖**；动态取色是可关的客人。
  */
 
-/* ==================== 明 / 暗双色板的桥（10-10 色板搬家） ====================
- *
- * 下面每个 token 都是**计算属性**：跟着 [paletteDark] 开关在明 / 暗两列间取值。
- * 这样全项目一百多处 `Paper` / `Ink` 调用点**一行不改**就获得暗色支持 ——
- * 比逐点替换成 `colors.*` 安全一个数量级；要调色只改这两列。
- *
- * 推导类浅底（[AccentMist] / [SurfaceFloat] / [FolderHead]…）从当前
- * [Paper] + [Accent] 现算，两套主题自动跟随，别给它们单列暗色值。
- *
- * `AstelleTheme` 换主题时调 [setPaletteDark]；新代码优先用 `LocalAstelleColors`。
- */
+/* ==================== 桥：动态覆盖 + 明暗开关 ==================== */
+
 private val paletteDark = mutableStateOf(false)
 
 internal fun setPaletteDark(dark: Boolean) {
     paletteDark.value = dark
 }
 
+/**
+ * 动态取色槽（莫奈）。null = 关（默认）= 品牌色。
+ * `AstelleTheme` 在设置开了「动态取色」且 API 31+ 时塞入映射后的色板。
+ */
+private val dynamicOverride = mutableStateOf<AstelleColors?>(null)
+
+internal fun setDynamicPalette(colors: AstelleColors?) {
+    dynamicOverride.value = colors
+}
+
 /* ---------- 面：三层 + 一档发丝线 ---------- */
 
 /** 纸 / 卡片 / 分类容器体 / 编辑器纸。所有可书写、可阅读的面 */
 val Paper: Color
-    get() = if (paletteDark.value) Color(0xFF201C17) else Color(0xFFF9F5EF)
+    get() = dynamicOverride.value?.paper
+        ?: if (paletteDark.value) Color(0xFF201C17) else Color(0xFFF9F5EF)
 
 /** 按下态、输入框底。比纸深一档，只用来表示「被按住了」 */
 val PaperWarm: Color
-    get() = if (paletteDark.value) Color(0xFF191510) else Color(0xFFF2ECE2)
+    get() = dynamicOverride.value?.paperWarm
+        ?: if (paletteDark.value) Color(0xFF191510) else Color(0xFFF2ECE2)
 
 /** 页面底 / 抽屉底。比纸深一档，卡片靠这层温度差浮起来 */
 val DrawerBg: Color
-    get() = if (paletteDark.value) Color(0xFF14100C) else Color(0xFFEDE6DB)
+    get() = dynamicOverride.value?.let { lerp(it.paper, Color(0xFF000000), 0.055f) }
+        ?: if (paletteDark.value) Color(0xFF14100C) else Color(0xFFEDE6DB)
 
 /** 发丝分割线。对抽屉底的亮度差 6.2，看得见 */
 val Divider: Color
-    get() = if (paletteDark.value) Color(0xFF3B342A) else Color(0xFFDED4C5)
+    get() = dynamicOverride.value?.divider
+        ?: if (paletteDark.value) Color(0xFF3B342A) else Color(0xFFDED4C5)
 
 /* ---------- 墨：中性偏暖，色度压到花笺 / granola 的量级 ---------- */
 
 /** 主文字。色度 2.1，和暖纸拉开色相 */
 val Ink: Color
-    get() = if (paletteDark.value) Color(0xFFF4EDE2) else Color(0xFF232320)
+    get() = dynamicOverride.value?.ink
+        ?: if (paletteDark.value) Color(0xFFF4EDE2) else Color(0xFF232320)
 
 /** 次文字：卡片标题、次级正文 */
 val InkSoft: Color
-    get() = if (paletteDark.value) Color(0xFFDAD1C3) else Color(0xFF44443F)
+    get() = dynamicOverride.value?.inkSoft
+        ?: if (paletteDark.value) Color(0xFFDAD1C3) else Color(0xFF44443F)
 
 /** 弱文字：日期、字数这类元信息。**不承载正文** */
 val Muted: Color
-    get() = if (paletteDark.value) Color(0xFFA2988A) else Color(0xFF7E7C76)
+    get() = dynamicOverride.value?.muted
+        ?: if (paletteDark.value) Color(0xFFA2988A) else Color(0xFF7E7C76)
 
 /** 占位符、禁用态。对比度只有 2.1，**不承载任何信息** */
 val Ghost: Color
-    get() = if (paletteDark.value) Color(0xFF776E62) else Color(0xFFAFADA6)
+    get() = dynamicOverride.value?.ghost
+        ?: if (paletteDark.value) Color(0xFF776E62) else Color(0xFFAFADA6)
 
 /* ---------- 强调：一个橙，三种浓度 ---------- */
 
@@ -88,40 +88,29 @@ val Ghost: Color
  * 也更像「印章/印刷」而不是「荧光笔」。暗底上提亮一档保证可读。
  */
 val Accent: Color
-    get() = if (paletteDark.value) Color(0xFFE0913F) else Color(0xFFB4651B)
+    get() = dynamicOverride.value?.accent
+        ?: if (paletteDark.value) Color(0xFFE0913F) else Color(0xFFB4651B)
 
 /**
- * 主强调的浅底 = [Accent] 叠 8% 到 [Paper] 上。
- *
- * **不要手挑这个值。** v1 的 #F7E8D4 就是手挑出来的：色相 80.9、亮度 92.7，
- * 和 PaperWarm 几乎重合，根本不是「橙的浅底」，是「深一点的纸」。
- * 用 alpha 推导的理由是**颜色只有一个来源**：以后调 [Accent]，所有浅底
- * 自动跟着走。（低透明度下 Lab 色相被底色带偏是物理必然，别拿色相当指标。）
+ * 主强调的浅底 = [Accent] 叠 8% 到 [Paper] 上。**不要手挑这个值** ——
+ * 用 alpha 推导的理由是**颜色只有一个来源**：以后调 [Accent]（或动态取色换了它），
+ * 所有浅底自动跟着走。
  */
 val AccentMist: Color
-    get() = lerp(Paper, Accent, 0.08f)
+    get() = dynamicOverride.value?.accentMist ?: lerp(Paper, Accent, 0.08f)
 
 /**
- * 按压闪光（用户 2026-10-08：「好看一点但比较浅」）：比 [AccentMist] 再暖一档的浅橙。
+ * 按压闪光：比 [AccentMist] 再暖一档的浅橙。
  *
  * ⚠️ 动画淡出的透明态必须用 `PressGlow.copy(alpha = 0f)`，**不能用 `Color.Transparent`** ——
- * 后者是透明**黑**，颜色插值会穿过灰色中间帧，用户看到的就是「闪一下灰的」（实测翻车点）。
+ * 后者是透明**黑**，颜色插值会穿过灰色中间帧（实测翻车点）。
  */
 val PressGlow: Color
     get() = lerp(Paper, Accent, 0.13f)
 
 /**
  * 分类容器的组头 = [Accent] 叠 7% 到 [Paper] 上，体 = 叠 3%。
- *
- * 同样从 [Accent] 推导（`lerp(paper, accent, a)` 就是「accent 以 alpha a 叠在
- * paper 上」），不手挑十六进制。
- *
- * **头和体必须同一个色相**，只差浓淡。分头是橙、体是另一种白，两块贴在一起
- * 就是「两张皮」，怎么调都不像一个东西。
- *
- * 但**光靠填色救不了「没有边界」**：先前用 10% 的时候，组头的亮度正好和
- * 抽屉底（L*≈91.6）撞上，这块区域压根没被画出来。真正把它立起来的是
- * `Divider` 那圈描边 —— 花笺的 `border border-bamboo/15` 一直是我漏掉的那条。
+ * **头和体必须同一个色相**，只差浓淡；边界靠 `Divider` 描边，不靠填色撞色。
  */
 val FolderHead: Color
     get() = lerp(Paper, Accent, 0.07f)
@@ -130,36 +119,31 @@ val FolderBody: Color
 
 /** 按压态的次级强调 */
 val AccentSoft: Color
-    get() = if (paletteDark.value) Color(0xFFEDB06A) else Color(0xFFE8A45C)
+    get() = dynamicOverride.value?.let { lerp(it.accent, Color(0xFFFFFFFF), 0.35f) }
+        ?: if (paletteDark.value) Color(0xFFEDB06A) else Color(0xFFE8A45C)
 
 /**
- * 浮层：菜单、弹窗。[Accent] 叠 6% 到 [Paper] 上的暖奶油底。
- *
- * 这里曾经是纯白 `#FFFFFF`，理由是「纯白浮在暖纸上，靠温度差建立层次」。
- * 用户看后的原话是「白色还是觉得好丑」——纯白在这套暖纸色板里确实像个异物：
- * 它的温度比纸面还冷，浮层看着像系统控件不像纸。改成暖底后，浮层和纸面
- * 同一个色相，靠略深 + `Divider` 描边 + 投影立边界（和分类容器同一个道理：
- * **边界靠描边，不靠填色撞色**）。
- *
- * 浓度一路试下来的档位，记着别再从头猜：12% 被否（「有点太深」）→
- * 0.08 仍偏重 → 0.06 被夸「非常接近我喜欢的颜色了」→ **0.035**（用户点名再浅一档）。
- * 这个浓度下浮层和纸面差别很小，**边界全靠 `Divider` 描边 + 投影**——
- * 正是分类容器那条「边界靠描边，不靠填色撞色」的路子。要调只改这个系数。
+ * 浮层：菜单、弹窗。[Accent] 叠 4.2% 到 [Paper] 上的暖奶油底。
+ * 浓度档位记着别再猜：12% 被否 → 0.08 偏重 → 0.06 被夸 → **0.035**（用户点名再浅一档）→ 0.042 定稿。
+ * **边界全靠 `Divider` 描边 + 投影**（边界靠描边，不靠填色撞色）。
  */
 val SurfaceFloat: Color
-    get() = lerp(Paper, Accent, 0.042f)
+    get() = dynamicOverride.value?.surfaceFloat ?: lerp(Paper, Accent, 0.042f)
 
 /* ---------- 危险 ---------- */
 
 /** 仅用于删除。深一档，用在文字上才读得清 */
 val Danger: Color
-    get() = if (paletteDark.value) Color(0xFFE08080) else Color(0xFFA94242)
+    get() = dynamicOverride.value?.danger
+        ?: if (paletteDark.value) Color(0xFFE08080) else Color(0xFFA94242)
 
 /** 危险操作的浅底，同 [AccentMist] 的推导方式（Danger 叠 8% 到 Paper） */
 val DangerBg: Color
-    get() = if (paletteDark.value) Color(0xFF3A2422) else Color(0xFFF6ECEC)
+    get() = dynamicOverride.value?.dangerBg
+        ?: if (paletteDark.value) Color(0xFF3A2422) else Color(0xFFF6ECEC)
 
 /* ---------- 保存胶囊「已保存」态的文字色 ----------
  * 比 [Accent] 再深一档：它落在 AccentMist 上，需要更高的对比度 */
 val SavedText: Color
-    get() = if (paletteDark.value) Color(0xFFD9A05B) else Color(0xFF8F5212)
+    get() = dynamicOverride.value?.let { lerp(it.accent, Color(0xFF000000), 0.25f) }
+        ?: if (paletteDark.value) Color(0xFFD9A05B) else Color(0xFF8F5212)

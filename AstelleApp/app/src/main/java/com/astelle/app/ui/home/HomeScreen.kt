@@ -123,6 +123,7 @@ import com.astelle.app.R
 import androidx.activity.result.PickVisualMediaRequest
 import com.astelle.app.data.editor.MarkdownEditing
 import com.astelle.app.data.image.ImageStore
+import com.astelle.app.data.settings.SettingsStore
 import io.noties.markwon.image.AsyncDrawable
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -284,6 +285,7 @@ fun HomeRoute(
                 closeDrawer()
                 onNavigate(it)
             },
+            initialCompactCards = remember { SettingsStore(context).compactCardsDefault },
         )
     }
 
@@ -430,7 +432,9 @@ private fun EditorScaffold(
     ) { uri ->
         if (uri != null) {
             importScope.launch(Dispatchers.IO) {
-                val relative = ImageStore.importImage(context, uri)
+                // 压缩档位走设置（10-10）：高质量 / 标准 / 省空间
+                val quality = SettingsStore(context).imageQuality
+                val relative = ImageStore.importImage(context, uri, quality.maxDim, quality.quality)
                 if (relative != null) {
                     withContext(Dispatchers.Main) {
                         val text = fieldValue.text
