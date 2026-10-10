@@ -14,11 +14,8 @@ interface TodoDao {
     @Query("SELECT * FROM todos ORDER BY isDone ASC, sortOrder ASC, createdAt ASC")
     fun observeAll(): Flow<List<TodoEntity>>
 
-    @Query("SELECT * FROM todos WHERE planDayId = :planDayId ORDER BY isDone ASC, sortOrder ASC, createdAt ASC")
-    fun observeByPlanDay(planDayId: String): Flow<List<TodoEntity>>
-
-    @Query("SELECT * FROM todos WHERE dueEpochDay = :epochDay ORDER BY isDone ASC, sortOrder ASC, createdAt ASC")
-    fun observeByDueDay(epochDay: Long): Flow<List<TodoEntity>>
+    @Query("SELECT * FROM todos WHERE parentId = :parentId ORDER BY sortOrder ASC, createdAt ASC")
+    fun observeChildren(parentId: String): Flow<List<TodoEntity>>
 
     @Query("SELECT * FROM todos WHERE id = :id LIMIT 1")
     suspend fun getById(id: String): TodoEntity?
@@ -29,12 +26,13 @@ interface TodoDao {
     @Update
     suspend fun update(entity: TodoEntity)
 
-    @Delete
-    suspend fun delete(entity: TodoEntity)
+    @Query("UPDATE todos SET isDone = :done, doneAt = :doneAt WHERE id = :id")
+    suspend fun setDone(id: String, done: Boolean, doneAt: Long?)
 
     @Query("DELETE FROM todos WHERE id = :id")
     suspend fun deleteById(id: String)
 
-    @Query("UPDATE todos SET isDone = :done, doneAt = :doneAt WHERE id = :id")
-    suspend fun setDone(id: String, done: Boolean, doneAt: Long?)
+    /** 删母项连子项（业务口径：母项没了子项没意义） */
+    @Query("DELETE FROM todos WHERE parentId = :parentId")
+    suspend fun deleteChildren(parentId: String)
 }

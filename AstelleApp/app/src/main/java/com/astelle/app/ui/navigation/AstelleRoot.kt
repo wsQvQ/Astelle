@@ -145,7 +145,7 @@ fun AstelleRoot() {
                         when (overlay.dest) {
                             AstelleDestination.Home -> Unit // 不会发生：首页永生
                             AstelleDestination.Diary -> DiaryScreen(onOpenDrawer = openDrawerThenHome)
-                            AstelleDestination.Plans -> PlansScreen(onOpenDrawer = openDrawerThenHome)
+                            AstelleDestination.Plans -> PlansScreen(onBack = close)
                             AstelleDestination.Settings -> SettingsScreen(
                                 onBack = close,
                                 onOpenDrawer = openDrawerThenHome,

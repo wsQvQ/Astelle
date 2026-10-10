@@ -1,13 +1,13 @@
 package com.astelle.app.data.local
 
 import com.astelle.app.data.local.entity.FolderEntity
+import com.astelle.app.data.local.entity.HistoryEntity
 import com.astelle.app.data.local.entity.NoteEntity
-import com.astelle.app.data.local.entity.PlanDayEntity
 import com.astelle.app.data.local.entity.TodoEntity
 import com.astelle.app.domain.model.Folder
+import com.astelle.app.domain.model.History
 import com.astelle.app.domain.model.Note
 import com.astelle.app.domain.model.NoteSummary
-import com.astelle.app.domain.model.PlanDay
 import com.astelle.app.domain.model.Todo
 import java.time.LocalDate
 
@@ -51,30 +51,13 @@ fun NoteSummaryRow.toDomain(): NoteSummary = NoteSummary(
     folderId = folderId,
 )
 
-fun PlanDayEntity.toDomain(): PlanDay = PlanDay(
-    id = id,
-    name = name,
-    date = LocalDate.ofEpochDay(dateEpochDay),
-    isYearly = isYearly,
-    intention = intention,
-    createdAt = createdAt,
-)
-
-fun PlanDay.toEntity(): PlanDayEntity = PlanDayEntity(
-    id = id,
-    name = name,
-    dateEpochDay = date.toEpochDay(),
-    isYearly = isYearly,
-    intention = intention,
-    createdAt = createdAt,
-)
-
 fun TodoEntity.toDomain(): Todo = Todo(
     id = id,
     title = title,
+    note = note,
     isDone = isDone,
     dueDate = dueEpochDay?.let(LocalDate::ofEpochDay),
-    planDayId = planDayId,
+    parentId = parentId,
     createdAt = createdAt,
     doneAt = doneAt,
     sortOrder = sortOrder,
@@ -83,11 +66,30 @@ fun TodoEntity.toDomain(): Todo = Todo(
 fun Todo.toEntity(): TodoEntity = TodoEntity(
     id = id,
     title = title,
+    note = note,
     isDone = isDone,
     dueEpochDay = dueDate?.toEpochDay(),
-    planDayId = planDayId,
+    parentId = parentId,
     createdAt = createdAt,
     doneAt = doneAt,
+    sortOrder = sortOrder,
+)
+
+fun HistoryEntity.toDomain(): History = History(
+    id = id,
+    title = title,
+    note = note,
+    startDate = LocalDate.ofEpochDay(startEpochDay),
+    isPinned = isPinned,
+    sortOrder = sortOrder,
+)
+
+fun History.toEntity(): HistoryEntity = HistoryEntity(
+    id = id,
+    title = title,
+    note = note,
+    startEpochDay = startDate.toEpochDay(),
+    isPinned = isPinned,
     sortOrder = sortOrder,
 )
 

@@ -2,10 +2,10 @@ package com.astelle.app.di
 
 import com.astelle.app.data.repository.FolderRepositoryImpl
 import com.astelle.app.data.repository.NoteRepositoryImpl
-import com.astelle.app.data.repository.PlanRepositoryImpl
+import com.astelle.app.data.repository.TaskRepositoryImpl
 import com.astelle.app.domain.repository.FolderRepository
 import com.astelle.app.domain.repository.NoteRepository
-import com.astelle.app.domain.repository.PlanRepository
+import com.astelle.app.domain.repository.TaskRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -26,5 +26,5 @@ abstract class RepositoryModule {
 
     @Binds
     @Singleton
-    abstract fun bindPlanRepository(impl: PlanRepositoryImpl): PlanRepository
+    abstract fun bindTaskRepository(impl: TaskRepositoryImpl): TaskRepository
 }
