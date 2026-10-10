@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Astelle · 待办页 v3 预览</title>
+<title>Astelle · 待办页 v4 预览（可交互）</title>
 <style>
   :root{
     --paper:#F6F1E8; --card:#FFFCF7; --ink:#2B2620; --ink-soft:#6B6258;
@@ -15,7 +15,7 @@
   *{margin:0;padding:0;box-sizing:border-box}
   body{background:#EDE7DC;font-family:var(--sans);color:var(--ink);-webkit-font-smoothing:antialiased}
   .frame{max-width:430px;margin:0 auto;background:var(--paper);min-height:100vh;
-         box-shadow:0 0 60px rgba(43,38,32,.10);padding-bottom:40px;position:relative}
+         box-shadow:0 0 60px rgba(43,38,32,.10);padding-bottom:120px;position:relative}
 
   /* ── 顶栏（同设置页语言） ── */
   .topbar{display:flex;align-items:center;gap:10px;padding:18px 16px 0;position:relative}
@@ -32,20 +32,12 @@
   .menu-item svg{width:16px;height:16px;flex:none}
   .menu-line{height:1px;background:var(--divider);margin:4px 10px}
 
-  .note{font-size:11px;color:var(--muted);letter-spacing:.08em;padding:10px 22px 2px;line-height:1.9}
-
-  /* ── 分区 ── */
-  .sec{display:flex;align-items:center;gap:10px;padding:22px 22px 12px}
-  .sec .name{font-size:12px;letter-spacing:.35em;color:var(--accent)}
-  .sec.timer .name{color:var(--ink-soft)}
-  .sec .count{font-size:10px;letter-spacing:.15em;color:var(--muted);
-              border:1px solid var(--divider);border-radius:999px;padding:3px 9px}
-  .sec .line{flex:1;height:1px;background:var(--divider)}
+  .note{font-size:11px;color:var(--muted);letter-spacing:.08em;padding:10px 22px 4px;line-height:1.9}
 
   /* ── 待办项 ── */
-  .todo{margin:0 14px 8px;background:var(--card);border:1px solid var(--divider);
+  .todo{margin:14px 14px 8px;background:var(--card);border:1px solid var(--divider);
         border-radius:14px;padding:14px 16px;display:flex;gap:13px;align-items:flex-start}
-  .c\boxed{width:22px;height:22px;border-radius:50%;border:1.6px solid var(--ink-soft);
+  .cbox{width:22px;height:22px;border-radius:50%;border:1.6px solid var(--ink-soft);
         flex:none;margin-top:1px;display:flex;align-items:center;justify-content:center}
   .cbox.sm{width:17px;height:17px;border-width:1.4px}
   .cbox.done{background:var(--accent);border-color:var(--accent)}
@@ -60,7 +52,6 @@
   .t-right{font-family:var(--serif);font-size:15px;color:var(--accent);white-space:nowrap;padding-top:2px}
   .t-right.over{color:var(--danger)}
   .t-right small{font-family:var(--sans);font-size:10px;color:var(--muted);letter-spacing:.15em}
-  /* 母项进度细线 */
   .progress{height:2.5px;background:var(--divider);border-radius:2px;margin-top:10px;overflow:hidden}
   .progress i{display:block;height:100%;background:var(--accent);border-radius:2px}
 
@@ -78,7 +69,7 @@
   .fold .strike{color:var(--muted);text-decoration:line-through;font-family:var(--serif);letter-spacing:0}
 
   /* ── 历时项 ── */
-  .timer-row{margin:0 14px 8px;background:var(--card);border:1px solid var(--divider);
+  .timer-row{margin:14px 14px 8px;background:var(--card);border:1px solid var(--divider);
              border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:13px}
   .tm-body{flex:1}
   .tm-title{font-family:var(--serif);font-size:16.5px;display:flex;align-items:center;gap:8px}
@@ -88,7 +79,24 @@
   .tm-right .num{font-family:var(--serif);font-size:30px;line-height:1;letter-spacing:-.02em;color:var(--ink-soft)}
   .tm-right .unit{font-size:10px;letter-spacing:.22em;color:var(--muted);margin-top:5px}
 
-  .foot{font-size:11px;color:var(--muted);letter-spacing:.25em;text-align:center;padding:38px 0 8px}
+  /* ── 底部椭圆胶囊（= 编辑/预览同款交互，圆头版） ── */
+  .pill{position:fixed;left:50%;transform:translateX(-50%);bottom:26px;
+        width:250px;height:46px;border-radius:999px;background:var(--card);
+        border:1px solid var(--divider);padding:4px;display:flex;z-index:9;
+        box-shadow:0 6px 22px rgba(43,38,32,.08)}
+  .pill .thumb{position:absolute;top:4px;left:4px;width:calc(50% - 4px);height:calc(100% - 8px);
+        background:var(--accent-mist);border-radius:999px;transition:transform .28s cubic-bezier(.22,1,.36,1)}
+  .pill.right .thumb{transform:translateX(100%)}
+  .pill button{flex:1;background:none;border:none;font-family:var(--sans);font-size:13.5px;
+        letter-spacing:.12em;color:var(--muted);z-index:1;cursor:pointer;display:flex;
+        align-items:center;justify-content:center;gap:7px}
+  .pill button.active{color:var(--accent);font-weight:600}
+  .pill .n{font-family:var(--serif);font-size:12px;letter-spacing:0;opacity:.85}
+
+  /* 面板切换 */
+  .pane{display:none;animation:fade .25s ease}
+  .pane.show{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 </style>
 </head>
 <body>
@@ -108,7 +116,6 @@
       </svg>
     </div>
 
-    <!-- 点 ＋ 展开的新建菜单 -->
     <div class="menu">
       <div class="menu-item">
         <svg viewBox="0 0 24 24" fill="none" stroke="#6B6258" stroke-width="1.5"><circle cx="12" cy="12" r="8"/></svg>
@@ -124,97 +131,112 @@
     </div>
   </div>
 
-  <h1>待办</h1>
-  <div class="note">顶栏与设置页同语言：返回圆钮常驻 · 大标题上滑收缩（34→18sp）· 右上 ＋ 弹出「新建待办 / 新建历时」</div>
+  <h1 id="pageTitle">待办</h1>
+  <div class="note">顶栏同设置页（返回圆钮 · 大标题 34→18sp 上滑收缩）；标题随底部胶囊切换 · ＋ 菜单随当前区</div>
 
-  <!-- ═══════ 待办区 ═══════ -->
-  <div class="sec">
-    <div class="name">待 办</div><div class="count">3</div><div class="line"></div>
-  </div>
-
-  <div class="todo">
-    <div class="cbox"></div>
-    <div class="t-body">
-      <div class="t-title">冰岛行程准备</div>
-      <div class="t-meta"><span class="chip due">截止 11-02</span><span>2 / 3 已完成</span></div>
-      <div class="progress"><i style="width:66%"></i></div>
-    </div>
-    <div class="t-right">23 <small>天</small></div>
-  </div>
-  <div class="sub">
-    <div class="cbox sm done"></div>
-    <div class="t-body"><div class="t-title">办签证</div></div>
-    <div class="t-right" style="color:var(--muted)"><small>完成</small></div>
-  </div>
-  <div class="sub">
-    <div class="cbox sm done"></div>
-    <div class="t-body"><div class="t-title">订机票</div></div>
-    <div class="t-right" style="color:var(--muted)"><small>完成</small></div>
-  </div>
-  <div class="sub last">
-    <div class="cbox sm"></div>
-    <div class="t-body"><div class="t-title">买羽绒服</div></div>
-    <div class="t-right">23 <small>天</small></div>
-  </div>
-
-  <div class="todo">
-    <div class="cbox"></div>
-    <div class="t-body">
-      <div class="t-title">交设计稿</div>
-      <div class="t-meta"><span class="chip due">截止 10-14</span></div>
-    </div>
-    <div class="t-right over">3 <small>天</small></div>
-  </div>
-
-  <div class="todo">
-    <div class="cbox"></div>
-    <div class="t-body">
-      <div class="t-title">给车做保养</div>
-      <div class="t-meta"><span class="chip">无截止</span></div>
-    </div>
-    <div class="t-right" style="color:var(--muted)">—</div>
-  </div>
-
-  <div class="fold">
-    <div class="cbox sm done"></div>
-    <span>已完成 · 1</span>
-    <span class="strike">取快递</span>
-    <div class="arrow">▾</div>
-  </div>
-
-  <!-- ═══════ 历时区 ═══════ -->
-  <div class="sec timer">
-    <div class="name">历 时</div><div class="count">2</div><div class="line"></div>
-  </div>
-
-  <div class="timer-row">
-    <div class="tm-body">
-      <div class="tm-title">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#2B2620" stroke-width="1.5" stroke-linecap="round">
-          <path d="M9 4h6M12 4v7M7 11h10l-1.5 8h-7z"/>
-        </svg>
-        在一起
+  <!-- ═══════ 待办面板 ═══════ -->
+  <div class="pane show" id="pane-todo">
+    <div class="todo">
+      <div class="cbox"></div>
+      <div class="t-body">
+        <div class="t-title">冰岛行程准备</div>
+        <div class="t-meta"><span class="chip due">截止 11-02</span><span>2 / 3 已完成</span></div>
+        <div class="progress"><i style="width:66%"></i></div>
       </div>
-      <div class="tm-meta">起始 2023-08-14 · 那天的晚霞很好看</div>
+      <div class="t-right">23 <small>天</small></div>
     </div>
-    <div class="tm-right">
-      <div class="num">1153</div>
-      <div class="unit">天</div>
+    <div class="sub">
+      <div class="cbox sm done"></div>
+      <div class="t-body"><div class="t-title">办签证</div></div>
+      <div class="t-right" style="color:var(--muted)"><small>完成</small></div>
+    </div>
+    <div class="sub">
+      <div class="cbox sm done"></div>
+      <div class="t-body"><div class="t-title">订机票</div></div>
+      <div class="t-right" style="color:var(--muted)"><small>完成</small></div>
+    </div>
+    <div class="sub last">
+      <div class="cbox sm"></div>
+      <div class="t-body"><div class="t-title">买羽绒服</div></div>
+      <div class="t-right">23 <small>天</small></div>
+    </div>
+
+    <div class="todo">
+      <div class="cbox"></div>
+      <div class="t-body">
+        <div class="t-title">交设计稿</div>
+        <div class="t-meta"><span class="chip due">截止 10-14</span></div>
+      </div>
+      <div class="t-right over">3 <small>天</small></div>
+    </div>
+
+    <div class="todo">
+      <div class="cbox"></div>
+      <div class="t-body">
+        <div class="t-title">给车做保养</div>
+        <div class="t-meta"><span class="chip">无截止</span></div>
+      </div>
+      <div class="t-right" style="color:var(--muted)">—</div>
+    </div>
+
+    <div class="fold">
+      <div class="cbox sm done"></div>
+      <span>已完成 · 1</span>
+      <span class="strike">取快递</span>
+      <div class="arrow">▾</div>
     </div>
   </div>
 
-  <div class="timer-row">
-    <div class="tm-body">
-      <div class="tm-title">毕业</div>
-      <div class="tm-meta">起始 2022-06-28</div>
+  <!-- ═══════ 历时面板 ═══════ -->
+  <div class="pane" id="pane-timer">
+    <div class="timer-row">
+      <div class="tm-body">
+        <div class="tm-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#2B2620" stroke-width="1.5" stroke-linecap="round">
+            <path d="M9 4h6M12 4v7M7 11h10l-1.5 8h-7z"/>
+          </svg>
+          在一起
+        </div>
+        <div class="tm-meta">起始 2023-08-14 · 那天的晚霞很好看</div>
+      </div>
+      <div class="tm-right">
+        <div class="num">1153</div>
+        <div class="unit">天</div>
+      </div>
     </div>
-    <div class="tm-right">
-      <div class="num">1565</div>
-      <div class="unit">天</div>
+
+    <div class="timer-row">
+      <div class="tm-body">
+        <div class="tm-title">毕业</div>
+        <div class="tm-meta">起始 2022-06-28</div>
+      </div>
+      <div class="tm-right">
+        <div class="num">1565</div>
+        <div class="unit">天</div>
+      </div>
     </div>
   </div>
 
-  <div class="foot">ASTELLE · 待办 · 历时</div>
+  <!-- ═══════ 底部椭圆胶囊：切换 待办 / 历时 ═══════ -->
+  <div class="pill" id="pill">
+    <div class="thumb"></div>
+    <button class="active" onclick="switchPane('todo')">待办 <span class="n">3</span></button>
+    <button onclick="switchPane('timer')">历时 <span class="n">2</span></button>
+  </div>
 </div>
+
+<script>
+  function switchPane(which) {
+    const pill = document.getElementById('pill');
+    const btns = pill.querySelectorAll('button');
+    document.getElementById('pane-todo').classList.toggle('show', which === 'todo');
+    document.getElementById('pane-timer').classList.toggle('show', which === 'timer');
+    document.getElementById('pageTitle').textContent = which === 'todo' ? '待办' : '历时';
+    btns[0].classList.toggle('active', which === 'todo');
+    btns[1].classList.toggle('active', which === 'timer');
+    pill.classList.toggle('right', which === 'timer');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+</script>
 </body>
 </html>
