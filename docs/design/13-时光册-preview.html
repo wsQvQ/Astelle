@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Astelle · 时光册 预览</title>
+<style>
+  :root{
+    --paper:#F6F1E8; --card:#FFFCF7; --ink:#2B2620; --ink-soft:#6B6258;
+    --muted:#A29789; --accent:#B85C38; --accent-mist:#F3E2D8; --danger:#A33B2E;
+    --divider:rgba(43,38,32,.12);
+    --serif:"Noto Serif SC","Source Han Serif SC","Songti SC","SimSun",serif;
+    --sans:"PingFang SC","Microsoft YaHei","Noto Sans SC",sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#EDE7DC;font-family:var(--sans);color:var(--ink);-webkit-font-smoothing:antialiased}
+  .frame{max-width:430px;margin:0 auto;background:var(--paper);min-height:100vh;
+         box-shadow:0 0 60px rgba(43,38,32,.10)}
+  .tag{font-size:11px;letter-spacing:.35em;color:var(--muted);padding:34px 24px 6px}
+  .variant-title{font-family:var(--serif);font-size:22px;padding:2px 24px 4px}
+  .variant-note{font-size:12px;color:var(--ink-soft);padding:0 24px 22px;line-height:1.8}
+  .divider{height:1px;background:var(--divider);margin:0 24px}
+
+  /* ── 通用：事件卡 ── */
+  .day-num{font-family:var(--serif);font-weight:500;letter-spacing:-.02em;line-height:1}
+  .unit{font-size:11px;color:var(--muted);letter-spacing:.18em}
+  .future .day-num{color:var(--accent)}
+  .past .day-num{color:var(--ink-soft)}
+
+  /* ── A · 大数字纸卡 ── */
+  .a-hero{padding:16px 24px 26px}
+  .a-hero .kicker{font-size:11px;letter-spacing:.35em;color:var(--muted)}
+  .a-hero .big{font-family:var(--serif);font-size:104px;font-weight:500;
+               letter-spacing:-.04em;line-height:1.02;color:var(--accent);margin:8px 0 2px}
+  .a-hero .big small{font-size:20px;letter-spacing:.15em;color:var(--muted);font-family:var(--sans)}
+  .a-hero .name{font-family:var(--serif);font-size:24px;margin-top:10px}
+  .a-hero .meta{font-size:12px;color:var(--muted);margin-top:8px;letter-spacing:.06em}
+  .a-card{margin:0 16px 12px;background:var(--card);border:1px solid var(--divider);
+          border-radius:18px;padding:18px 20px;display:flex;align-items:center;gap:16px}
+  .a-card .info{flex:1}
+  .a-card .name{font-family:var(--serif);font-size:17px}
+  .a-card .meta{font-size:11px;color:var(--muted);margin-top:6px;letter-spacing:.05em}
+  .a-card .count{text-align:right;min-width:74px}
+  .a-card .count .day-num{font-size:34px}
+
+  /* ── B · 时间轴 ── */
+  .b-wrap{padding:10px 24px 30px}
+  .b-item{display:flex;gap:18px;position:relative;padding-bottom:26px}
+  .b-item:last-child{padding-bottom:6px}
+  .b-rail{width:14px;flex:none;display:flex;flex-direction:column;align-items:center}
+  .b-dot{width:9px;height:9px;border-radius:50%;border:1.5px solid var(--accent);margin-top:5px;background:var(--paper)}
+  .b-item.past .b-dot{border-color:var(--muted)}
+  .b-line{flex:1;width:1.5px;background:var(--divider);margin-top:4px}
+  .b-item:last-child .b-line{display:none}
+  .b-body{flex:1;padding-bottom:2px}
+  .b-body .date{font-size:11px;letter-spacing:.22em;color:var(--muted)}
+  .b-body .name{font-family:var(--serif);font-size:18px;margin:5px 0 6px}
+  .b-body .count{font-family:var(--serif);font-size:15px;color:var(--accent)}
+  .b-item.past .b-body .count{color:var(--ink-soft)}
+  .b-today{display:flex;align-items:center;gap:12px;margin:2px 0 24px}
+  .b-today .pill{font-size:11px;letter-spacing:.3em;color:var(--ink);background:var(--accent-mist);
+                 border-radius:999px;padding:6px 14px}
+  .b-today .line{flex:1;height:1px;background:var(--divider)}
+
+  /* ── C · 双区清单 ── */
+  .c-sec{font-size:11px;letter-spacing:.35em;color:var(--accent);padding:20px 24px 10px}
+  .c-sec.past-sec{color:var(--muted)}
+  .c-row{margin:0 16px 10px;background:var(--card);border:1px solid var(--divider);
+         border-radius:14px;padding:15px 18px;display:flex;align-items:center;gap:14px}
+  .c-chip{font-size:10px;letter-spacing:.12em;color:var(--ink-soft);border:1px solid var(--divider);
+          border-radius:999px;padding:4px 10px;white-space:nowrap}
+  .c-row .name{font-family:var(--serif);font-size:16px;flex:1}
+  .c-row .count{font-family:var(--serif);font-size:15px}
+  .c-row.future .count{color:var(--accent)}
+  .c-row.past .count{color:var(--ink-soft)}
+  .foot{font-size:11px;color:var(--muted);letter-spacing:.25em;text-align:center;padding:34px 0 46px}
+</style>
+</head>
+<body>
+<div class="frame">
+
+  <!-- ══════════ A · 大数字纸卡 ══════════ -->
+  <div class="tag">变体 A ／ STYLE A</div>
+  <div class="variant-title">大数字纸卡</div>
+  <div class="variant-note">天数当主角，纸质年历的排版逻辑。头图给「最近的一件事」，其余事件以卡罗列。<br>气质：安静、纪念感强、发朋友圈截图都好看。</div>
+
+  <div class="a-hero future">
+    <div class="kicker">距 离</div>
+    <div class="big">76<small> 天</small></div>
+    <div class="name">圣诞节</div>
+    <div class="meta">2026-12-25 · 给她准备了手写信</div>
+  </div>
+
+  <div class="a-card future">
+    <div class="info">
+      <div class="name">出发去冰岛</div>
+      <div class="meta">2026-11-02 · 机票已出，还差羽绒服</div>
+    </div>
+    <div class="count"><div class="day-num">23</div><div class="unit">天 后</div></div>
+  </div>
+
+  <div class="a-card future">
+    <div class="info">
+      <div class="name">她的生日</div>
+      <div class="meta">2026-12-08 · 今年想要什么来着</div>
+    </div>
+    <div class="count"><div class="day-num">59</div><div class="unit">天 后</div></div>
+  </div>
+
+  <div class="a-card past">
+    <div class="info">
+      <div class="name">在一起</div>
+      <div class="meta">2023-08-14 · 那天的晚霞很好看</div>
+    </div>
+    <div class="count"><div class="day-num">1153</div><div class="unit">天 了</div></div>
+  </div>
+
+  <div class="a-card past">
+    <div class="info">
+      <div class="name">毕业典礼</div>
+      <div class="meta">2022-06-28 · 毕业照还在抽屉里</div>
+    </div>
+    <div class="count"><div class="day-num">1565</div><div class="unit">天 了</div></div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ══════════ B · 时间轴 ══════════ -->
+  <div class="tag">变体 B ／ STYLE B</div>
+  <div class="variant-title">时间轴</div>
+  <div class="variant-note">以「今天」为原点：未来向下、回忆向上（此预览按时间顺序排列）。<br>气质：像在翻一本日记的目录，叙事感最强。</div>
+
+  <div class="b-wrap">
+    <div class="b-item future">
+      <div class="b-rail"><div class="b-dot"></div><div class="b-line"></div></div>
+      <div class="b-body">
+        <div class="date">2026-11-02</div>
+        <div class="name">出发去冰岛</div>
+        <div class="count">还有 23 天</div>
+      </div>
+    </div>
+    <div class="b-item future">
+      <div class="b-rail"><div class="b-dot"></div><div class="b-line"></div></div>
+      <div class="b-body">
+        <div class="date">2026-12-08</div>
+        <div class="name">她的生日</div>
+        <div class="count">还有 59 天</div>
+      </div>
+    </div>
+    <div class="b-item future">
+      <div class="b-rail"><div class="b-dot"></div><div class="b-line"></div></div>
+      <div class="b-body">
+        <div class="date">2026-12-25</div>
+        <div class="name">圣诞节</div>
+        <div class="count">还有 76 天</div>
+      </div>
+    </div>
+
+    <div class="b-today"><div class="pill">今 天</div><div class="line"></div></div>
+
+    <div class="b-item past">
+      <div class="b-rail"><div class="b-dot"></div><div class="b-line"></div></div>
+      <div class="b-body">
+        <div class="date">2023-08-14</div>
+        <div class="name">在一起</div>
+        <div class="count">已经 1153 天</div>
+      </div>
+    </div>
+    <div class="b-item past">
+      <div class="b-rail"><div class="b-dot"></div><div class="b-line"></div></div>
+      <div class="b-body">
+        <div class="date">2022-06-28</div>
+        <div class="name">毕业典礼</div>
+        <div class="count">已经 1565 天</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ══════════ C · 双区清单 ══════════ -->
+  <div class="tag">变体 C ／ STYLE C</div>
+  <div class="variant-title">双区清单</div>
+  <div class="variant-note">「期待 / 回忆」两段式，最接近日历类 App 的稳妥排版。<br>气质：信息效率最高，事件多了也不乱。</div>
+
+  <div class="c-sec">期 待 ／ 未 来</div>
+  <div class="c-row future">
+    <div class="c-chip">11-02</div>
+    <div class="name">出发去冰岛</div>
+    <div class="count">还有 23 天</div>
+  </div>
+  <div class="c-row future">
+    <div class="c-chip">12-08</div>
+    <div class="name">她的生日</div>
+    <div class="count">还有 59 天</div>
+  </div>
+  <div class="c-row future">
+    <div class="c-chip">12-25</div>
+    <div class="name">圣诞节</div>
+    <div class="count">还有 76 天</div>
+  </div>
+
+  <div class="c-sec past-sec">回 忆 ／ 过 去</div>
+  <div class="c-row past">
+    <div class="c-chip">08-14</div>
+    <div class="name">在一起</div>
+    <div class="count">已经 1153 天</div>
+  </div>
+  <div class="c-row past">
+    <div class="c-chip">06-28</div>
+    <div class="name">毕业典礼</div>
+    <div class="count">已经 1565 天</div>
+  </div>
+
+  <div class="foot">ASTELLE · 时光册 · 三版预览</div>
+</div>
+</body>
+</html>
