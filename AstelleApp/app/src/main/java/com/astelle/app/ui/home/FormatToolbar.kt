@@ -43,6 +43,8 @@ import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.TableChart
 import androidx.compose.material.icons.outlined.TaskAlt
 import com.astelle.app.ui.components.GlassMenu
+import com.astelle.app.ui.components.GlassPanel
+import com.astelle.app.ui.components.GlassSource
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -69,17 +71,8 @@ import com.astelle.app.ui.theme.PressGlow
 import com.astelle.app.ui.theme.Divider
 import com.astelle.app.ui.theme.Muted
 import com.astelle.app.ui.theme.SurfaceFloat
-import androidx.compose.foundation.layout.BoxScope
-import androidx.compose.ui.draw.BlurredEdgeTreatment
-import androidx.compose.ui.draw.blur
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.layer.GraphicsLayer
-import androidx.compose.ui.graphics.layer.drawLayer
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInWindow
 
 /** 工具栏动作：全是纯数据，落到 MarkdownEditing 里执行 */
 sealed interface FormatAction {
@@ -161,10 +154,10 @@ internal fun FormatToolbar(
             derivedStateOf { scrollState.value < scrollState.maxValue }
         }
         var pressedLabel by remember { mutableStateOf<String?>(null) }
-        GlassSurface(
+        GlassPanel(
             shape = RoundedCornerShape(24.dp),
-            backdropLayer = backdropLayer,
-            backdropOrigin = backdropOrigin,
+            source = backdropLayer?.let { GlassSource.Layer(it, backdropOrigin) },
+            enabled = glassOn,
             modifier = Modifier
                 // ⚠️ 必须 weight(fill=false)：让球先拿走固定 48dp，胶囊只吃**剩下的**宽度。
                 // 不加 weight 时胶囊先量先吃，窄屏把球挤成 0 宽 —— 「感叹号的点」整个消失（用户实测）
@@ -239,10 +232,10 @@ internal fun FormatToolbar(
                 animationSpec = tween(durationMillis = 120),
                 label = "ballBg",
             )
-            GlassSurface(
+            GlassPanel(
                 shape = CircleShape,
-                backdropLayer = backdropLayer,
-                backdropOrigin = backdropOrigin,
+                source = backdropLayer?.let { GlassSource.Layer(it, backdropOrigin) },
+                enabled = glassOn,
                 modifier = Modifier
                     .size(48.dp)
                     // 再点一次要**收回**，不是反复打开（用户提的；竞态用闸门挡）
@@ -284,66 +277,6 @@ internal fun FormatToolbar(
                 }
             }
         }
-    }
-}
-
-/**
- * 玻璃底衬（10-11 自研轻玻璃）：悬浮工具栏的胶囊/球共用。
- * [backdropLayer] 非空 = 画**正文实时图层**（裁到本形状 + RenderEffect 模糊）+ 纸色 tint +
- * 顶部内高光 + 发丝描边；null = 原纸感。API<31 无 RenderEffect → 不糊只磨砂（自动降级）。
- * 对位：图层原点在 [backdropOrigin]（窗口坐标），本形状位置实时量，两者相减即裁切偏移。
- */
-@Composable
-private fun GlassSurface(
-    shape: Shape,
-    backdropLayer: GraphicsLayer?,
-    backdropOrigin: Offset,
-    modifier: Modifier = Modifier,
-    content: @Composable BoxScope.() -> Unit,
-) {
-    Box(modifier = modifier.clip(shape)) {
-        if (backdropLayer != null) {
-            var pos by remember { mutableStateOf(Offset.Zero) }
-            Box(
-                Modifier
-                    .matchParentSize()
-                    .onGloballyPositioned { pos = it.positionInWindow() }
-                    // 二调（10-11）：模糊翻倍让底下文字糊成色块，按钮不再被背景抢戏
-                    .blur(32.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
-                    .drawBehind {
-                        withTransform({
-                            translate(
-                                left = -(pos.x - backdropOrigin.x),
-                                top = -(pos.y - backdropOrigin.y),
-                            )
-                        }) {
-                            drawLayer(backdropLayer)
-                        }
-                    }
-            )
-            Box(
-                Modifier
-                    .matchParentSize()
-                    .background(SurfaceFloat.copy(alpha = 0.72f))
-                    .drawBehind {
-                        drawRect(
-                            Brush.verticalGradient(
-                                0f to Color.White.copy(alpha = 0.10f),
-                                0.6f to Color.White.copy(alpha = 0f),
-                            ),
-                        )
-                    }
-                    .border(1.dp, Divider, shape)
-            )
-        } else {
-            Box(
-                Modifier
-                    .matchParentSize()
-                    .background(SurfaceFloat)
-                    .border(1.dp, Divider, shape)
-            )
-        }
-        content()
     }
 }
 

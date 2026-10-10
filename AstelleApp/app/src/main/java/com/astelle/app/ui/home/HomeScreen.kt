@@ -59,6 +59,7 @@ import androidx.compose.material3.DrawerValue
 import com.astelle.app.data.settings.GlassModeHolder
 import com.astelle.app.ui.components.GlassAlertDialog
 import com.astelle.app.ui.components.GlassMenu
+import com.astelle.app.ui.components.GlassPanel
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.ModalDrawerSheet
@@ -378,7 +379,6 @@ fun HomeRoute(
                     Text("取消", color = Muted)
                 }
             },
-            // 显式指定，不依赖 M3 默认容器色
         )
     }
 }
@@ -868,24 +868,15 @@ private fun ViewPill(mode: EditorMode, largeScreen: Boolean, onMode: (EditorMode
         label = "viewPillThumb",
     )
 
-    Box(
+    GlassPanel(
+        shape = RoundedCornerShape(10.dp),
+        enabled = GlassModeHolder.enabled.value,
+        flatColor = PaperWarm.copy(alpha = 0.8f),
         modifier = Modifier
             .height(32.dp)
-            .width(if (largeScreen) 150.dp else 100.dp)
-            .clip(RoundedCornerShape(10.dp))
-            // 玻璃质感（10-11）：半透 tint + 顶部内高光 + 发丝描边（背后是平涂页底，无需糊）
-            .background(SurfaceFloat.copy(alpha = 0.72f))
-            .drawBehind {
-                drawRect(
-                    Brush.verticalGradient(
-                        0f to Color.White.copy(alpha = 0.12f),
-                        0.55f to Color.White.copy(alpha = 0f),
-                    ),
-                )
-            }
-            .border(1.dp, Divider, RoundedCornerShape(10.dp))
-            .padding(3.dp),
+            .width(if (largeScreen) 150.dp else 100.dp),
     ) {
+        Box(Modifier.fillMaxSize().padding(3.dp)) {
         // 滑块：用 graphicsLayer 平移（避免 offset + shadow 发灰）；
         // 底色走 Paper 而不是白色 —— 白色在暗色下穿帮（色板搬家同批修）
         Box(
@@ -920,6 +911,7 @@ private fun ViewPill(mode: EditorMode, largeScreen: Boolean, onMode: (EditorMode
                     )
                 }
             }
+        }
         }
     }
 }
