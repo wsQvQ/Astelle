@@ -86,6 +86,9 @@
 27. **预测返回想显示「返回后的页面」= 用快照别用实时组合**（NavBackdrops 栈）：
     导航时 `drawToBitmap` 拍一张压栈、返回弹出，逐帧只是一次 blit；
     逐帧 `shadowElevation` 才是卡顿元凶，已拆
+28. navigation-compose 2.8 的 `composable(enterTransition=…)` 要的是**lambda**
+    （`AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition?`），
+    直接传 EnterTransition 值编译炸；返回落地要不闪 = popEnter 只淡入（与快照同像素接管）+ popExit 顺手势方向滑出
 
 ## 4. 当前状态快照（2026-10-10 深夜，`4cf08ca`）
 

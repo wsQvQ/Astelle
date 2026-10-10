@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -30,7 +29,6 @@ import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.LightMode
 import androidx.compose.material.icons.automirrored.outlined.List
 import androidx.compose.material.icons.outlined.Lock
@@ -67,7 +65,6 @@ import androidx.compose.ui.unit.sp
 import com.astelle.app.BuildConfig
 import com.astelle.app.data.settings.ColorMode
 import com.astelle.app.data.settings.ImageQuality
-import com.astelle.app.data.settings.MaterialStyle
 import com.astelle.app.data.settings.SettingsStore
 import com.astelle.app.ui.components.MenuRow
 import com.astelle.app.ui.theme.Accent
@@ -108,31 +105,16 @@ fun SettingsScreen(
     var modeOpen by remember { mutableStateOf(false) }
     var densityOpen by remember { mutableStateOf(false) }
     var qualityOpen by remember { mutableStateOf(false) }
-    // 外观材质（10-11：预留「材质切换」二级菜单接口）+ 当前二级页
-    var materialStyle by remember { mutableStateOf(store.materialStyle) }
-    var subPage by remember { mutableStateOf<SettingsSubPage?>(null) }
+    // 二级菜单玻璃材质开关（10-11 用户澄清：设置里一个开关就行，别做二级页）
+    var glassMenus by remember { mutableStateOf(store.glassMenus) }
 
-    // ⚠️ 菜单/二级页开着时返回必须**只收浮层**（真机揪出的 bug：PredictiveBackHandler
+    // ⚠️ 菜单开着时返回必须**只关菜单**（真机揪出的 bug：PredictiveBackHandler
     // 常开，把弹层的返回也吃了 → 直接退页）。本回调注册晚于它，dispatcher 里优先级更高。
     val anyMenuOpen = modeOpen || densityOpen || qualityOpen
-    BackHandler(enabled = anyMenuOpen || subPage != null) {
+    BackHandler(enabled = anyMenuOpen) {
         modeOpen = false
         densityOpen = false
         qualityOpen = false
-        subPage = null
-    }
-
-    // ── 二级页：外观材质（10-11 预留材质切换接口；玻璃占位未开放）──
-    if (subPage == SettingsSubPage.MATERIAL) {
-        MaterialSubPage(
-            current = materialStyle,
-            onPick = {
-                store.materialStyle = it
-                materialStyle = it
-            },
-            onBack = { subPage = null },
-        )
-        return
     }
 
     // 1a：大标题上滑收缩（内容滚 → 顶栏折叠），返回钮常驻
@@ -252,10 +234,19 @@ fun SettingsScreen(
                     },
                 )
                 SettingRow(
-                    icon = Icons.Outlined.Layers,
-                    title = "外观材质",
-                    subtitle = materialStyle.label,
-                    onClick = { subPage = SettingsSubPage.MATERIAL },
+                    icon = Icons.Outlined.Opacity,
+                    title = "玻璃菜单",
+                    subtitle = "二级菜单/浮层的液态玻璃质感（效果开发中）",
+                    onClick = {
+                        store.glassMenus = !glassMenus
+                        glassMenus = !glassMenus
+                    },
+                    trailing = {
+                        SettingsSwitch(on = glassMenus) { checked ->
+                            store.glassMenus = checked
+                            glassMenus = checked
+                        }
+                    },
                 )
                 SettingRow(
                     icon = Icons.AutoMirrored.Outlined.List,
@@ -527,68 +518,4 @@ private fun SettingsSwitch(
             disabledUncheckedBorderColor = Divider.copy(alpha = 0.5f),
         ),
     )
-}
-
-/** 二级页枚举（10-11 预留：材质切换是第一个，后续二级菜单往这加） */
-private enum class SettingsSubPage { MATERIAL }
-
-/**
- * 二级页：外观材质（10-11 预留「材质切换」接口）。
- * 纸感 = 现行；液态玻璃 = 占位（候选 Kyant0/AndroidLiquidGlass，调研见
- * `docs/ui/11-liquid-glass-research.md`）。玻璃真正接入时在此处分叉材质管线。
- */
-@Composable
-private fun MaterialSubPage(
-    current: MaterialStyle,
-    onPick: (MaterialStyle) -> Unit,
-    onBack: () -> Unit,
-) {
-    val colors = LocalAstelleColors.current
-    Column(
-        Modifier
-            .fillMaxSize()
-            .background(colors.paperWarm)
-            .statusBarsPadding()
-            .navigationBarsPadding(),
-    ) {
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            QuietIconBtn(Icons.AutoMirrored.Outlined.ArrowBack, "返回", onBack)
-            Spacer(Modifier.width(6.dp))
-            Text(
-                "外观材质",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = Ink,
-                style = TextStyle(lineHeightStyle = CenteredLineHeight),
-            )
-        }
-        SettingSection("材质") {
-            MaterialStyle.entries.forEach { style ->
-                val isCurrent = style == current
-                SettingRow(
-                    icon = if (style == MaterialStyle.PAPER) {
-                        Icons.Outlined.Layers
-                    } else {
-                        Icons.Outlined.Opacity
-                    },
-                    title = style.label,
-                    subtitle = when {
-                        !style.available -> "规划中 · 敬请期待"
-                        isCurrent -> "当前使用"
-                        else -> "点击切换"
-                    },
-                    onClick = if (style.available) ({ onPick(style) }) else null,
-                    trailing = {
-                        if (isCurrent) {
-                            Icon(Icons.Outlined.Check, contentDescription = null, tint = Accent)
-                        }
-                    },
-                )
-            }
-            Spacer(Modifier.size(32.dp))
-        }
-    }
 }

@@ -26,18 +26,19 @@
 三档管线自动选：API 25-30 采样+磨砂层 → 31-32 `RenderEffect` 模糊 → 33+ 全 AGSL 折射。
 接入时照这个分层，**老机器永不比现在难看**（产品口径：颜色只表达状态、不穿帮）。
 
-## 4. 本轮已预留的接口（完工）
+## 4. 本轮已预留的接口（10-11 用户澄清后定稿：**一个开关**）
 
-- `data/settings/SettingsStore.kt`：`enum MaterialStyle { PAPER, LIQUID_GLASS }`
-  + `materialStyle` 持久化字段（LIQUID_GLASS = `available = false` 占位）
-- 设置页「通用设置 → **外观材质**」行 → **二级页**（SettingsSubPage.MATERIAL）：
-  纸感（当前使用）/ 液态玻璃（规划中·敬请期待，置灰不可选）
-- 二级页返回被 `BackHandler` 拦截（同弹层口径：先收二级页，再退设置）
+- `data/settings/SettingsStore.kt`：`glassMenus: Boolean` 持久化开关 ——
+  管的是**二级菜单/浮层**（下拉菜单、⋯ 菜单这类）的玻璃质感材质
+- 设置页「通用设置 → **玻璃菜单**」开关行（M3 Switch，与动态取色同款）
+- ⚠️ 渲染层还没上（下面的版本墙）：**现在拨开关不改变外观是预期行为**，
+  玻璃真身接入时 MenuChrome 的浮层容器按此开关分叉材质管线
+- ~~材质二级页方案~~ 已按用户意见作废（"只是设置页的一个选项/开关而已"）
 
 ## 5. 将来接入路线（供下一场直接开工）
 
 1. Kotlin 2.0→2.3 + Compose 1.7→1.12（独立一轮，纯升级+全回归）
 2. 联网入库 `io.github.kyant0:backdrop`（拉进 Gradle 缓存，之后离线可用）
-3. 材质管线分叉点 = `AstelleTheme`：`materialStyle == LIQUID_GLASS` 时给
-   FormatToolbar / ViewPill / 菜单浮层上玻璃，正文/卡片保持纸感（别整页玻璃）
+3. 材质管线分叉点 = `MenuChrome` 浮层容器（读 `glassMenus` 开关）：
+   先只给**二级菜单/浮层**上玻璃（用户指定的范围），按钮/工具条看效果再议
 4. API<33 降级：磨砂（现有 SurfaceFloat 语言）；帧率红线 60fps，掉帧自动回纸感

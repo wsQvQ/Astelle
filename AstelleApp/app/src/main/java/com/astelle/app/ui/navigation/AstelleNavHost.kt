@@ -1,6 +1,15 @@
 package com.astelle.app.ui.navigation
 
 import android.graphics.Bitmap
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
@@ -9,6 +18,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.drawToBitmap
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -21,6 +31,27 @@ import com.astelle.app.ui.home.HomeRoute
 import com.astelle.app.ui.plans.PlansScreen
 import com.astelle.app.ui.settings.SettingsScreen
 import kotlinx.coroutines.launch
+
+/**
+ * 页面转场（10-11 用户：「打开关闭页面全是一瞬间出现，非常割裂」）。
+ *
+ * 开页：右侧 1/4 滑入 + 淡入；被盖住的页左移 1/8 淡出（轻 parallax）。
+ * 返回：离场页右滑 1/3 + 淡出 —— 顺着预测返回手势的去向**接力**（手势终态是
+ * 右移 24dp + 缩 5%，落地方向一致）；落地页只淡入，与预测返回垫的快照**同像素**
+ * 无缝接管，消掉「真的返回时卡顿闪烁」（以前 pop 是无转场的整组合瞬切）。
+ */
+private val EnterPage: (AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition?) = {
+    slideInHorizontally(tween(260, easing = FastOutSlowInEasing)) { it / 4 } + fadeIn(tween(220))
+}
+private val ExitPage: (AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition?) = {
+    slideOutHorizontally(tween(260, easing = FastOutSlowInEasing)) { -it / 8 } + fadeOut(tween(200))
+}
+private val PopEnterPage: (AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition?) = {
+    fadeIn(tween(220))
+}
+private val PopExitPage: (AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition?) = {
+    slideOutHorizontally(tween(260, easing = FastOutSlowInEasing)) { it / 3 } + fadeOut(tween(220))
+}
 
 /**
  * 导航壳：单 Activity + Compose Navigation。
@@ -69,7 +100,13 @@ fun AstelleNavHost(
         navController = navController,
         startDestination = AstelleDestination.Home.route,
     ) {
-        composable(AstelleDestination.Home.route) {
+        composable(
+            route = AstelleDestination.Home.route,
+            enterTransition = EnterPage,
+            exitTransition = ExitPage,
+            popEnterTransition = PopEnterPage,
+            popExitTransition = PopExitPage,
+        ) {
             HomeRoute(
                 currentDestination = currentDestination,
                 onNavigate = { dest ->
@@ -84,18 +121,36 @@ fun AstelleNavHost(
                 },
             )
         }
-        composable(AstelleDestination.Diary.route) {
+        composable(
+            route = AstelleDestination.Diary.route,
+            enterTransition = EnterPage,
+            exitTransition = ExitPage,
+            popEnterTransition = PopEnterPage,
+            popExitTransition = PopExitPage,
+        ) {
             // 10 号计划 §2：预测返回跟手（收缩/平移/圆角），手势取消弹回
             PredictiveBackPage(onBack = popBack) {
                 DiaryScreen(onOpenDrawer = openDrawerThenHome)
             }
         }
-        composable(AstelleDestination.Plans.route) {
+        composable(
+            route = AstelleDestination.Plans.route,
+            enterTransition = EnterPage,
+            exitTransition = ExitPage,
+            popEnterTransition = PopEnterPage,
+            popExitTransition = PopExitPage,
+        ) {
             PredictiveBackPage(onBack = popBack) {
                 PlansScreen(onOpenDrawer = openDrawerThenHome)
             }
         }
-        composable(AstelleDestination.Settings.route) {
+        composable(
+            route = AstelleDestination.Settings.route,
+            enterTransition = EnterPage,
+            exitTransition = ExitPage,
+            popEnterTransition = PopEnterPage,
+            popExitTransition = PopExitPage,
+        ) {
             PredictiveBackPage(onBack = popBack) {
                 SettingsScreen(
                     // 退出设置（用户 10-10 里程碑：可以打开、可以退出）
