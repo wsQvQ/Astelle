@@ -11,7 +11,7 @@ import androidx.compose.ui.Modifier
 import com.astelle.app.data.settings.ColorMode
 import com.astelle.app.data.settings.SettingsStore
 import com.astelle.app.data.settings.ThemeModeHolder
-import com.astelle.app.ui.navigation.AstelleNavHost
+import com.astelle.app.ui.navigation.AstelleRoot
 import com.astelle.app.ui.theme.AstelleTheme
 import com.astelle.app.ui.theme.LocalAstelleColors
 import dagger.hilt.android.AndroidEntryPoint
@@ -40,7 +40,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = colors.paper,
                 ) {
-                    AstelleNavHost()
+                    AstelleRoot()
                 }
             }
         }

@@ -89,6 +89,11 @@
 28. navigation-compose 2.8 的 `composable(enterTransition=…)` 要的是**lambda**
     （`AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition?`），
     直接传 EnterTransition 值编译炸；返回落地要不闪 = popEnter 只淡入（与快照同像素接管）+ popExit 顺手势方向滑出
+29. **12 号终局已换架构**：首页永生 + 子页浮层（`AstelleRoot`/`OverlayLayer`），
+    NavHost/快照全退役；刚体常量在 **`Spring.StiffnessXxx`** 对象里（不是顶层）；
+    预测返回 1:1 跟手用 `BackEventCompat.touchX`（右缘镜像 `width - touchX`）
+30. 手势**取消**时回弹必须丢外层 scope（job 被连坐）；**提交**路径协程活着，
+    收尾动画可就地做——两种路径待遇不同，别写反
 
 ## 4. 当前状态快照（2026-10-10 深夜，`4cf08ca`）
 
