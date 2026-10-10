@@ -134,7 +134,8 @@ fun OverlayLayer(
                 val scale = 1f - s * 0.06f
                 scaleX = scale
                 scaleY = scale
-                if (s > 0f) {
+                // clip 下限 0.03：零/微半径 clip 的 AA 边会画出细白线（白线嫌疑二）
+                if (s > 0.03f) {
                     shape = RoundedCornerShape(22.dp * s)
                     clip = true
                 }

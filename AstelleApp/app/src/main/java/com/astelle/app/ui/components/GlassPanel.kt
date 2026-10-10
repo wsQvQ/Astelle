@@ -24,8 +24,11 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.layer.GraphicsLayer
 import androidx.compose.ui.graphics.layer.drawLayer
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -92,20 +95,36 @@ fun GlassPanel(
     source: GlassSource? = null,
     enabled: Boolean = true,
     flatColor: Color = SurfaceFloat,
+    bleed: Dp = 0.dp,
     content: @Composable BoxScope.() -> Unit,
 ) {
     val colors = LocalAstelleColors.current
     var panelPos by remember { mutableStateOf(Offset.Zero) }
+    val bleedPx = with(LocalDensity.current) { bleed.toPx() }
+    // bleed>0 = 玻璃要**溢出内容盒**铺满容器（菜单 Surface 有 8dp 内边距——
+    // 不铺满就是"卡中卡"割裂，用户实拍的丑就是它）。圆角交给容器自己的 clip。
+    val expand: Modifier =
+        if (bleedPx > 0f) {
+            Modifier.layout { measurable, constraints ->
+                val p = measurable.measure(constraints)
+                layout(p.width, (p.height + 2 * bleedPx).roundToInt()) {
+                    p.place(0, -bleedPx.roundToInt())
+                }
+            }
+        } else {
+            Modifier
+        }
 
     Box(
         modifier = modifier
-            .clip(shape)
+            .then(if (bleedPx > 0f) Modifier else Modifier.clip(shape))
             .onGloballyPositioned { panelPos = it.positionInWindow() }
     ) {
         if (!enabled) {
             Box(
                 Modifier
                     .matchParentSize()
+                    .then(expand)
                     .background(flatColor)
                     .border(1.dp, Divider.copy(alpha = 0.8f), shape)
             )
@@ -117,6 +136,7 @@ fun GlassPanel(
             Box(
                 Modifier
                     .matchParentSize()
+                    .then(expand)
                     .blur(GlassBlurRadius)
                     .drawBehind {
                         when (source) {
@@ -159,6 +179,7 @@ fun GlassPanel(
         Box(
             Modifier
                 .matchParentSize()
+                .then(expand)
                 .background(colors.paper.copy(alpha = GlassTintAlpha))
                 .drawBehind {
                     // 纸感磨砂颗粒（平铺瓦片）
@@ -198,6 +219,7 @@ fun GlassPanel(
         Box(
             Modifier
                 .matchParentSize()
+                .then(expand)
                 .drawBehind {
                     drawLine(
                         color = Color.White.copy(alpha = 0.30f),

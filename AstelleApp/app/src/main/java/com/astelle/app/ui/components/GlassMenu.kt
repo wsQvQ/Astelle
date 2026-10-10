@@ -94,6 +94,8 @@ fun GlassMenu(
         GlassPanel(
             shape = MenuShape,
             source = snapshot?.let { GlassSource.Snapshot(it) },
+            // 铺满 Surface 的 8dp 内边距：不铺满就是"卡中卡"割裂（用户实拍）
+            bleed = 8.dp,
         ) {
             Column { content() }
         }

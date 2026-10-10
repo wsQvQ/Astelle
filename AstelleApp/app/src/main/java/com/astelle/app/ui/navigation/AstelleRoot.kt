@@ -13,6 +13,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -107,8 +108,10 @@ fun AstelleRoot() {
                         if (band > 0f) {
                             drawRect(
                                 brush = Brush.horizontalGradient(
-                                    0f to colors.ink.copy(alpha = 0f),
-                                    1f to colors.ink.copy(alpha = 0.16f * (1f - s)),
+                                    // ⚠️ 阴影必须**恒黑**：以前用 ink（明暗双相）——
+                                    // 暗色下 ink=白，卡片左缘画出一条半透明**白线**（用户实拍）
+                                    0f to Color.Black.copy(alpha = 0f),
+                                    1f to Color.Black.copy(alpha = 0.16f * (1f - s)),
                                     startX = edgeX - band,
                                     endX = edgeX,
                                 ),
