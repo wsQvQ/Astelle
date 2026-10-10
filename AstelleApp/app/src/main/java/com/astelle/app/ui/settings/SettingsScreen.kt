@@ -1,5 +1,8 @@
 package com.astelle.app.ui.settings
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -13,7 +16,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -22,17 +24,24 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.BrightnessAuto
 import androidx.compose.material.icons.outlined.Check
-import androidx.compose.material.icons.outlined.Image
-import androidx.compose.material.icons.outlined.List
-import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.DarkMode
+import androidx.compose.material.icons.outlined.ExpandMore
+import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.LightMode
+import androidx.compose.material.icons.automirrored.outlined.List
 import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LargeTopAppBar
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,6 +50,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -59,17 +73,19 @@ import com.astelle.app.ui.theme.Ink
 import com.astelle.app.ui.theme.InkSoft
 import com.astelle.app.ui.theme.LocalAstelleColors
 import com.astelle.app.ui.theme.Muted
+import com.astelle.app.ui.theme.Paper
 import com.astelle.app.ui.theme.PaperWarm
 import com.astelle.app.ui.theme.SurfaceFloat
 
 /**
- * 设置页（10-10 用户指定里程碑：**可以打开、可以退出**，先立框架）。
+ * 设置页（10-10 用户指定里程碑：**可以打开、可以退出**；10 号计划 RikkaHub 化）。
  *
- * 框架照用户给的参考图：分组小标 + 独立圆角卡片行；
- * 「通用设置」先做**颜色模式**（浅色 / 深色 / 跟随系统，选完即存即生效）。
- * ⚠️ 深色的完整落地 = 静态色 token 收进 AstelleColors 的色板搬家（下一批）；
- * M3 层已随选择翻转，手绘区（抽屉/卡片）待色板收编。
+ * 顶栏 = M3 LargeTopAppBar + exitUntilCollapsed：大标题「设置」34sp 上滑平滑收缩为
+ * 18sp 钉顶，返回钮常驻 navigationIcon 槽；收缩后落一层 paper + 发丝线。
+ * 组件口径：下拉 = 胶囊 + ExpandMore（点开旋转 180°）；开关 = M3 Switch；
+ * 可点行整行按压淡入 PaperWarm；菜单沿用 MenuChrome 语言。
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
@@ -83,124 +99,191 @@ fun SettingsScreen(
     var dynamic by remember { mutableStateOf(store.dynamicColor) }
     var compactDefault by remember { mutableStateOf(store.compactCardsDefault) }
     var imageQuality by remember { mutableStateOf(store.imageQuality) }
+    // 下拉菜单开关（提出来给「整行点击」共用）
+    var modeOpen by remember { mutableStateOf(false) }
+    var densityOpen by remember { mutableStateOf(false) }
+    var qualityOpen by remember { mutableStateOf(false) }
+
+    // ⚠️ 菜单开着时返回必须**只关菜单**（真机揪出的 bug：PredictiveBackHandler 常开，
+    // 把弹层的返回也吃了 → 直接退页）。本回调注册晚于它，dispatcher 里优先级更高。
+    val anyMenuOpen = modeOpen || densityOpen || qualityOpen
+    BackHandler(enabled = anyMenuOpen) {
+        modeOpen = false
+        densityOpen = false
+        qualityOpen = false
+    }
+
+    // 1a：大标题上滑收缩（内容滚 → 顶栏折叠），返回钮常驻
+    val scrollBehavior =
+        TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
 
     Column(
         Modifier
             .fillMaxSize()
             // ⚠️ 背景必须在 inset **外面**（10-10 修：状态栏那条露父级底色、和页面割裂）
             .background(colors.paperWarm)
-            // 状态栏/导航栏内缩（10-10 修：返回箭头撞时钟）
-            .statusBarsPadding()
             .navigationBarsPadding()
-            // 深底浅卡：页面比卡片深一档（照参考图的层次）
-            .background(colors.paperWarm)
-            .verticalScroll(rememberScrollState()),
+            .nestedScroll(scrollBehavior.nestedScrollConnection),
     ) {
-        // 顶栏：返回（退出设置）+ 侧栏
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(
-                Modifier
-                    .size(44.dp)
-                    .clip(RoundedCornerShape(999.dp))
-                    // 参考图的返回钮：一枚浅色圆钮，不裸奔
-                    .background(colors.paper)
-                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onBack),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回", tint = InkSoft)
-            }
-            Spacer(Modifier.weight(1f))
-            // （10-10：右上「侧栏」钮删除 —— 设置页里没有侧栏的事）
-        }
-
-        Text(
-            "设置",
-            fontSize = 34.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = Ink,
-            modifier = Modifier.padding(start = 24.dp, top = 8.dp, bottom = 4.dp),
-        )
-
-        // ── 通用设置 ──
-        SettingSection("通用设置") {
-            SettingRow(
-                icon = Icons.Outlined.DarkMode,
-                title = "颜色模式",
-                subtitle = mode.label(),
-                trailing = { ModeDropdown(mode) { store.colorMode = it; mode = it } },
-            )
-            SettingRow(
-                icon = Icons.Outlined.Palette,
-                title = "动态取色",
-                subtitle = if (android.os.Build.VERSION.SDK_INT >= 31) {
-                    "跟随壁纸取色（Material You）"
-                } else {
-                    "需要 Android 12+"
-                },
-                trailing = {
-                    TogglePill(
-                        on = dynamic,
-                        enabled = android.os.Build.VERSION.SDK_INT >= 31,
-                    ) {
-                        store.dynamicColor = !dynamic
-                        dynamic = !dynamic
-                    }
-                },
-            )
-            SettingRow(
-                icon = Icons.Outlined.List,
-                title = "卡片默认密度",
-                subtitle = if (compactDefault) "收起（标题 + 日期）" else "展开（全卡）",
-                trailing = {
-                    PillDropdown(if (compactDefault) "收起" else "展开") {
-                        listOf(
-                            "展开" to { store.compactCardsDefault = false; compactDefault = false },
-                            "收起" to { store.compactCardsDefault = true; compactDefault = true },
+        // 顶栏外套：收缩后落发丝线（alpha 跟收缩度淡入；draw 里读状态不脏 composition）
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .drawWithContent {
+                    drawContent()
+                    val collapsed = scrollBehavior.state.collapsedFraction
+                    if (collapsed > 0f) {
+                        val y = size.height - 0.5.dp.toPx()
+                        drawLine(
+                            color = Divider.copy(alpha = collapsed),
+                            start = Offset(0f, y),
+                            end = Offset(size.width, y),
+                            strokeWidth = 1.dp.toPx(),
                         )
                     }
+                }
+        ) {
+            LargeTopAppBar(
+                title = {
+                    // 34sp 平滑收缩为 18sp（大小两行共用本 lambda、交叉淡入；
+                    // 状态读在本 lambda 的重组域里，不牵连整页）
+                    Text(
+                        "设置",
+                        style = TextStyle(
+                            fontSize = (34f - 16f * scrollBehavior.state.collapsedFraction).sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Ink,
+                            lineHeightStyle = CenteredLineHeight,
+                        ),
+                        // M3 大标题基准 x=16dp，卡片沿在 18dp —— 补 2dp 对齐卡沿
+                        modifier = Modifier.padding(start = 2.dp),
+                    )
                 },
+                navigationIcon = {
+                    // 1c：返回常驻（保留参考图的浅色圆钮口径，不裸奔）
+                    QuietIconBtn(Icons.AutoMirrored.Outlined.ArrowBack, "返回", onBack)
+                },
+                colors = TopAppBarDefaults.largeTopAppBarColors(
+                    // 收缩前透明（paperWarm 透上来），收缩后落 paper（自动插值过渡）
+                    containerColor = Color.Transparent,
+                    scrolledContainerColor = colors.paper,
+                    titleContentColor = Ink,
+                    navigationIconContentColor = InkSoft,
+                ),
+                scrollBehavior = scrollBehavior,
             )
         }
 
-        // ── 编辑与数据 ──
-        SettingSection("编辑与数据") {
-            SettingRow(
-                icon = Icons.Outlined.Image,
-                title = "图片压缩档位",
-                subtitle = imageQuality.subtitle(),
-                trailing = {
-                    PillDropdown(imageQuality.label()) {
-                        ImageQuality.entries.map { q ->
-                            q.label() to { store.imageQuality = q; imageQuality = q }
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState()),
+        ) {
+            // ── 通用设置 ──
+            SettingSection("通用设置") {
+                SettingRow(
+                    icon = Icons.Outlined.DarkMode,
+                    title = "颜色模式",
+                    subtitle = mode.label(),
+                    onClick = { modeOpen = true },
+                    trailing = {
+                        ModeDropdown(mode, modeOpen, { modeOpen = it }) {
+                            store.colorMode = it
+                            mode = it
                         }
-                    }
-                },
-            )
-        }
+                    },
+                )
+                val sdkOk = android.os.Build.VERSION.SDK_INT >= 31
+                SettingRow(
+                    icon = Icons.Outlined.Palette,
+                    title = "动态取色",
+                    subtitle = if (sdkOk) {
+                        "跟随壁纸取色（Material You）"
+                    } else {
+                        "需要 Android 12+"
+                    },
+                    enabled = sdkOk,
+                    onClick = {
+                        store.dynamicColor = !dynamic
+                        dynamic = !dynamic
+                    },
+                    trailing = {
+                        SettingsSwitch(
+                            on = dynamic,
+                            enabled = sdkOk,
+                        ) { checked ->
+                            store.dynamicColor = checked
+                            dynamic = checked
+                        }
+                    },
+                )
+                SettingRow(
+                    icon = Icons.AutoMirrored.Outlined.List,
+                    title = "卡片默认密度",
+                    subtitle = if (compactDefault) "收起（标题 + 日期）" else "展开（全卡）",
+                    onClick = { densityOpen = true },
+                    trailing = {
+                        PillDropdown(
+                            if (compactDefault) "收起" else "展开",
+                            densityOpen,
+                            { densityOpen = it },
+                        ) {
+                            listOf(
+                                "展开" to {
+                                    store.compactCardsDefault = false
+                                    compactDefault = false
+                                },
+                                "收起" to {
+                                    store.compactCardsDefault = true
+                                    compactDefault = true
+                                },
+                            )
+                        }
+                    },
+                )
+            }
 
-        // ── 关于 ──
-        SettingSection("关于") {
-            SettingRow(
-                icon = Icons.Outlined.Info,
-                title = "版本",
-                subtitle = BuildConfig.VERSION_NAME,
-            )
-            SettingRow(
-                icon = Icons.Outlined.Lock,
-                title = "数据说明",
-                subtitle = "本地优先，数据都在你的设备里",
-            )
-            SettingRow(
-                icon = Icons.Outlined.Code,
-                title = "开源许可",
-                subtitle = "Markwon · Compose · Coil 等",
-            )
-        }
+            // ── 编辑与数据 ──
+            SettingSection("编辑与数据") {
+                SettingRow(
+                    icon = Icons.Outlined.Image,
+                    title = "图片压缩档位",
+                    subtitle = imageQuality.subtitle(),
+                    onClick = { qualityOpen = true },
+                    trailing = {
+                        PillDropdown(imageQuality.label(), qualityOpen, { qualityOpen = it }) {
+                            ImageQuality.entries.map { q ->
+                                q.label() to {
+                                    store.imageQuality = q
+                                    imageQuality = q
+                                }
+                            }
+                        }
+                    },
+                )
+            }
 
-        Spacer(Modifier.size(32.dp))
+            // ── 关于 ──
+            SettingSection("关于") {
+                SettingRow(
+                    icon = Icons.Outlined.Info,
+                    title = "版本",
+                    subtitle = BuildConfig.VERSION_NAME,
+                )
+                SettingRow(
+                    icon = Icons.Outlined.Lock,
+                    title = "数据说明",
+                    subtitle = "本地优先，数据都在你的设备里",
+                )
+                SettingRow(
+                    icon = Icons.Outlined.Code,
+                    title = "开源许可",
+                    subtitle = "Markwon · Compose · Coil 等",
+                )
+            }
+
+            Spacer(Modifier.size(32.dp))
+        }
     }
 }
 
@@ -222,7 +305,7 @@ private fun ImageQuality.subtitle(): String = when (this) {
     ImageQuality.SAVING -> "1280px / 78%，最省空间"
 }
 
-/** 无涟漪圆钮（和抽屉/工具栏同一手感口径） */
+/** 无涟漪圆钮（和抽屉/工具栏同一手感口径），浅色圆钮不裸奔 */
 @Composable
 private fun QuietIconBtn(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
@@ -233,66 +316,122 @@ private fun QuietIconBtn(
         Modifier
             .size(44.dp)
             .clip(RoundedCornerShape(999.dp))
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick),
+            .background(Paper)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick,
+            ),
         contentAlignment = Alignment.Center,
     ) {
         Icon(icon, contentDescription = desc, tint = InkSoft)
     }
 }
 
+/** 尾部下拉胶囊的箭头：ExpandMore，展开时旋转 180°（150ms 缓动，10 号 1b） */
+@Composable
+private fun Chevron(open: Boolean) {
+    val rotation by animateFloatAsState(
+        if (open) 180f else 0f,
+        tween(150),
+        label = "chevron",
+    )
+    Icon(
+        Icons.Outlined.ExpandMore,
+        contentDescription = null,
+        tint = Muted,
+        modifier = Modifier
+            .size(16.dp)
+            .graphicsLayer { rotationZ = rotation },
+    )
+}
+
 /** 尾部下拉胶囊（照参考图「浅色 ∨」的样式），菜单沿用 MenuChrome 语言 */
 @Composable
-private fun ModeDropdown(current: ColorMode, onPick: (ColorMode) -> Unit) {
-    var open by remember { mutableStateOf(false) }
+private fun ModeDropdown(
+    current: ColorMode,
+    open: Boolean,
+    onOpenChange: (Boolean) -> Unit,
+    onPick: (ColorMode) -> Unit,
+) {
     Box {
         Row(
             Modifier
                 .clip(RoundedCornerShape(999.dp))
                 .background(PaperWarm)
-                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { open = !open }
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                ) { onOpenChange(!open) }
                 .padding(horizontal = 12.dp, vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(current.label(), fontSize = 13.sp, color = Ink)
-            Spacer(Modifier.width(6.dp))
-            Text("∨", fontSize = 11.sp, color = Muted)
+            Text(
+                current.label(),
+                fontSize = 13.sp,
+                color = Ink,
+                style = TextStyle(lineHeightStyle = CenteredLineHeight),
+            )
+            Spacer(Modifier.width(5.dp))
+            Chevron(open)
         }
         DropdownMenu(
             expanded = open,
-            onDismissRequest = { open = false },
+            onDismissRequest = { onOpenChange(false) },
             shape = RoundedCornerShape(14.dp),
             containerColor = SurfaceFloat,
             border = BorderStroke(1.dp, Divider),
             tonalElevation = 0.dp,
             shadowElevation = 8.dp,
         ) {
-            MenuRow(label = "浅色", icon = Icons.Outlined.LightMode) { open = false; onPick(ColorMode.LIGHT) }
-            MenuRow(label = "深色", icon = Icons.Outlined.DarkMode) { open = false; onPick(ColorMode.DARK) }
-            MenuRow(label = "跟随系统", icon = Icons.Outlined.BrightnessAuto) { open = false; onPick(ColorMode.SYSTEM) }
+            MenuRow(label = "浅色", icon = Icons.Outlined.LightMode) {
+                onOpenChange(false)
+                onPick(ColorMode.LIGHT)
+            }
+            MenuRow(label = "深色", icon = Icons.Outlined.DarkMode) {
+                onOpenChange(false)
+                onPick(ColorMode.DARK)
+            }
+            MenuRow(label = "跟随系统", icon = Icons.Outlined.BrightnessAuto) {
+                onOpenChange(false)
+                onPick(ColorMode.SYSTEM)
+            }
         }
     }
 }
 
-/** 通用「胶囊 + ∨ 下拉」：卡片密度、压缩档位等二/三选一都用它 */
+/** 通用「胶囊 + 箭头下拉」：卡片密度、压缩档位等二/三选一都用它 */
 @Composable
-private fun PillDropdown(currentLabel: String, options: () -> List<Pair<String, () -> Unit>>) {
-    var open by remember { mutableStateOf(false) }
+private fun PillDropdown(
+    currentLabel: String,
+    open: Boolean,
+    onOpenChange: (Boolean) -> Unit,
+    options: () -> List<Pair<String, () -> Unit>>,
+) {
     Box {
         Row(
             Modifier
                 .clip(RoundedCornerShape(999.dp))
                 .background(PaperWarm)
-                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { open = !open }
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                ) { onOpenChange(!open) }
                 .padding(horizontal = 12.dp, vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(currentLabel, fontSize = 13.sp, color = Ink, style = TextStyle(lineHeightStyle = CenteredLineHeight))
-            Spacer(Modifier.width(6.dp))
-            Text("∨", fontSize = 11.sp, color = Muted)
+            Text(
+                currentLabel,
+                fontSize = 13.sp,
+                color = Ink,
+                style = TextStyle(lineHeightStyle = CenteredLineHeight),
+            )
+            Spacer(Modifier.width(5.dp))
+            Chevron(open)
         }
         DropdownMenu(
             expanded = open,
-            onDismissRequest = { open = false },
+            onDismissRequest = { onOpenChange(false) },
             shape = RoundedCornerShape(14.dp),
             containerColor = SurfaceFloat,
             border = BorderStroke(1.dp, Divider),
@@ -300,32 +439,39 @@ private fun PillDropdown(currentLabel: String, options: () -> List<Pair<String, 
             shadowElevation = 8.dp,
         ) {
             options().forEach { (label, action) ->
-                MenuRow(label = label, icon = Icons.Outlined.Check) { open = false; action() }
+                MenuRow(label = label, icon = Icons.Outlined.Check) {
+                    onOpenChange(false)
+                    action()
+                }
             }
         }
     }
 }
 
-/** 「开 / 关」小胶囊（动态取色等开关） */
+/** 开关：M3 Switch（单色 thumb/track，Accent/AccentMist 上色，10 号 1b） */
 @Composable
-private fun TogglePill(on: Boolean, enabled: Boolean = true, onToggle: () -> Unit) {
-    Row(
-        Modifier
-            .clip(RoundedCornerShape(999.dp))
-            .background(if (on) AccentMist else PaperWarm)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                enabled = enabled,
-            ) { onToggle() }
-            .padding(horizontal = 14.dp, vertical = 7.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            if (on) "开" else "关",
-            fontSize = 13.sp,
-            color = if (on) Accent else Muted,
-            style = TextStyle(lineHeightStyle = CenteredLineHeight),
-        )
-    }
+private fun SettingsSwitch(
+    on: Boolean,
+    enabled: Boolean = true,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Switch(
+        checked = on,
+        onCheckedChange = onCheckedChange,
+        enabled = enabled,
+        colors = SwitchDefaults.colors(
+            checkedThumbColor = Accent,
+            checkedTrackColor = AccentMist,
+            checkedBorderColor = AccentMist,
+            uncheckedThumbColor = Paper,
+            uncheckedTrackColor = PaperWarm,
+            uncheckedBorderColor = Divider,
+            disabledCheckedThumbColor = Accent.copy(alpha = 0.45f),
+            disabledCheckedTrackColor = AccentMist.copy(alpha = 0.45f),
+            disabledCheckedBorderColor = AccentMist.copy(alpha = 0.45f),
+            disabledUncheckedThumbColor = Paper.copy(alpha = 0.6f),
+            disabledUncheckedTrackColor = PaperWarm,
+            disabledUncheckedBorderColor = Divider.copy(alpha = 0.5f),
+        ),
+    )
 }

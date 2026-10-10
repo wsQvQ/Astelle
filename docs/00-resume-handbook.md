@@ -70,6 +70,18 @@
 19. 中文别走命令行参数（PowerShell→Python 换码必坏）；dump 的 `\u` 转义别拿中文 grep
 20. `runCatching{}.getOrNull()` 别吞根因（猜错过两轮）；`openOutputStream` 要 `"wt"`
 
+### 2026-10-11 补充（10 号计划场）
+21. **PowerShell `>` 重定向毁二进制**：`screencap` 一律 `shell screencap -p /sdcard/x.png` + `pull`，
+    `exec-out … > file` 出来的 PNG 是坏的
+22. **MIUI 合成点击偶发吞点**：`input tap` 不稳时换 `input touchscreen tap X Y`
+    或 `input motionevent DOWN` + 80ms + `UP`（真实触摸时序）
+23. **uiautomator dump 抓的是「当前活跃窗口」**：弹层开着时 dump 就是弹层那棵小树
+    （~4KB vs 全页 ~12KB）——这反而是菜单开没开的**硬证据**（修正古代 18 号的经验）
+24. **PredictiveBackHandler 常开会吃掉弹层的返回**（菜单开着按返回直接退页）——
+    弹层场景配 `BackHandler(enabled = menuOpen) { … }`，注册晚于它 = dispatcher 优先级更高
+25. **读截图认真点**：菜单浮层看漏三轮、白折腾一轮输入排查；
+    截图字节量 +20KB 级跳变 = 弹层开了的指纹，先信尺寸差再细看图
+
 ## 4. 当前状态快照（2026-10-10 深夜，`4cf08ca`）
 
 **已完工**：导出/表格/工具栏 v2/图片管道/悬浮工具栏/P0 文末/常驻侧栏/文件夹置顶/筛选行/
@@ -80,9 +92,10 @@
 
 ## 5. 下一步（按序）
 
-1. **设置页 RikkaHub 化 + 预测返回动画** —— 细案 `ui/10-settings-rikkahub.md`（一晚）：
-   LargeTopAppBar 标题收缩 + 返回常驻 → ∨ 换 ExpandMore、开关换 M3 Switch →
-   `PredictiveBackHandler` 跟手（收缩 5%/平移 24dp/圆角 18dp）包三个子页
+1. ~~**设置页 RikkaHub 化 + 预测返回动画**~~ ✅ **2026-10-11 完工**（细案 `ui/10`）：
+   LargeTopAppBar 34→18sp 收缩+返回常驻+发丝线、ExpandMore 旋转箭头、M3 Switch、
+   整行点击+按压反馈、`PredictiveBackPage`（收缩5%/位移24dp/圆角18dp/退后压暗18%）包三个子页；
+   修 bug：菜单开着返回先关菜单。**验收中（用户亲手）**，121 测绿
 2. **发布套件**：签名/proguard/1.21.0/README 截图/长图压测（一次性）
 3. ⑪ v3（拍照/音频/网址卡片）、讨论 A/C —— 挂起不阻塞
 

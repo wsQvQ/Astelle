@@ -10,6 +10,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.astelle.app.ui.components.PredictiveBackPage
 import com.astelle.app.ui.diary.DiaryScreen
 import com.astelle.app.ui.home.HomeRoute
 import com.astelle.app.ui.plans.PlansScreen
@@ -63,17 +64,24 @@ fun AstelleNavHost(
             )
         }
         composable(AstelleDestination.Diary.route) {
-            DiaryScreen(onOpenDrawer = openDrawerThenHome)
+            // 10 号计划 §2：预测返回跟手（收缩/平移/圆角），手势取消弹回
+            PredictiveBackPage(onBack = { navController.popBackStack() }) {
+                DiaryScreen(onOpenDrawer = openDrawerThenHome)
+            }
         }
         composable(AstelleDestination.Plans.route) {
-            PlansScreen(onOpenDrawer = openDrawerThenHome)
+            PredictiveBackPage(onBack = { navController.popBackStack() }) {
+                PlansScreen(onOpenDrawer = openDrawerThenHome)
+            }
         }
         composable(AstelleDestination.Settings.route) {
-            SettingsScreen(
-                // 退出设置（用户 10-10 里程碑：可以打开、可以退出）
-                onBack = { navController.popBackStack() },
-                onOpenDrawer = openDrawerThenHome,
-            )
+            PredictiveBackPage(onBack = { navController.popBackStack() }) {
+                SettingsScreen(
+                    // 退出设置（用户 10-10 里程碑：可以打开、可以退出）
+                    onBack = { navController.popBackStack() },
+                    onOpenDrawer = openDrawerThenHome,
+                )
+            }
         }
     }
 }
