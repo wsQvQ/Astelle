@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -42,8 +44,22 @@ fun AstelleRoot() {
     val focusManager = LocalFocusManager.current
     val saveableStateHolder = rememberSaveableStateHolder()
 
-    // 浮层栈（同类互斥，实际深度 ≤ 1；留栈是给未来「设置 → 二级页」嵌套用）
-    val overlays = remember { mutableStateListOf<OverlayState>() }
+    // 浮层栈（同类互斥，实际深度 ≤ 1；留栈是给未来「设置 → 二级页」嵌套用）。
+    // ⚠️ P1 修复（10-11 全局 P0 排查揪出）：栈必须 rememberSaveable——
+    // 否则旋转/进程重建会把开着的子页直接甩回首页；恢复的卡 initialSlide=0（不重放入场）
+    val overlays = rememberSaveable(
+        saver = listSaver(
+            save = { states: List<OverlayState> -> states.map { it.dest.route } },
+            restore = { routes: List<String> ->
+                routes
+                    .mapNotNull { route ->
+                        AstelleDestination.drawerItems.firstOrNull { it.route == route }
+                    }
+                    .map { OverlayState(it, initialSlide = 0f) }
+                    .toMutableList()
+            },
+        ),
+    ) { mutableStateListOf<OverlayState>() }
     val currentDestination = overlays.lastOrNull()?.dest ?: AstelleDestination.Home
 
     // 开卡：收键盘清焦点（编辑器的光标别留在卡背后闪）

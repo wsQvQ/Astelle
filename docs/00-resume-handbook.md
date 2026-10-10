@@ -94,6 +94,9 @@
     预测返回 1:1 跟手用 `BackEventCompat.touchX`（右缘镜像 `width - touchX`）
 30. 手势**取消**时回弹必须丢外层 scope（job 被连坐）；**提交**路径协程活着，
     收尾动画可就地做——两种路径待遇不同，别写反
+31. **「松手后顿一下才动」= 零初速弹簧的慢起步**：测指尖末速度喂 `animateTo(initialVelocity=)`
+    + `CoroutineStart.UNDISPATCHED` 起步，动作即连续；Spring 刚度只有
+    High/Medium/MediumLow/Low 四档（没有 MediumHigh）
 
 ## 4. 当前状态快照（2026-10-10 深夜，`4cf08ca`）
 

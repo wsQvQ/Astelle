@@ -78,7 +78,18 @@ import androidx.compose.material.icons.outlined.SaveAlt
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.runtime.Composable
+import androidx.activity.BackEventCompat
+import androidx.activity.compose.PredictiveBackHandler
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.layout.onSizeChanged
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Job
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -337,19 +348,98 @@ fun HomeRoute(
             content = editorContent,
         )
     } else {
+        // ── 抽屉预测返回（10-11 用户：侧边栏也跟手收回 + 活弹回）──
+        // M3 不给公开拖拽接口（dispatchRawDelta 是 internal），方案＝「状态不动 +
+        // 位移假拖 + 遮罩双源」：真实拖拽/开合仍走 M3 offset（遮罩跟 currentOffset），
+        // 预测返回期间遮罩跟假拖进度 —— 全程无闪烁、状态机不抖（isOpen 不跳变）。
+        val drawerWidthPx = with(LocalDensity.current) { 300.dp.toPx() }
+        val fakeRetreat = remember { Animatable(0f) } // 0=开着，drawerWidthPx=收尽
+        var screenWpx by remember { mutableStateOf(0f) }
+        var drawerReboundJob by remember { mutableStateOf<Job?>(null) }
+        var drawerLastTime by remember { mutableLongStateOf(0L) }
+        var drawerLastR by remember { mutableStateOf(0f) }
+        var drawerLastVel by remember { mutableStateOf(0f) }
+
+        PredictiveBackHandler(enabled = drawerState.isOpen) { events ->
+            drawerReboundJob?.cancel()
+            try {
+                events.collect { e ->
+                    // 1:1 真跟手：退距 = 指尖离起手缘的行程（右缘镜像）
+                    val dist = if (e.swipeEdge == BackEventCompat.EDGE_RIGHT) {
+                        screenWpx - e.touchX
+                    } else {
+                        e.touchX
+                    }
+                    val r = dist.coerceIn(0f, drawerWidthPx)
+                    val now = System.nanoTime()
+                    val dt = (now - drawerLastTime) / 1_000_000_000f
+                    if (drawerLastTime != 0L && dt > 0.0005f) {
+                        drawerLastVel = ((r - drawerLastR) / dt).coerceIn(-8f, 8f)
+                    }
+                    drawerLastTime = now
+                    drawerLastR = r
+                    fakeRetreat.snapTo(r)
+                }
+                // 提交：带末速度收尽 → 落位两步画面都不可见（卡在 -2w/-w 区）
+                fakeRetreat.animateTo(
+                    drawerWidthPx,
+                    spring(dampingRatio = 1f, stiffness = Spring.StiffnessMediumLow),
+                    initialVelocity = drawerLastVel,
+                )
+                drawerState.snapTo(DrawerValue.Closed)
+                fakeRetreat.snapTo(0f)
+            } catch (e: CancellationException) {
+                // 取消：活弹回（速度继承 + UNDISPATCHED 免派发起步，消灭"顿一下"）
+                drawerReboundJob = scope.launch(start = CoroutineStart.UNDISPATCHED) {
+                    fakeRetreat.animateTo(
+                        0f,
+                        spring(dampingRatio = 0.75f, stiffness = Spring.StiffnessMedium),
+                        initialVelocity = drawerLastVel,
+                    )
+                }
+            }
+        }
+
         ModalNavigationDrawer(
             drawerState = drawerState,
             gesturesEnabled = true,
-            scrimColor = Ink.copy(alpha = 0.18f),
+            // 遮罩改自绘（下），M3 原装的只认真实 offset，跟不上假拖
+            scrimColor = Color.Transparent,
+            modifier = Modifier.onSizeChanged { screenWpx = it.width.toFloat() },
             drawerContent = {
-                ModalDrawerSheet(
-                    modifier = Modifier.width(300.dp),
-                    drawerShape = RoundedCornerShape(topEnd = 20.dp, bottomEnd = 20.dp),
-                    drawerContainerColor = DrawerBg,
-                    drawerTonalElevation = 0.dp,
-                    windowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp),
+                Box(
+                    Modifier.drawBehind {
+                        // 双源遮罩：真实 offset（拖拽/开合）× 假拖进度（预测返回）
+                        val realFraction = if (drawerWidthPx > 0f) {
+                            ((drawerState.currentOffset + drawerWidthPx) / drawerWidthPx)
+                                .coerceIn(0f, 1f)
+                        } else {
+                            0f
+                        }
+                        val fakeFraction =
+                            (fakeRetreat.value / drawerWidthPx).coerceIn(0f, 1f)
+                        val alpha = 0.18f * realFraction * (1f - fakeFraction)
+                        if (alpha > 0f) {
+                            val w = screenWpx.coerceAtLeast(size.width)
+                            drawRect(
+                                color = Ink.copy(alpha = alpha),
+                                topLeft = Offset(-w, 0f),
+                                size = Size(w * 3f, size.height),
+                            )
+                        }
+                    }
                 ) {
-                    drawerSheet()
+                    Box(Modifier.graphicsLayer { translationX = -fakeRetreat.value }) {
+                        ModalDrawerSheet(
+                            modifier = Modifier.width(300.dp),
+                            drawerShape = RoundedCornerShape(topEnd = 20.dp, bottomEnd = 20.dp),
+                            drawerContainerColor = DrawerBg,
+                            drawerTonalElevation = 0.dp,
+                            windowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp),
+                        ) {
+                            drawerSheet()
+                        }
+                    }
                 }
             },
             content = editorContent,

@@ -1,12 +1,15 @@
 package com.astelle.app.ui.settings
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -38,8 +41,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LargeTopAppBar
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
@@ -66,9 +67,8 @@ import com.astelle.app.BuildConfig
 import com.astelle.app.data.settings.ColorMode
 import com.astelle.app.data.settings.ImageQuality
 import com.astelle.app.data.settings.SettingsStore
+import com.astelle.app.ui.components.AstelleSwitch
 import com.astelle.app.ui.components.MenuRow
-import com.astelle.app.ui.theme.Accent
-import com.astelle.app.ui.theme.AccentMist
 import com.astelle.app.ui.theme.CenteredLineHeight
 import com.astelle.app.ui.theme.Divider
 import com.astelle.app.ui.theme.Ink
@@ -336,23 +336,21 @@ private fun ImageQuality.subtitle(): String = when (this) {
     ImageQuality.SAVING -> "1280px / 78%，最省空间"
 }
 
-/** 无涟漪圆钮（和抽屉/工具栏同一手感口径），浅色圆钮不裸奔 */
+/** 无涟漪圆钮（和抽屉/工具栏同一手感口径），浅色圆钮不裸奔；按压 0.94 触觉微缩 */
 @Composable
 private fun QuietIconBtn(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     desc: String,
     onClick: () -> Unit,
 ) {
+    val interaction = remember { MutableInteractionSource() }
     Box(
         Modifier
+            .pressTactile(interaction)
             .size(44.dp)
             .clip(RoundedCornerShape(999.dp))
             .background(Paper)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClick,
-            ),
+            .clickable(interactionSource = interaction, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Icon(icon, contentDescription = desc, tint = InkSoft)
@@ -386,14 +384,13 @@ private fun ModeDropdown(
     onPick: (ColorMode) -> Unit,
 ) {
     Box {
+        val interaction = remember { MutableInteractionSource() }
         Row(
             Modifier
+                .pressTactile(interaction)
                 .clip(RoundedCornerShape(999.dp))
                 .background(PaperWarm)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                ) { onOpenChange(!open) }
+                .clickable(interactionSource = interaction, indication = null) { onOpenChange(!open) }
                 .padding(horizontal = 12.dp, vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -452,14 +449,13 @@ private fun PillDropdown(
     options: () -> List<Pair<String, () -> Unit>>,
 ) {
     Box {
+        val interaction = remember { MutableInteractionSource() }
         Row(
             Modifier
+                .pressTactile(interaction)
                 .clip(RoundedCornerShape(999.dp))
                 .background(PaperWarm)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                ) { onOpenChange(!open) }
+                .clickable(interactionSource = interaction, indication = null) { onOpenChange(!open) }
                 .padding(horizontal = 12.dp, vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -492,30 +488,27 @@ private fun PillDropdown(
     }
 }
 
-/** 开关：M3 Switch（单色 thumb/track，Accent/AccentMist 上色，10 号 1b） */
+/** 开关：Astelle 自绘灵动开关（弹簧滑行 + pop + 按压微缩；10-11 用户嫌 M3 默认生硬） */
 @Composable
 private fun SettingsSwitch(
     on: Boolean,
     enabled: Boolean = true,
     onCheckedChange: (Boolean) -> Unit,
 ) {
-    Switch(
-        checked = on,
-        onCheckedChange = onCheckedChange,
-        enabled = enabled,
-        colors = SwitchDefaults.colors(
-            checkedThumbColor = Accent,
-            checkedTrackColor = AccentMist,
-            checkedBorderColor = AccentMist,
-            uncheckedThumbColor = Paper,
-            uncheckedTrackColor = PaperWarm,
-            uncheckedBorderColor = Divider,
-            disabledCheckedThumbColor = Accent.copy(alpha = 0.45f),
-            disabledCheckedTrackColor = AccentMist.copy(alpha = 0.45f),
-            disabledCheckedBorderColor = AccentMist.copy(alpha = 0.45f),
-            disabledUncheckedThumbColor = Paper.copy(alpha = 0.6f),
-            disabledUncheckedTrackColor = PaperWarm,
-            disabledUncheckedBorderColor = Divider.copy(alpha = 0.5f),
-        ),
+    AstelleSwitch(on = on, enabled = enabled, onCheckedChange = onCheckedChange)
+}
+
+/** 按压触感（10-11：按钮/胶囊生硬 → 0.94 微缩 + 高频弹回；无涟漪口径不变） */
+@Composable
+private fun Modifier.pressTactile(interaction: MutableInteractionSource): Modifier {
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        if (pressed) 0.94f else 1f,
+        spring(dampingRatio = 0.5f, stiffness = Spring.StiffnessHigh),
+        label = "pressTactile",
     )
+    return graphicsLayer {
+        scaleX = scale
+        scaleY = scale
+    }
 }
