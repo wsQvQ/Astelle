@@ -87,7 +87,9 @@ fun SettingsScreen(
     Column(
         Modifier
             .fillMaxSize()
-            // ⚠️ 状态栏/导航栏内缩（10-10 修：返回箭头撞时钟、侧栏撞电池）
+            // ⚠️ 背景必须在 inset **外面**（10-10 修：状态栏那条露父级底色、和页面割裂）
+            .background(colors.paperWarm)
+            // 状态栏/导航栏内缩（10-10 修：返回箭头撞时钟）
             .statusBarsPadding()
             .navigationBarsPadding()
             // 深底浅卡：页面比卡片深一档（照参考图的层次）
@@ -111,15 +113,7 @@ fun SettingsScreen(
                 Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回", tint = InkSoft)
             }
             Spacer(Modifier.weight(1f))
-            Box(
-                Modifier
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(colors.paper)
-                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onOpenDrawer)
-                    .padding(horizontal = 14.dp, vertical = 9.dp),
-            ) {
-                Text("侧栏", fontSize = 12.sp, color = Muted)
-            }
+            // （10-10：右上「侧栏」钮删除 —— 设置页里没有侧栏的事）
         }
 
         Text(
