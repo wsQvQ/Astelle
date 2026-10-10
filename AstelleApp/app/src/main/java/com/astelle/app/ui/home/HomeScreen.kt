@@ -56,10 +56,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DrawerValue
-import com.astelle.app.data.settings.GlassModeHolder
 import com.astelle.app.ui.components.GlassAlertDialog
 import com.astelle.app.ui.components.GlassMenu
-import com.astelle.app.ui.components.GlassPanel
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.ModalDrawerSheet
@@ -91,7 +89,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.Modifier
@@ -103,9 +100,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.rememberGraphicsLayer
-import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalContext
@@ -711,28 +706,13 @@ private fun EditorScaffold(
             Box(paneModifier) {
                 // 滚动进度条（10-10）：右缘细轨，贴着正文滚动，安静不抢戏
                 val bodyScroll = rememberScrollState()
-                // 玻璃材质（10-11 自研轻玻璃）：正文每帧录进 GraphicsLayer 当工具栏的背景源
-                //（只有开关开着才录 = 关着零开销）
-                val glassOn = GlassModeHolder.enabled.value
-                val bodyLayer = rememberGraphicsLayer()
-                var bodyWindowPos by remember { mutableStateOf(Offset.Zero) }
+                // 10-11：玻璃材质归档（archive/glass-material-20261011），正文录层一并退役
                 // 正文滚动搬到外层（用户 10-09「不用二选一」）：文字全程流过胶囊底下
                 //（矩形地带透视 ✓），文末余量垫在**滚动内容里**（末尾 Spacer）——
                 // 滚到底文末自然停在胶囊上方（可达 ✓）。内边距做不到两者兼得，所以搬家
                 Column(
                     Modifier
                         .fillMaxSize()
-                        .onGloballyPositioned { bodyWindowPos = it.positionInWindow() }
-                        .then(
-                            if (glassOn) {
-                                Modifier.drawWithContent {
-                                    bodyLayer.record { this@drawWithContent.drawContent() }
-                                    drawLayer(bodyLayer)
-                                }
-                            } else {
-                                Modifier
-                            }
-                        )
                         // P0：正文要**认识输入法** —— 键盘弹起按 ime 内缩，文末才滚得进可见区。
                         // 键盘收起时**不套 imePadding**：MIUI 的 ime inset 收起后不一定归零，
                         // 残留高度会顶出「怎么滑都看不到」的死区（用户实测的 P0 就有它一份）
@@ -776,8 +756,6 @@ private fun EditorScaffold(
                     groups = remember { listOf(emphasisGroup(), headingGroup(), blockGroup(), indentGroup()) },
                     insertTools = remember { insertTools() },
                     onAction = { applyFormat(it) },
-                    backdropLayer = if (glassOn) bodyLayer else null,
-                    backdropOrigin = bodyWindowPos,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         // ⚠️ 键盘收起时**不套 imePadding**：MIUI 的 ime inset 收起后可能不归零，
@@ -868,16 +846,15 @@ private fun ViewPill(mode: EditorMode, largeScreen: Boolean, onMode: (EditorMode
         label = "viewPillThumb",
     )
 
-    GlassPanel(
-        shape = RoundedCornerShape(10.dp),
-        enabled = GlassModeHolder.enabled.value,
-        flatColor = PaperWarm.copy(alpha = 0.8f),
-        radius = 10.dp,
+    Box(
         modifier = Modifier
             .height(32.dp)
-            .width(if (largeScreen) 150.dp else 100.dp),
+            .width(if (largeScreen) 150.dp else 100.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(PaperWarm.copy(alpha = 0.8f))
+            .border(1.dp, Divider, RoundedCornerShape(10.dp))
+            .padding(3.dp),
     ) {
-        Box(Modifier.fillMaxSize().padding(3.dp)) {
         // 滑块：用 graphicsLayer 平移（避免 offset + shadow 发灰）；
         // 底色走 Paper 而不是白色 —— 白色在暗色下穿帮（色板搬家同批修）
         Box(
@@ -912,7 +889,6 @@ private fun ViewPill(mode: EditorMode, largeScreen: Boolean, onMode: (EditorMode
                     )
                 }
             }
-        }
         }
     }
 }

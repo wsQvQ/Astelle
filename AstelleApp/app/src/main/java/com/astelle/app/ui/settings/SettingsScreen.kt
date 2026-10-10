@@ -103,8 +103,13 @@ fun SettingsScreen(
     var modeOpen by remember { mutableStateOf(false) }
     var densityOpen by remember { mutableStateOf(false) }
     var qualityOpen by remember { mutableStateOf(false) }
-    // 二级菜单玻璃材质开关（10-11 用户澄清：设置里一个开关就行，别做二级页）
-    var glassMenus by remember { mutableStateOf(store.glassMenus) }
+    // 10-11：玻璃材质归档（archive/glass-material-20261011）——
+    // 按钮保留但**停用**：点击无效果，只弹「开发中」提示
+    val glassToast: () -> Unit = {
+        android.widget.Toast
+            .makeText(context, "开发者还在制作中，请耐心等待", android.widget.Toast.LENGTH_SHORT)
+            .show()
+    }
 
     // ⚠️ 菜单开着时返回必须**只关菜单**（真机揪出的 bug：PredictiveBackHandler
     // 常开，把弹层的返回也吃了 → 直接退页）。本回调注册晚于它，dispatcher 里优先级更高。
@@ -234,16 +239,10 @@ fun SettingsScreen(
                 SettingRow(
                     icon = Icons.Outlined.Opacity,
                     title = "玻璃质感",
-                    subtitle = "菜单/浮层/悬浮工具栏的玻璃材质（自研轻玻璃）",
-                    onClick = {
-                        store.glassMenus = !glassMenus
-                        glassMenus = !glassMenus
-                    },
+                    subtitle = "菜单/浮层/悬浮工具栏的玻璃材质",
+                    onClick = { glassToast() },
                     trailing = {
-                        SettingsSwitch(on = glassMenus) { checked ->
-                            store.glassMenus = checked
-                            glassMenus = checked
-                        }
+                        SettingsSwitch(on = false) { glassToast() }
                     },
                 )
                 SettingRow(

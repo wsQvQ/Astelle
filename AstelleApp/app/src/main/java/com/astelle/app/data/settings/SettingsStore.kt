@@ -62,15 +62,13 @@ class SettingsStore(context: Context) {
         }
 
     /**
-     * 玻璃材质开关（10-11 用户定稿作用域：菜单/浮层 + 悬浮工具栏）。
-     * 渲染＝自研轻玻璃（快照/图层 + RenderEffect 模糊 + 高光，零新依赖）；
-     * 关着 = 原纸感，零额外开销。写入同步 [GlassModeHolder] 实时生效。
+     * 玻璃材质开关（10-11 归档：`archive/glass-material-20261011`）。
+     * 字段留着给将来接回时用；现在设置页的按钮是停用态（点击只弹「开发中」）。
      */
     var glassMenus: Boolean
         get() = prefs.getBoolean(KEY_GLASS_MENUS, false)
         set(value) {
             prefs.edit().putBoolean(KEY_GLASS_MENUS, value).apply()
-            GlassModeHolder.enabled.value = value
         }
 
     private companion object {
@@ -96,9 +94,4 @@ object ThemeModeHolder {
 
     /** 动态取色开关（同上，实时生效） */
     val dynamicColor: MutableState<Boolean> = mutableStateOf(false)
-}
-
-/** 玻璃材质开关（10-11）：全局可观察，菜单/浮层/悬浮工具栏实时跟着切 */
-object GlassModeHolder {
-    val enabled: MutableState<Boolean> = mutableStateOf(false)
 }

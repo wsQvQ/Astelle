@@ -43,8 +43,6 @@ import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.TableChart
 import androidx.compose.material.icons.outlined.TaskAlt
 import com.astelle.app.ui.components.GlassMenu
-import com.astelle.app.ui.components.GlassPanel
-import com.astelle.app.ui.components.GlassSource
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -71,8 +69,6 @@ import com.astelle.app.ui.theme.PressGlow
 import com.astelle.app.ui.theme.Divider
 import com.astelle.app.ui.theme.Muted
 import com.astelle.app.ui.theme.SurfaceFloat
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.layer.GraphicsLayer
 
 /** 工具栏动作：全是纯数据，落到 MarkdownEditing 里执行 */
 sealed interface FormatAction {
@@ -122,13 +118,9 @@ internal fun FormatToolbar(
     insertTools: List<ToolbarTool>,
     onAction: (FormatAction) -> Unit,
     modifier: Modifier = Modifier,
-    // 玻璃材质（10-11 自研轻玻璃）：null = 原纸感；非空 = 正文**实时图层**（悬浮工具栏专用）
-    backdropLayer: GraphicsLayer? = null,
-    backdropOrigin: Offset = Offset.Zero,
 ) {
-    val glassOn = backdropLayer != null
-    // 玻璃态下渐隐/静息底都得是半透明（否则糊上一块不透明纸色）
-    val fadeColor = if (glassOn) SurfaceFloat.copy(alpha = 0.72f) else SurfaceFloat
+    // 10-11：玻璃材质归档（archive/glass-material-20261011），工具栏回原纸感
+    val fadeColor = SurfaceFloat
     // 对齐（用户 2026-10-08 晚定）：常规**居中**；大屏（侧栏地盘）**靠右**；
     // **从不靠左** —— 左边是抽屉/侧栏（3️⃣ 平板常驻侧栏）的家。
     // 尺子统一收在 isLargeScreen()（和常驻侧栏同一把，改尺只改一处）
@@ -154,16 +146,16 @@ internal fun FormatToolbar(
             derivedStateOf { scrollState.value < scrollState.maxValue }
         }
         var pressedLabel by remember { mutableStateOf<String?>(null) }
-        GlassPanel(
-            shape = RoundedCornerShape(24.dp),
-            source = backdropLayer?.let { GlassSource.Layer(it, backdropOrigin) },
-            enabled = glassOn,
-            radius = 24.dp,
+        Box(
             modifier = Modifier
                 // ⚠️ 必须 weight(fill=false)：让球先拿走固定 48dp，胶囊只吃**剩下的**宽度。
                 // 不加 weight 时胶囊先量先吃，窄屏把球挤成 0 宽 —— 「感叹号的点」整个消失（用户实测）
                 .weight(1f, fill = false)
-                .height(48.dp),
+                .height(48.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .background(SurfaceFloat)
+                .border(1.dp, Divider, RoundedCornerShape(24.dp)),
+            contentAlignment = Alignment.CenterStart,
         ) {
             Row(
                 modifier = Modifier
@@ -227,19 +219,18 @@ internal fun FormatToolbar(
             val pressed by interaction.collectIsPressedAsState()
             // 点一下亮起、松手 120ms 淡出（用户定：只要瞬间动效，不要常亮）
             // 玻璃态的静息底 = 透明（玻璃自己有 tint），按压暖光罩在玻璃上
-            val restBg = if (glassOn) PressGlow.copy(alpha = 0f) else SurfaceFloat
+            val restBg = SurfaceFloat
             val ballBg by animateColorAsState(
                 targetValue = if (pressed) PressGlow else restBg,
                 animationSpec = tween(durationMillis = 120),
                 label = "ballBg",
             )
-            GlassPanel(
-                shape = CircleShape,
-                source = backdropLayer?.let { GlassSource.Layer(it, backdropOrigin) },
-                enabled = glassOn,
-                radius = 24.dp,
+            Box(
                 modifier = Modifier
                     .size(48.dp)
+                    .clip(CircleShape)
+                    .background(ballBg)
+                    .border(1.dp, Divider, CircleShape)
                     // 再点一次要**收回**，不是反复打开（用户提的；竞态用闸门挡）
                     .clickable(interactionSource = interaction, indication = null) {
                         val now = System.currentTimeMillis()
@@ -249,17 +240,15 @@ internal fun FormatToolbar(
                             insertOpen = true
                         }
                     },
+                contentAlignment = Alignment.Center,
             ) {
-                Box(Modifier.matchParentSize().background(ballBg))
                 Icon(
                     // 链接形状的符号（用户：别用加号）；要和菜单里的「链接」**不一样** ——
                     // 那边是 Icons.Outlined.Link，这边用 InsertLink（链条带插件形状）
                     Icons.Outlined.InsertLink,
                     contentDescription = "插入",
                     tint = Accent,
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .size(22.dp),
+                    modifier = Modifier.size(22.dp),
                 )
             }
             GlassMenu(
