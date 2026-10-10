@@ -42,7 +42,7 @@ import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.TableChart
 import androidx.compose.material.icons.outlined.TaskAlt
-import androidx.compose.material3.DropdownMenu
+import com.astelle.app.ui.components.GlassMenu
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -69,6 +69,17 @@ import com.astelle.app.ui.theme.PressGlow
 import com.astelle.app.ui.theme.Divider
 import com.astelle.app.ui.theme.Muted
 import com.astelle.app.ui.theme.SurfaceFloat
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.graphics.layer.GraphicsLayer
+import androidx.compose.ui.graphics.layer.drawLayer
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 
 /** 工具栏动作：全是纯数据，落到 MarkdownEditing 里执行 */
 sealed interface FormatAction {
@@ -118,7 +129,13 @@ internal fun FormatToolbar(
     insertTools: List<ToolbarTool>,
     onAction: (FormatAction) -> Unit,
     modifier: Modifier = Modifier,
+    // 玻璃材质（10-11 自研轻玻璃）：null = 原纸感；非空 = 正文**实时图层**（悬浮工具栏专用）
+    backdropLayer: GraphicsLayer? = null,
+    backdropOrigin: Offset = Offset.Zero,
 ) {
+    val glassOn = backdropLayer != null
+    // 玻璃态下渐隐/静息底都得是半透明（否则糊上一块不透明纸色）
+    val fadeColor = if (glassOn) SurfaceFloat.copy(alpha = 0.55f) else SurfaceFloat
     // 对齐（用户 2026-10-08 晚定）：常规**居中**；大屏（侧栏地盘）**靠右**；
     // **从不靠左** —— 左边是抽屉/侧栏（3️⃣ 平板常驻侧栏）的家。
     // 尺子统一收在 isLargeScreen()（和常驻侧栏同一把，改尺只改一处）
@@ -144,19 +161,20 @@ internal fun FormatToolbar(
             derivedStateOf { scrollState.value < scrollState.maxValue }
         }
         var pressedLabel by remember { mutableStateOf<String?>(null) }
-        Box(
+        GlassSurface(
+            shape = RoundedCornerShape(24.dp),
+            backdropLayer = backdropLayer,
+            backdropOrigin = backdropOrigin,
             modifier = Modifier
                 // ⚠️ 必须 weight(fill=false)：让球先拿走固定 48dp，胶囊只吃**剩下的**宽度。
                 // 不加 weight 时胶囊先量先吃，窄屏把球挤成 0 宽 —— 「感叹号的点」整个消失（用户实测）
                 .weight(1f, fill = false)
-                .height(48.dp)
-                .clip(RoundedCornerShape(24.dp))
-                .background(SurfaceFloat)
-                .border(1.dp, Divider, RoundedCornerShape(24.dp)),
-            contentAlignment = Alignment.CenterStart,
+                .height(48.dp),
         ) {
             Row(
-                modifier = Modifier.horizontalScroll(scrollState),
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .horizontalScroll(scrollState),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 groups.forEachIndexed { index, group ->
@@ -181,7 +199,7 @@ internal fun FormatToolbar(
                         .height(48.dp)
                         .background(
                             Brush.horizontalGradient(
-                                colors = listOf(SurfaceFloat, Color.Transparent),
+                                colors = listOf(fadeColor, Color.Transparent),
                             ),
                         ),
                 )
@@ -196,7 +214,7 @@ internal fun FormatToolbar(
                         .height(48.dp)
                         .background(
                             Brush.horizontalGradient(
-                                colors = listOf(Color.Transparent, SurfaceFloat),
+                                colors = listOf(Color.Transparent, fadeColor),
                             ),
                         ),
                 )
@@ -214,17 +232,19 @@ internal fun FormatToolbar(
             val interaction = remember { MutableInteractionSource() }
             val pressed by interaction.collectIsPressedAsState()
             // 点一下亮起、松手 120ms 淡出（用户定：只要瞬间动效，不要常亮）
+            // 玻璃态的静息底 = 透明（玻璃自己有 tint），按压暖光罩在玻璃上
+            val restBg = if (glassOn) PressGlow.copy(alpha = 0f) else SurfaceFloat
             val ballBg by animateColorAsState(
-                targetValue = if (pressed) PressGlow else SurfaceFloat,
+                targetValue = if (pressed) PressGlow else restBg,
                 animationSpec = tween(durationMillis = 120),
                 label = "ballBg",
             )
-            Box(
+            GlassSurface(
+                shape = CircleShape,
+                backdropLayer = backdropLayer,
+                backdropOrigin = backdropOrigin,
                 modifier = Modifier
                     .size(48.dp)
-                    .clip(CircleShape)
-                    .background(ballBg)
-                    .border(1.dp, Divider, CircleShape)
                     // 再点一次要**收回**，不是反复打开（用户提的；竞态用闸门挡）
                     .clickable(interactionSource = interaction, indication = null) {
                         val now = System.currentTimeMillis()
@@ -234,28 +254,25 @@ internal fun FormatToolbar(
                             insertOpen = true
                         }
                     },
-                contentAlignment = Alignment.Center,
             ) {
+                Box(Modifier.matchParentSize().background(ballBg))
                 Icon(
                     // 链接形状的符号（用户：别用加号）；要和菜单里的「链接」**不一样** ——
                     // 那边是 Icons.Outlined.Link，这边用 InsertLink（链条带插件形状）
                     Icons.Outlined.InsertLink,
                     contentDescription = "插入",
                     tint = Accent,
-                    modifier = Modifier.size(22.dp),
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .size(22.dp),
                 )
             }
-            DropdownMenu(
+            GlassMenu(
                 expanded = insertOpen,
                 onDismissRequest = {
                     insertOpen = false
                     insertDismissedAt = System.currentTimeMillis()
                 },
-                shape = RoundedCornerShape(14.dp),
-                containerColor = SurfaceFloat,
-                border = androidx.compose.foundation.BorderStroke(1.dp, Divider),
-                tonalElevation = 0.dp,
-                shadowElevation = 8.dp,
                 // 不抢输入焦点，否则弹出时输入法被挤下去（P0 bug2）
                 properties = PopupProperties(focusable = false, dismissOnClickOutside = true),
             ) {
@@ -267,6 +284,65 @@ internal fun FormatToolbar(
                 }
             }
         }
+    }
+}
+
+/**
+ * 玻璃底衬（10-11 自研轻玻璃）：悬浮工具栏的胶囊/球共用。
+ * [backdropLayer] 非空 = 画**正文实时图层**（裁到本形状 + RenderEffect 模糊）+ 纸色 tint +
+ * 顶部内高光 + 发丝描边；null = 原纸感。API<31 无 RenderEffect → 不糊只磨砂（自动降级）。
+ * 对位：图层原点在 [backdropOrigin]（窗口坐标），本形状位置实时量，两者相减即裁切偏移。
+ */
+@Composable
+private fun GlassSurface(
+    shape: Shape,
+    backdropLayer: GraphicsLayer?,
+    backdropOrigin: Offset,
+    modifier: Modifier = Modifier,
+    content: @Composable BoxScope.() -> Unit,
+) {
+    Box(modifier = modifier.clip(shape)) {
+        if (backdropLayer != null) {
+            var pos by remember { mutableStateOf(Offset.Zero) }
+            Box(
+                Modifier
+                    .matchParentSize()
+                    .onGloballyPositioned { pos = it.positionInWindow() }
+                    .blur(18.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
+                    .drawBehind {
+                        withTransform({
+                            translate(
+                                left = -(pos.x - backdropOrigin.x),
+                                top = -(pos.y - backdropOrigin.y),
+                            )
+                        }) {
+                            drawLayer(backdropLayer)
+                        }
+                    }
+            )
+            Box(
+                Modifier
+                    .matchParentSize()
+                    .background(SurfaceFloat.copy(alpha = 0.55f))
+                    .drawBehind {
+                        drawRect(
+                            Brush.verticalGradient(
+                                0f to Color.White.copy(alpha = 0.10f),
+                                0.6f to Color.White.copy(alpha = 0f),
+                            ),
+                        )
+                    }
+                    .border(1.dp, Divider, shape)
+            )
+        } else {
+            Box(
+                Modifier
+                    .matchParentSize()
+                    .background(SurfaceFloat)
+                    .border(1.dp, Divider, shape)
+            )
+        }
+        content()
     }
 }
 

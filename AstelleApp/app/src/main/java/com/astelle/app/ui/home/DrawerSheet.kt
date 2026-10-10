@@ -44,7 +44,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenu
+import com.astelle.app.ui.components.GlassMenu
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.ModalDrawerSheet
@@ -945,15 +945,9 @@ private fun FolderHeader(
             }
         }
 
-        DropdownMenu(
+        GlassMenu(
             expanded = menuOpen,
             onDismissRequest = { menuOpen = false },
-            shape = RoundedCornerShape(14.dp),
-            containerColor = SurfaceFloat,
-            // 和卡片同一套语言：纸白 + 一圈描边 + 圆角 14dp
-            border = BorderStroke(1.dp, Divider),
-            tonalElevation = 0.dp,
-            shadowElevation = 8.dp,
         ) {
             MenuRow(
                 label = if (pinned) "取消置顶" else "置顶",
@@ -1152,16 +1146,9 @@ private fun NoteItem(
                 .background(Accent.copy(alpha = 0.6f)),
         )
 
-        DropdownMenu(
+        GlassMenu(
             expanded = menuOpen,
             onDismissRequest = { menuOpen = false; moving = false },
-            // 与 meta 行那枚 ⋯ 菜单保持同一套外观
-            shape = RoundedCornerShape(14.dp),
-            containerColor = SurfaceFloat,
-            // 和卡片同一套语言：纸白 + 一圈描边 + 圆角 14dp
-            border = BorderStroke(1.dp, Divider),
-            tonalElevation = 0.dp,
-            shadowElevation = 8.dp,
         ) {
             if (moving) {
                 MenuRow(

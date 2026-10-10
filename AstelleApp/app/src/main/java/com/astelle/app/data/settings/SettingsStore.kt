@@ -62,14 +62,15 @@ class SettingsStore(context: Context) {
         }
 
     /**
-     * 二级菜单玻璃材质开关（10-11 用户澄清：**设置里一个开关就行**——管的是
-     * 下拉菜单/浮层这类「二级菜单」的玻璃质感）。渲染层还没上（玻璃库有版本墙，
-     * 见 `docs/ui/11-liquid-glass-research.md`），开关与持久化先行就位。
+     * 玻璃材质开关（10-11 用户定稿作用域：菜单/浮层 + 悬浮工具栏）。
+     * 渲染＝自研轻玻璃（快照/图层 + RenderEffect 模糊 + 高光，零新依赖）；
+     * 关着 = 原纸感，零额外开销。写入同步 [GlassModeHolder] 实时生效。
      */
     var glassMenus: Boolean
         get() = prefs.getBoolean(KEY_GLASS_MENUS, false)
         set(value) {
             prefs.edit().putBoolean(KEY_GLASS_MENUS, value).apply()
+            GlassModeHolder.enabled.value = value
         }
 
     private companion object {
@@ -95,4 +96,9 @@ object ThemeModeHolder {
 
     /** 动态取色开关（同上，实时生效） */
     val dynamicColor: MutableState<Boolean> = mutableStateOf(false)
+}
+
+/** 玻璃材质开关（10-11）：全局可观察，菜单/浮层/悬浮工具栏实时跟着切 */
+object GlassModeHolder {
+    val enabled: MutableState<Boolean> = mutableStateOf(false)
 }

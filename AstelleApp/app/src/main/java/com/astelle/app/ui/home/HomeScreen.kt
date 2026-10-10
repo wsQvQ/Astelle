@@ -57,7 +57,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DrawerValue
-import androidx.compose.material3.DropdownMenu
+import com.astelle.app.data.settings.GlassModeHolder
+import com.astelle.app.ui.components.GlassMenu
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.ModalDrawerSheet
@@ -78,18 +79,7 @@ import androidx.compose.material.icons.outlined.SaveAlt
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.runtime.Composable
-import androidx.activity.BackEventCompat
-import androidx.activity.compose.PredictiveBackHandler
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.layout.onSizeChanged
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineStart
-import kotlinx.coroutines.Job
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -100,6 +90,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.Modifier
@@ -111,7 +102,9 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.rememberGraphicsLayer
+import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalContext
@@ -348,98 +341,21 @@ fun HomeRoute(
             content = editorContent,
         )
     } else {
-        // ── 抽屉预测返回（10-11 用户：侧边栏也跟手收回 + 活弹回）──
-        // M3 不给公开拖拽接口（dispatchRawDelta 是 internal），方案＝「状态不动 +
-        // 位移假拖 + 遮罩双源」：真实拖拽/开合仍走 M3 offset（遮罩跟 currentOffset），
-        // 预测返回期间遮罩跟假拖进度 —— 全程无闪烁、状态机不抖（isOpen 不跳变）。
-        val drawerWidthPx = with(LocalDensity.current) { 300.dp.toPx() }
-        val fakeRetreat = remember { Animatable(0f) } // 0=开着，drawerWidthPx=收尽
-        var screenWpx by remember { mutableStateOf(0f) }
-        var drawerReboundJob by remember { mutableStateOf<Job?>(null) }
-        var drawerLastTime by remember { mutableLongStateOf(0L) }
-        var drawerLastR by remember { mutableStateOf(0f) }
-        var drawerLastVel by remember { mutableStateOf(0f) }
-
-        PredictiveBackHandler(enabled = drawerState.isOpen) { events ->
-            drawerReboundJob?.cancel()
-            try {
-                events.collect { e ->
-                    // 1:1 真跟手：退距 = 指尖离起手缘的行程（右缘镜像）
-                    val dist = if (e.swipeEdge == BackEventCompat.EDGE_RIGHT) {
-                        screenWpx - e.touchX
-                    } else {
-                        e.touchX
-                    }
-                    val r = dist.coerceIn(0f, drawerWidthPx)
-                    val now = System.nanoTime()
-                    val dt = (now - drawerLastTime) / 1_000_000_000f
-                    if (drawerLastTime != 0L && dt > 0.0005f) {
-                        drawerLastVel = ((r - drawerLastR) / dt).coerceIn(-8f, 8f)
-                    }
-                    drawerLastTime = now
-                    drawerLastR = r
-                    fakeRetreat.snapTo(r)
-                }
-                // 提交：带末速度收尽 → 落位两步画面都不可见（卡在 -2w/-w 区）
-                fakeRetreat.animateTo(
-                    drawerWidthPx,
-                    spring(dampingRatio = 1f, stiffness = Spring.StiffnessMediumLow),
-                    initialVelocity = drawerLastVel,
-                )
-                drawerState.snapTo(DrawerValue.Closed)
-                fakeRetreat.snapTo(0f)
-            } catch (e: CancellationException) {
-                // 取消：活弹回（速度继承 + UNDISPATCHED 免派发起步，消灭"顿一下"）
-                drawerReboundJob = scope.launch(start = CoroutineStart.UNDISPATCHED) {
-                    fakeRetreat.animateTo(
-                        0f,
-                        spring(dampingRatio = 0.75f, stiffness = Spring.StiffnessMedium),
-                        initialVelocity = drawerLastVel,
-                    )
-                }
-            }
-        }
-
+        // ⚠️ 10-11：抽屉预测返回（跟手收回+假拖遮罩）用户试后**撤回回滚**，
+        // 恢复原生 M3 抽屉手感；实验代码在 git 73207cf，别再重做
         ModalNavigationDrawer(
             drawerState = drawerState,
             gesturesEnabled = true,
-            // 遮罩改自绘（下），M3 原装的只认真实 offset，跟不上假拖
-            scrimColor = Color.Transparent,
-            modifier = Modifier.onSizeChanged { screenWpx = it.width.toFloat() },
+            scrimColor = Ink.copy(alpha = 0.18f),
             drawerContent = {
-                Box(
-                    Modifier.drawBehind {
-                        // 双源遮罩：真实 offset（拖拽/开合）× 假拖进度（预测返回）
-                        val realFraction = if (drawerWidthPx > 0f) {
-                            ((drawerState.currentOffset + drawerWidthPx) / drawerWidthPx)
-                                .coerceIn(0f, 1f)
-                        } else {
-                            0f
-                        }
-                        val fakeFraction =
-                            (fakeRetreat.value / drawerWidthPx).coerceIn(0f, 1f)
-                        val alpha = 0.18f * realFraction * (1f - fakeFraction)
-                        if (alpha > 0f) {
-                            val w = screenWpx.coerceAtLeast(size.width)
-                            drawRect(
-                                color = Ink.copy(alpha = alpha),
-                                topLeft = Offset(-w, 0f),
-                                size = Size(w * 3f, size.height),
-                            )
-                        }
-                    }
+                ModalDrawerSheet(
+                    modifier = Modifier.width(300.dp),
+                    drawerShape = RoundedCornerShape(topEnd = 20.dp, bottomEnd = 20.dp),
+                    drawerContainerColor = DrawerBg,
+                    drawerTonalElevation = 0.dp,
+                    windowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp),
                 ) {
-                    Box(Modifier.graphicsLayer { translationX = -fakeRetreat.value }) {
-                        ModalDrawerSheet(
-                            modifier = Modifier.width(300.dp),
-                            drawerShape = RoundedCornerShape(topEnd = 20.dp, bottomEnd = 20.dp),
-                            drawerContainerColor = DrawerBg,
-                            drawerTonalElevation = 0.dp,
-                            windowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp),
-                        ) {
-                            drawerSheet()
-                        }
-                    }
+                    drawerSheet()
                 }
             },
             content = editorContent,
@@ -800,12 +716,28 @@ private fun EditorScaffold(
             Box(paneModifier) {
                 // 滚动进度条（10-10）：右缘细轨，贴着正文滚动，安静不抢戏
                 val bodyScroll = rememberScrollState()
+                // 玻璃材质（10-11 自研轻玻璃）：正文每帧录进 GraphicsLayer 当工具栏的背景源
+                //（只有开关开着才录 = 关着零开销）
+                val glassOn = GlassModeHolder.enabled.value
+                val bodyLayer = rememberGraphicsLayer()
+                var bodyWindowPos by remember { mutableStateOf(Offset.Zero) }
                 // 正文滚动搬到外层（用户 10-09「不用二选一」）：文字全程流过胶囊底下
                 //（矩形地带透视 ✓），文末余量垫在**滚动内容里**（末尾 Spacer）——
                 // 滚到底文末自然停在胶囊上方（可达 ✓）。内边距做不到两者兼得，所以搬家
                 Column(
                     Modifier
                         .fillMaxSize()
+                        .onGloballyPositioned { bodyWindowPos = it.positionInWindow() }
+                        .then(
+                            if (glassOn) {
+                                Modifier.drawWithContent {
+                                    bodyLayer.record { this@drawWithContent.drawContent() }
+                                    drawLayer(bodyLayer)
+                                }
+                            } else {
+                                Modifier
+                            }
+                        )
                         // P0：正文要**认识输入法** —— 键盘弹起按 ime 内缩，文末才滚得进可见区。
                         // 键盘收起时**不套 imePadding**：MIUI 的 ime inset 收起后不一定归零，
                         // 残留高度会顶出「怎么滑都看不到」的死区（用户实测的 P0 就有它一份）
@@ -849,6 +781,8 @@ private fun EditorScaffold(
                     groups = remember { listOf(emphasisGroup(), headingGroup(), blockGroup(), indentGroup()) },
                     insertTools = remember { insertTools() },
                     onAction = { applyFormat(it) },
+                    backdropLayer = if (glassOn) bodyLayer else null,
+                    backdropOrigin = bodyWindowPos,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         // ⚠️ 键盘收起时**不套 imePadding**：MIUI 的 ime inset 收起后可能不归零，
@@ -1066,15 +1000,9 @@ private fun MetaRow(
             // 二级菜单沿用抽屉里「移动到分类」的做法：同一个 DropdownMenu 换内容，
             // 不叠第二个弹窗 —— 嵌套弹窗的位置在窄容器里根本控制不住
             var pickingExport by remember { mutableStateOf(false) }
-            DropdownMenu(
+            GlassMenu(
                 expanded = moreMenuOpen,
                 onDismissRequest = { pickingExport = false; onDismissMore() },
-                shape = RoundedCornerShape(14.dp),
-                containerColor = SurfaceFloat,
-                // 和卡片同一套语言：一圈描边 + 圆角 14dp，边界靠描边立
-                border = BorderStroke(1.dp, Divider),
-                tonalElevation = 0.dp,
-                shadowElevation = 8.dp,
             ) {
                 if (pickingExport) {
                     MenuRow(

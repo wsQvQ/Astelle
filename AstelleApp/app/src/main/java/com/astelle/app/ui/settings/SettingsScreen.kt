@@ -5,7 +5,6 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -37,7 +36,6 @@ import androidx.compose.material.icons.automirrored.outlined.List
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Opacity
 import androidx.compose.material.icons.outlined.Palette
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LargeTopAppBar
@@ -68,6 +66,7 @@ import com.astelle.app.data.settings.ColorMode
 import com.astelle.app.data.settings.ImageQuality
 import com.astelle.app.data.settings.SettingsStore
 import com.astelle.app.ui.components.AstelleSwitch
+import com.astelle.app.ui.components.GlassMenu
 import com.astelle.app.ui.components.MenuRow
 import com.astelle.app.ui.theme.CenteredLineHeight
 import com.astelle.app.ui.theme.Divider
@@ -77,7 +76,6 @@ import com.astelle.app.ui.theme.LocalAstelleColors
 import com.astelle.app.ui.theme.Muted
 import com.astelle.app.ui.theme.Paper
 import com.astelle.app.ui.theme.PaperWarm
-import com.astelle.app.ui.theme.SurfaceFloat
 
 /**
  * 设置页（10-10 用户指定里程碑：**可以打开、可以退出**；10 号计划 RikkaHub 化）。
@@ -235,8 +233,8 @@ fun SettingsScreen(
                 )
                 SettingRow(
                     icon = Icons.Outlined.Opacity,
-                    title = "玻璃菜单",
-                    subtitle = "二级菜单/浮层的液态玻璃质感（效果开发中）",
+                    title = "玻璃质感",
+                    subtitle = "菜单/浮层/悬浮工具栏的玻璃材质（自研轻玻璃）",
                     onClick = {
                         store.glassMenus = !glassMenus
                         glassMenus = !glassMenus
@@ -403,14 +401,9 @@ private fun ModeDropdown(
             Spacer(Modifier.width(5.dp))
             Chevron(open)
         }
-        DropdownMenu(
+        GlassMenu(
             expanded = open,
             onDismissRequest = { onOpenChange(false) },
-            shape = RoundedCornerShape(14.dp),
-            containerColor = SurfaceFloat,
-            border = BorderStroke(1.dp, Divider),
-            tonalElevation = 0.dp,
-            shadowElevation = 8.dp,
         ) {
             MenuRow(
                 label = "浅色",
@@ -468,14 +461,9 @@ private fun PillDropdown(
             Spacer(Modifier.width(5.dp))
             Chevron(open)
         }
-        DropdownMenu(
+        GlassMenu(
             expanded = open,
             onDismissRequest = { onOpenChange(false) },
-            shape = RoundedCornerShape(14.dp),
-            containerColor = SurfaceFloat,
-            border = BorderStroke(1.dp, Divider),
-            tonalElevation = 0.dp,
-            shadowElevation = 8.dp,
         ) {
             options().forEach { (label, action) ->
                 // 勾只标当前项（10-11：以前每项挂勾 = 误导成全都选了）
