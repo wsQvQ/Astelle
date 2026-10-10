@@ -81,6 +81,11 @@
     弹层场景配 `BackHandler(enabled = menuOpen) { … }`，注册晚于它 = dispatcher 优先级更高
 25. **读截图认真点**：菜单浮层看漏三轮、白折腾一轮输入排查；
     截图字节量 +20KB 级跳变 = 弹层开了的指纹，先信尺寸差再细看图
+26. `animate(a, b, tween(...))` 编译炸别慌——Float 重载第三参是**初速**不是动画规格，
+    用具名 `animationSpec =`；`View.drawToBitmap` 在 **`androidx.core.view`**（不是 core.graphics）
+27. **预测返回想显示「返回后的页面」= 用快照别用实时组合**（NavBackdrops 栈）：
+    导航时 `drawToBitmap` 拍一张压栈、返回弹出，逐帧只是一次 blit；
+    逐帧 `shadowElevation` 才是卡顿元凶，已拆
 
 ## 4. 当前状态快照（2026-10-10 深夜，`4cf08ca`）
 

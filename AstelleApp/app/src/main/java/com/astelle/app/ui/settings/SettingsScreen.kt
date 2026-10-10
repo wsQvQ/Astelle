@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -29,9 +30,11 @@ import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.LightMode
 import androidx.compose.material.icons.automirrored.outlined.List
 import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Opacity
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -50,8 +53,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -63,6 +67,7 @@ import androidx.compose.ui.unit.sp
 import com.astelle.app.BuildConfig
 import com.astelle.app.data.settings.ColorMode
 import com.astelle.app.data.settings.ImageQuality
+import com.astelle.app.data.settings.MaterialStyle
 import com.astelle.app.data.settings.SettingsStore
 import com.astelle.app.ui.components.MenuRow
 import com.astelle.app.ui.theme.Accent
@@ -103,14 +108,31 @@ fun SettingsScreen(
     var modeOpen by remember { mutableStateOf(false) }
     var densityOpen by remember { mutableStateOf(false) }
     var qualityOpen by remember { mutableStateOf(false) }
+    // 外观材质（10-11：预留「材质切换」二级菜单接口）+ 当前二级页
+    var materialStyle by remember { mutableStateOf(store.materialStyle) }
+    var subPage by remember { mutableStateOf<SettingsSubPage?>(null) }
 
-    // ⚠️ 菜单开着时返回必须**只关菜单**（真机揪出的 bug：PredictiveBackHandler 常开，
-    // 把弹层的返回也吃了 → 直接退页）。本回调注册晚于它，dispatcher 里优先级更高。
+    // ⚠️ 菜单/二级页开着时返回必须**只收浮层**（真机揪出的 bug：PredictiveBackHandler
+    // 常开，把弹层的返回也吃了 → 直接退页）。本回调注册晚于它，dispatcher 里优先级更高。
     val anyMenuOpen = modeOpen || densityOpen || qualityOpen
-    BackHandler(enabled = anyMenuOpen) {
+    BackHandler(enabled = anyMenuOpen || subPage != null) {
         modeOpen = false
         densityOpen = false
         qualityOpen = false
+        subPage = null
+    }
+
+    // ── 二级页：外观材质（10-11 预留材质切换接口；玻璃占位未开放）──
+    if (subPage == SettingsSubPage.MATERIAL) {
+        MaterialSubPage(
+            current = materialStyle,
+            onPick = {
+                store.materialStyle = it
+                materialStyle = it
+            },
+            onBack = { subPage = null },
+        )
+        return
     }
 
     // 1a：大标题上滑收缩（内容滚 → 顶栏折叠），返回钮常驻
@@ -125,17 +147,29 @@ fun SettingsScreen(
             .navigationBarsPadding()
             .nestedScroll(scrollBehavior.nestedScrollConnection),
     ) {
-        // 顶栏外套：收缩后落发丝线（alpha 跟收缩度淡入；draw 里读状态不脏 composition）
+        // 顶栏外套（10-11 用户嫌整块变色丑 → 自绘柔和洗底）：
+        // 收缩度**平方缓入**——大半程通透、收尾才落定；纸色洗底只在底缘 28dp 渐隐，
+        // 边界交给 45% 克制发丝线。draw 里读状态，不脏 composition。
         Box(
             Modifier
                 .fillMaxWidth()
-                .drawWithContent {
-                    drawContent()
-                    val collapsed = scrollBehavior.state.collapsedFraction
-                    if (collapsed > 0f) {
+                .drawBehind {
+                    val t = scrollBehavior.state.collapsedFraction
+                    if (t > 0f) {
+                        val eased = t * t
+                        val fade = (28.dp.toPx() / size.height).coerceIn(0f, 1f)
+                        drawRect(
+                            brush = Brush.verticalGradient(
+                                0f to colors.paper.copy(alpha = eased),
+                                (1f - fade) to colors.paper.copy(alpha = eased),
+                                1f to colors.paper.copy(alpha = 0f),
+                                startY = 0f,
+                                endY = size.height,
+                            ),
+                        )
                         val y = size.height - 0.5.dp.toPx()
                         drawLine(
-                            color = Divider.copy(alpha = collapsed),
+                            color = Divider.copy(alpha = eased * 0.45f),
                             start = Offset(0f, y),
                             end = Offset(size.width, y),
                             strokeWidth = 1.dp.toPx(),
@@ -164,9 +198,9 @@ fun SettingsScreen(
                     QuietIconBtn(Icons.AutoMirrored.Outlined.ArrowBack, "返回", onBack)
                 },
                 colors = TopAppBarDefaults.largeTopAppBarColors(
-                    // 收缩前透明（paperWarm 透上来），收缩后落 paper（自动插值过渡）
+                    // 底色全交给外层自绘洗底（M3 自己的整块变色已废，10-11）
                     containerColor = Color.Transparent,
-                    scrolledContainerColor = colors.paper,
+                    scrolledContainerColor = Color.Transparent,
                     titleContentColor = Ink,
                     navigationIconContentColor = InkSoft,
                 ),
@@ -216,6 +250,12 @@ fun SettingsScreen(
                             dynamic = checked
                         }
                     },
+                )
+                SettingRow(
+                    icon = Icons.Outlined.Layers,
+                    title = "外观材质",
+                    subtitle = materialStyle.label,
+                    onClick = { subPage = SettingsSubPage.MATERIAL },
                 )
                 SettingRow(
                     icon = Icons.AutoMirrored.Outlined.List,
@@ -384,15 +424,27 @@ private fun ModeDropdown(
             tonalElevation = 0.dp,
             shadowElevation = 8.dp,
         ) {
-            MenuRow(label = "浅色", icon = Icons.Outlined.LightMode) {
+            MenuRow(
+                label = "浅色",
+                icon = Icons.Outlined.LightMode,
+                selected = current == ColorMode.LIGHT,
+            ) {
                 onOpenChange(false)
                 onPick(ColorMode.LIGHT)
             }
-            MenuRow(label = "深色", icon = Icons.Outlined.DarkMode) {
+            MenuRow(
+                label = "深色",
+                icon = Icons.Outlined.DarkMode,
+                selected = current == ColorMode.DARK,
+            ) {
                 onOpenChange(false)
                 onPick(ColorMode.DARK)
             }
-            MenuRow(label = "跟随系统", icon = Icons.Outlined.BrightnessAuto) {
+            MenuRow(
+                label = "跟随系统",
+                icon = Icons.Outlined.BrightnessAuto,
+                selected = current == ColorMode.SYSTEM,
+            ) {
                 onOpenChange(false)
                 onPick(ColorMode.SYSTEM)
             }
@@ -439,7 +491,8 @@ private fun PillDropdown(
             shadowElevation = 8.dp,
         ) {
             options().forEach { (label, action) ->
-                MenuRow(label = label, icon = Icons.Outlined.Check) {
+                // 勾只标当前项（10-11：以前每项挂勾 = 误导成全都选了）
+                MenuRow(label = label, selected = label == currentLabel) {
                     onOpenChange(false)
                     action()
                 }
@@ -474,4 +527,68 @@ private fun SettingsSwitch(
             disabledUncheckedBorderColor = Divider.copy(alpha = 0.5f),
         ),
     )
+}
+
+/** 二级页枚举（10-11 预留：材质切换是第一个，后续二级菜单往这加） */
+private enum class SettingsSubPage { MATERIAL }
+
+/**
+ * 二级页：外观材质（10-11 预留「材质切换」接口）。
+ * 纸感 = 现行；液态玻璃 = 占位（候选 Kyant0/AndroidLiquidGlass，调研见
+ * `docs/ui/11-liquid-glass-research.md`）。玻璃真正接入时在此处分叉材质管线。
+ */
+@Composable
+private fun MaterialSubPage(
+    current: MaterialStyle,
+    onPick: (MaterialStyle) -> Unit,
+    onBack: () -> Unit,
+) {
+    val colors = LocalAstelleColors.current
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(colors.paperWarm)
+            .statusBarsPadding()
+            .navigationBarsPadding(),
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            QuietIconBtn(Icons.AutoMirrored.Outlined.ArrowBack, "返回", onBack)
+            Spacer(Modifier.width(6.dp))
+            Text(
+                "外观材质",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Ink,
+                style = TextStyle(lineHeightStyle = CenteredLineHeight),
+            )
+        }
+        SettingSection("材质") {
+            MaterialStyle.entries.forEach { style ->
+                val isCurrent = style == current
+                SettingRow(
+                    icon = if (style == MaterialStyle.PAPER) {
+                        Icons.Outlined.Layers
+                    } else {
+                        Icons.Outlined.Opacity
+                    },
+                    title = style.label,
+                    subtitle = when {
+                        !style.available -> "规划中 · 敬请期待"
+                        isCurrent -> "当前使用"
+                        else -> "点击切换"
+                    },
+                    onClick = if (style.available) ({ onPick(style) }) else null,
+                    trailing = {
+                        if (isCurrent) {
+                            Icon(Icons.Outlined.Check, contentDescription = null, tint = Accent)
+                        }
+                    },
+                )
+            }
+            Spacer(Modifier.size(32.dp))
+        }
+    }
 }

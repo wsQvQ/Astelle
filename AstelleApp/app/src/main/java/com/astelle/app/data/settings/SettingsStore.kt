@@ -61,13 +61,34 @@ class SettingsStore(context: Context) {
             prefs.edit().putString(KEY_IMAGE_QUALITY, value.name).apply()
         }
 
+    /**
+     * 外观材质（10-11 用户指定：**预留「材质切换」二级菜单接口**）。
+     * PAPER = 现行纸感（唯一开放）；LIQUID_GLASS = 液态玻璃（占位，未开放）。
+     * 玻璃候选实现 Kyant0/AndroidLiquidGlass（Backdrop）——调研见
+     * `docs/ui/11-liquid-glass-research.md`；接入时在 AstelleTheme 按此字段分叉材质。
+     */
+    var materialStyle: MaterialStyle
+        get() = runCatching {
+            MaterialStyle.valueOf(prefs.getString(KEY_MATERIAL_STYLE, MaterialStyle.PAPER.name).orEmpty())
+        }.getOrDefault(MaterialStyle.PAPER)
+        set(value) {
+            prefs.edit().putString(KEY_MATERIAL_STYLE, value.name).apply()
+        }
+
     private companion object {
         const val KEY_COLOR_MODE = "colorMode"
         const val KEY_BACK_GESTURE = "backGestureEnabled"
         const val KEY_DYNAMIC_COLOR = "dynamicColor"
         const val KEY_COMPACT_DEFAULT = "compactCardsDefault"
         const val KEY_IMAGE_QUALITY = "imageQuality"
+        const val KEY_MATERIAL_STYLE = "materialStyle"
     }
+}
+
+/** 外观材质：[available]=false 的是预留占位（设置页置灰） */
+enum class MaterialStyle(val label: String, val available: Boolean) {
+    PAPER("纸感", true),
+    LIQUID_GLASS("液态玻璃", false),
 }
 
 /** 图片压缩档位：max 边长 / JPEG 质量（以「不明显变糊」为准的手感档） */

@@ -282,7 +282,9 @@ fun HomeRoute(
                 viewModel.onEvent(HomeUiEvent.NewNoteInFolder(folderId))
             },
             onNavigate = {
-                closeDrawer()
+                // 10-11 用户反馈：从侧栏进子页，返回后要回到**开着侧栏**的主页——
+                // 所以这里**不关抽屉**（rememberDrawerState 是 rememberSaveable，
+                // Home 在返回栈里状态自然存活，回来时抽屉还开着）
                 onNavigate(it)
             },
             initialCompactCards = remember { SettingsStore(context).compactCardsDefault },

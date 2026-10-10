@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -15,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import com.astelle.app.ui.theme.Accent
 import com.astelle.app.ui.theme.Divider
 import com.astelle.app.ui.theme.Muted
 
@@ -57,19 +60,31 @@ fun MenuIcon(
  * 尾随 lambda 只绑最后一个参数，放中间会全部编译不过。
  * [textColor] 默认 `Color.Unspecified` = 交给 M3 自己的启用/禁用配色；
  * 危险项显式传 `Danger`。[iconTint] 同理，默认静音色。
+ * [selected] = 当前选中项才画尾随对勾（10-11 用户：每项都挂勾会误导成"全都选了"）。
+ * [icon] 可空：没有自然图标的选项（下拉二选一那种）干脆不放前导位，勾只走尾随位。
  */
 @Composable
 fun MenuRow(
     label: String,
-    icon: ImageVector,
+    icon: ImageVector? = null,
     enabled: Boolean = true,
     iconTint: Color = Muted,
     textColor: Color = Color.Unspecified,
+    selected: Boolean = false,
     onClick: () -> Unit,
 ) {
     DropdownMenuItem(
         text = { Text(label, color = textColor) },
-        leadingIcon = { MenuIcon(icon, iconTint) },
+        leadingIcon = if (icon != null) {
+            { MenuIcon(icon, iconTint) }
+        } else {
+            null
+        },
+        trailingIcon = if (selected) {
+            { MenuIcon(Icons.Outlined.Check, Accent) }
+        } else {
+            null
+        },
         contentPadding = PaddingValues(horizontal = MenuHorizontalPadding, vertical = 0.dp),
         enabled = enabled,
         onClick = onClick,
