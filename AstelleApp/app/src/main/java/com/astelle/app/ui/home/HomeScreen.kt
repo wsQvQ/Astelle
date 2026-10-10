@@ -55,9 +55,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DrawerValue
 import com.astelle.app.data.settings.GlassModeHolder
+import com.astelle.app.ui.components.GlassAlertDialog
 import com.astelle.app.ui.components.GlassMenu
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
@@ -364,9 +364,9 @@ fun HomeRoute(
 
     // 删除二次确认
     if (state.pendingDeleteId != null) {
-        AlertDialog(
+        GlassAlertDialog(
             onDismissRequest = { viewModel.onEvent(HomeUiEvent.CancelDelete) },
-            title = { Text("删除这篇笔记？") },
+            title = { Text("删除这篇笔记？", fontSize = 16.sp) },
             text = { Text("删除后无法恢复。") },
             confirmButton = {
                 TextButton(onClick = { viewModel.onEvent(HomeUiEvent.ConfirmDelete) }) {
@@ -379,11 +379,6 @@ fun HomeRoute(
                 }
             },
             // 显式指定，不依赖 M3 默认容器色
-            containerColor = SurfaceFloat,
-            titleContentColor = Ink,
-            textContentColor = Muted,
-            shape = RoundedCornerShape(20.dp),
-            tonalElevation = 0.dp,
         )
     }
 }
@@ -878,7 +873,16 @@ private fun ViewPill(mode: EditorMode, largeScreen: Boolean, onMode: (EditorMode
             .height(32.dp)
             .width(if (largeScreen) 150.dp else 100.dp)
             .clip(RoundedCornerShape(10.dp))
-            .background(PaperWarm.copy(alpha = 0.8f))
+            // 玻璃质感（10-11）：半透 tint + 顶部内高光 + 发丝描边（背后是平涂页底，无需糊）
+            .background(SurfaceFloat.copy(alpha = 0.72f))
+            .drawBehind {
+                drawRect(
+                    Brush.verticalGradient(
+                        0f to Color.White.copy(alpha = 0.12f),
+                        0.55f to Color.White.copy(alpha = 0f),
+                    ),
+                )
+            }
             .border(1.dp, Divider, RoundedCornerShape(10.dp))
             .padding(3.dp),
     ) {

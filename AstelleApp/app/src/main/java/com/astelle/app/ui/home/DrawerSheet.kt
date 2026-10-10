@@ -43,7 +43,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
+import com.astelle.app.ui.components.GlassAlertDialog
 import com.astelle.app.ui.components.GlassMenu
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
@@ -159,7 +159,7 @@ internal fun DrawerSheet(
     if (renaming != null) {
         val target = renaming!!
         var draft by remember(target.id) { mutableStateOf(target.name) }
-        AlertDialog(
+        GlassAlertDialog(
             onDismissRequest = { renaming = null },
             title = { Text("重命名分类", fontSize = 16.sp) },
             text = {
@@ -200,18 +200,13 @@ internal fun DrawerSheet(
             dismissButton = {
                 TextButton(onClick = { renaming = null }) { Text("取消", color = Muted) }
             },
-            containerColor = SurfaceFloat,
-            titleContentColor = Ink,
-            textContentColor = Muted,
-            shape = RoundedCornerShape(20.dp),
-            tonalElevation = 0.dp,
         )
     }
 
     if (deleting != null) {
         val target = deleting!!
         val count = notes.count { it.folderId == target.id }
-        AlertDialog(
+        GlassAlertDialog(
             onDismissRequest = { deleting = null },
             title = { Text("删除分类「${target.name}」？", fontSize = 16.sp) },
             text = {
@@ -230,11 +225,6 @@ internal fun DrawerSheet(
             dismissButton = {
                 TextButton(onClick = { deleting = null }) { Text("取消", color = Muted) }
             },
-            containerColor = SurfaceFloat,
-            titleContentColor = Ink,
-            textContentColor = Muted,
-            shape = RoundedCornerShape(20.dp),
-            tonalElevation = 0.dp,
         )
     }
 

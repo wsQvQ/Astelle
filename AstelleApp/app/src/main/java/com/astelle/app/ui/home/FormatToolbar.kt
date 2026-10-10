@@ -135,7 +135,7 @@ internal fun FormatToolbar(
 ) {
     val glassOn = backdropLayer != null
     // 玻璃态下渐隐/静息底都得是半透明（否则糊上一块不透明纸色）
-    val fadeColor = if (glassOn) SurfaceFloat.copy(alpha = 0.55f) else SurfaceFloat
+    val fadeColor = if (glassOn) SurfaceFloat.copy(alpha = 0.72f) else SurfaceFloat
     // 对齐（用户 2026-10-08 晚定）：常规**居中**；大屏（侧栏地盘）**靠右**；
     // **从不靠左** —— 左边是抽屉/侧栏（3️⃣ 平板常驻侧栏）的家。
     // 尺子统一收在 isLargeScreen()（和常驻侧栏同一把，改尺只改一处）
@@ -308,7 +308,8 @@ private fun GlassSurface(
                 Modifier
                     .matchParentSize()
                     .onGloballyPositioned { pos = it.positionInWindow() }
-                    .blur(18.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
+                    // 二调（10-11）：模糊翻倍让底下文字糊成色块，按钮不再被背景抢戏
+                    .blur(32.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
                     .drawBehind {
                         withTransform({
                             translate(
@@ -323,7 +324,7 @@ private fun GlassSurface(
             Box(
                 Modifier
                     .matchParentSize()
-                    .background(SurfaceFloat.copy(alpha = 0.55f))
+                    .background(SurfaceFloat.copy(alpha = 0.72f))
                     .drawBehind {
                         drawRect(
                             Brush.verticalGradient(
