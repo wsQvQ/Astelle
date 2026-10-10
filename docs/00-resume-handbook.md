@@ -97,6 +97,9 @@
 31. **「松手后顿一下才动」= 零初速弹簧的慢起步**：测指尖末速度喂 `animateTo(initialVelocity=)`
     + `CoroutineStart.UNDISPATCHED` 起步，动作即连续；Spring 刚度只有
     High/Medium/MediumLow/Low 四档（没有 MediumHigh）
+32. **自研玻璃两粒语法坑**：`GraphicsLayer.record {}` 里 `drawContent()` 要显式
+    `this@drawWithContent.drawContent()`；`withTransform` 是**双 lambda**
+    `withTransform({ 变换 }) { 绘制 }`，写成单尾随 lambda 会把变换块弄丢
 
 ## 4. 当前状态快照（2026-10-10 深夜，`4cf08ca`）
 
