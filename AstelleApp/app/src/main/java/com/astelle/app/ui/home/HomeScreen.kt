@@ -872,6 +872,7 @@ private fun ViewPill(mode: EditorMode, largeScreen: Boolean, onMode: (EditorMode
         shape = RoundedCornerShape(10.dp),
         enabled = GlassModeHolder.enabled.value,
         flatColor = PaperWarm.copy(alpha = 0.8f),
+        radius = 10.dp,
         modifier = Modifier
             .height(32.dp)
             .width(if (largeScreen) 150.dp else 100.dp),

@@ -158,6 +158,7 @@ internal fun FormatToolbar(
             shape = RoundedCornerShape(24.dp),
             source = backdropLayer?.let { GlassSource.Layer(it, backdropOrigin) },
             enabled = glassOn,
+            radius = 24.dp,
             modifier = Modifier
                 // ⚠️ 必须 weight(fill=false)：让球先拿走固定 48dp，胶囊只吃**剩下的**宽度。
                 // 不加 weight 时胶囊先量先吃，窄屏把球挤成 0 宽 —— 「感叹号的点」整个消失（用户实测）
@@ -236,6 +237,7 @@ internal fun FormatToolbar(
                 shape = CircleShape,
                 source = backdropLayer?.let { GlassSource.Layer(it, backdropOrigin) },
                 enabled = glassOn,
+                radius = 24.dp,
                 modifier = Modifier
                     .size(48.dp)
                     // 再点一次要**收回**，不是反复打开（用户提的；竞态用闸门挡）

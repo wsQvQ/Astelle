@@ -131,6 +131,7 @@ fun GlassAlertDialog(
             GlassPanel(
                 shape = DialogShape,
                 source = snapshot?.let { GlassSource.Snapshot(it) },
+                radius = 20.dp,
             ) {
                 DialogBody(title, text, confirmButton, dismissButton)
             }
