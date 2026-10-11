@@ -2,12 +2,24 @@ package com.astelle.app.ui.plans
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Menu
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.focus.focusRequester
@@ -24,6 +36,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.launch
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -128,7 +141,8 @@ fun PlansScreen(
     val colors = LocalAstelleColors.current
     val todos by viewModel.todos.collectAsStateWithLifecycle()
     val histories by viewModel.histories.collectAsStateWithLifecycle()
-    val today = remember { LocalDate.now() }
+    // ⚠️ P11：不 remember —— 过午夜天数口径要跟着翻日
+    val today = LocalDate.now()
     val scope = rememberCoroutineScope()
 
     val scrollBehavior =
@@ -222,8 +236,10 @@ fun PlansScreen(
             val pagerState = rememberPagerState(
                 initialPage = if (viewModel.pane == TaskPane.TODO) 0 else 1,
             ) { 2 }
+            // ⚠️ P1 慢半拍根因：以前用 settledPage（停稳才同步）——
+            // 改 currentPage（跨过中线即换）；滑块直接骑翻页进度，零延迟
             LaunchedEffect(pagerState) {
-                snapshotFlow { pagerState.settledPage }.collect { page ->
+                snapshotFlow { pagerState.currentPage }.collect { page ->
                     viewModel.pane = if (page == 0) TaskPane.TODO else TaskPane.HISTORY
                 }
             }
@@ -264,6 +280,7 @@ fun PlansScreen(
             ) {
                 TaskPill(
                     pane = viewModel.pane,
+                    thumbPos = { pagerState.currentPage + pagerState.currentPageOffsetFraction },
                     todoCount = todos.count { !it.isDone && it.parentId == null },
                     historyCount = histories.size,
                     onPane = { pane ->
@@ -362,59 +379,77 @@ private fun TodoPane(
     val flat = TaskLogic.flatten(treeInput, today)
     val doneTop = todos.filter { it.isDone && it.parentId == null }
 
-    Column(
-        Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(bottom = 96.dp),
+    // P7：LazyColumn + animateItem —— 打勾后条目划线淡出、滑入已完成折叠
+    LazyColumn(
+        Modifier.fillMaxSize().padding(bottom = 96.dp),
     ) {
         // 筛选 chips（同侧栏筛选语言）
-        Row(
-            Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 14.dp),
-            horizontalArrangement = Arrangement.spacedBy(9.dp),
-        ) {
-            FilterChip("全部", activeParents.size, filter == TaskLogic.Filter.ALL) { onFilter(TaskLogic.Filter.ALL) }
-            FilterChip(
-                "今天",
-                activeParents.count { TaskLogic.isDueToday(today, it.dueDate) },
-                filter == TaskLogic.Filter.TODAY,
-            ) { onFilter(TaskLogic.Filter.TODAY) }
-            FilterChip(
-                "已过期",
-                activeParents.count { TaskLogic.isOverdue(today, it.dueDate) },
-                filter == TaskLogic.Filter.OVERDUE,
-            ) { onFilter(TaskLogic.Filter.OVERDUE) }
+        item(key = "chips") {
+            Row(
+                Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 14.dp),
+                horizontalArrangement = Arrangement.spacedBy(9.dp),
+            ) {
+                FilterChip("全部", activeParents.size, filter == TaskLogic.Filter.ALL) { onFilter(TaskLogic.Filter.ALL) }
+                FilterChip(
+                    "今天",
+                    activeParents.count { TaskLogic.isDueToday(today, it.dueDate) },
+                    filter == TaskLogic.Filter.TODAY,
+                ) { onFilter(TaskLogic.Filter.TODAY) }
+                FilterChip(
+                    "已过期",
+                    activeParents.count { TaskLogic.isOverdue(today, it.dueDate) },
+                    filter == TaskLogic.Filter.OVERDUE,
+                ) { onFilter(TaskLogic.Filter.OVERDUE) }
+            }
         }
 
         if (flat.isEmpty()) {
-            EmptyHint("暂无待办")
+            item(key = "empty") { EmptyHint("暂无待办") }
         }
 
-        flat.forEach { item ->
+        items(flat, key = { "t-" + it.id }) { item ->
             val isSub = item.parentId != null
             val progress = if (!isSub) TaskLogic.parentProgress(todos, item.id) else null
-            TodoRow(
-                todo = item,
-                today = today,
-                isSub = isSub,
-                progress = progress,
-                onToggle = { onToggle(item.id, it) },
-                onEdit = { onEdit(item) },
-                onDelete = { onDelete(item.id) },
-                onAddChild = if (isSub) null else ({ onAddChild(item) }),
-            )
+            Box(
+                Modifier.animateItem(
+                    placementSpec = spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessMediumLow),
+                    fadeInSpec = tween(180),
+                    fadeOutSpec = tween(180),
+                ),
+            ) {
+                TodoRow(
+                    todo = item,
+                    today = today,
+                    isSub = isSub,
+                    progress = progress,
+                    onToggle = { onToggle(item.id, it) },
+                    onEdit = { onEdit(item) },
+                    onDelete = { onDelete(item.id) },
+                    onAddChild = if (isSub) null else ({ onAddChild(item) }),
+                )
+            }
         }
 
         // 已完成折叠
         if (doneTop.isNotEmpty()) {
-            DoneFold(
-                done = doneTop,
-                expanded = doneExpanded,
-                onToggleExpand = onToggleDoneExpanded,
-                onToggle = onToggle,
-                onEdit = onEdit,
-                onDelete = onDelete,
-            )
+            item(key = "fold") {
+                Box(
+                    Modifier.animateItem(
+                        placementSpec = spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessMediumLow),
+                        fadeInSpec = tween(180),
+                        fadeOutSpec = tween(180),
+                    ),
+                ) {
+                    DoneFold(
+                        done = doneTop,
+                        expanded = doneExpanded,
+                        onToggleExpand = onToggleDoneExpanded,
+                        onToggle = onToggle,
+                        onEdit = onEdit,
+                        onDelete = onDelete,
+                    )
+                }
+            }
         }
     }
 }
@@ -617,11 +652,11 @@ private fun TodoRow(
 
         // 长按菜单（编辑 / 添加子项 / 删除 —— 子项从卡片派生，表单里零选择器）
         GlassMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-            MenuRow(label = "编辑", icon = Icons.Outlined.Add) { menuOpen = false; onEdit() }
+            MenuRow(label = "编辑", icon = Icons.Outlined.Edit) { menuOpen = false; onEdit() }
             if (onAddChild != null) {
                 MenuRow(label = "添加子项", icon = Icons.Outlined.Add) { menuOpen = false; onAddChild() }
             }
-            MenuRow(label = "删除", icon = Icons.Outlined.Add) { menuOpen = false; onDelete() }
+            MenuRow(label = "删除", icon = Icons.Outlined.DeleteOutline) { menuOpen = false; onDelete() }
         }
     }
 }
@@ -742,24 +777,32 @@ private fun HistoryPane(
                     reorder = true,
                     dragging = draggingId == h.id,
                     dragDelta = if (draggingId == h.id) dragDelta else 0f,
-                    onEdit = { order = null; onEdit(h) },
+                    // P10：排序模式里点行 = 退出排序（不开编辑），给"长按误入"留出口
+                    onEdit = { order = null },
                     onStartReorder = {},
                     onDragStart = { draggingId = h.id; dragDelta = 0f },
                     onDrag = { delta ->
                         dragDelta += delta
                         val current = order.orEmpty().toMutableList()
                         val i = current.indexOf(h.id)
-                        if (i >= 0 && dragDelta > pitchPx && i < current.lastIndex) {
+                        val myPin = histories.firstOrNull { it.id == h.id }?.isPinned ?: false
+                        fun neighborPin(idx: Int) =
+                            histories.firstOrNull { it.id == current.getOrNull(idx) }?.isPinned ?: false
+                        // 歧义#4 定稿：置顶/普通**跨组不换位**（橡皮筋限位），组内随便拖
+                        if (i >= 0 && dragDelta > pitchPx && i < current.lastIndex &&
+                            neighborPin(i + 1) == myPin
+                        ) {
                             current[i] = current[i + 1]
                             current[i + 1] = h.id
                             order = current
                             dragDelta -= pitchPx
-                        } else if (i > 0 && dragDelta < -pitchPx) {
+                        } else if (i > 0 && dragDelta < -pitchPx && neighborPin(i - 1) == myPin) {
                             current[i] = current[i - 1]
                             current[i - 1] = h.id
                             order = current
                             dragDelta += pitchPx
                         }
+                        dragDelta = dragDelta.coerceIn(-pitchPx, pitchPx)
                     },
                     onDragEnd = {
                         val finalOrder = order.orEmpty()
@@ -857,7 +900,16 @@ private fun HistoryRow(
             .padding(horizontal = 14.dp, vertical = 0.dp)
             .padding(bottom = 8.dp)
             .fillMaxWidth()
-            .graphicsLayer { translationY = dragDelta }
+            .graphicsLayer {
+                translationY = dragDelta
+                // P10：拖拽抬升（微放大 + 投影），"拿起来了"看得见
+                if (dragging) {
+                    scaleX = 1.03f
+                    scaleY = 1.03f
+                    shadowElevation = 10.dp.toPx()
+                    shape = RoundedCornerShape(14.dp)
+                }
+            }
             .clip(CardShape)
             .background(colors.paper)
             .border(1.dp, colors.divider, CardShape)
@@ -928,17 +980,13 @@ private fun HistoryRow(
 @Composable
 private fun TaskPill(
     pane: TaskPane,
+    thumbPos: () -> Float,
     todoCount: Int,
     historyCount: Int,
     onPane: (TaskPane) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalAstelleColors.current
-    val thumb by animateFloatAsState(
-        targetValue = if (pane == TaskPane.TODO) 0f else 1f,
-        animationSpec = spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessMediumLow),
-        label = "taskPill",
-    )
     Box(
         modifier
             .width(236.dp)
@@ -947,12 +995,12 @@ private fun TaskPill(
             .background(colors.paper)
             .border(1.dp, colors.divider, RoundedCornerShape(999.dp)),
     ) {
-        // 滑块
+        // 滑块：直接骑翻页进度（0=待办 1=历史）——零延迟跟手
         Box(
             Modifier
                 .align(Alignment.CenterStart)
                 .padding(4.dp)
-                .graphicsLayer { translationX = (size.width) * thumb }
+                .graphicsLayer { translationX = size.width * thumbPos() }
                 .fillMaxWidth(0.5f)
                 .height(38.dp)
                 .clip(RoundedCornerShape(999.dp))
@@ -1031,6 +1079,7 @@ private fun TodoEditorDialog(
     onSave: (title: String, due: LocalDate?, parentId: String?) -> Unit,
     onDelete: () -> Unit,
 ) {
+    val colors = LocalAstelleColors.current
     var title by remember { mutableStateOf(initial?.title.orEmpty()) }
     var due by remember { mutableStateOf(initial?.dueDate) }
     // 子项不设下拉：从卡片派生（长按→添加子项），表单里只留上下文横幅，✕ 可脱离
@@ -1038,39 +1087,60 @@ private fun TodoEditorDialog(
     var showDatePicker by remember { mutableStateOf(false) }
     val effectiveParent = if (detached) null else parentId
 
-    androidx.compose.material3.AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(if (initial == null) "新建待办" else "编辑待办", fontSize = 16.sp) },
-        text = {
-            Column {
-                TaskTextField(value = title, onValueChange = { title = it }, hint = "标题…")
-                Spacer(Modifier.height(12.dp))
-                DateRow(label = "截止", date = due, onPick = { showDatePicker = true }, onClear = { due = null })
-                if (parentTitle != null && !detached) {
-                    Spacer(Modifier.height(10.dp))
-                    ContextBanner(title = parentTitle, onDetach = { detached = true })
+    TaskSheetShell(onDismiss = onDismiss) {
+        Text(
+            if (initial == null) "新建待办" else "编辑待办",
+            fontSize = 12.sp,
+            color = Muted,
+            style = TextStyle(letterSpacing = 0.2.sp),
+        )
+        Spacer(Modifier.height(12.dp))
+        TaskTextField(value = title, onValueChange = { title = it }, hint = "标题…")
+        Spacer(Modifier.height(12.dp))
+        DateRow(label = "截止", date = due, onPick = { showDatePicker = true }, onClear = { due = null })
+        if (parentTitle != null && !detached) {
+            Spacer(Modifier.height(10.dp))
+            ContextBanner(title = parentTitle, onDetach = { detached = true })
+        }
+        Row(
+            Modifier.fillMaxWidth().padding(top = 20.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (initial != null) {
+                val delInteraction = remember { MutableInteractionSource() }
+                Box(
+                    Modifier
+                        .clip(RoundedCornerShape(999.dp))
+                        .border(1.dp, colors.divider, RoundedCornerShape(999.dp))
+                        .clickableNoRipple(delInteraction, onDelete)
+                        .padding(horizontal = 18.dp, vertical = 11.dp),
+                ) {
+                    Text("删除", fontSize = 13.5.sp, color = Muted, style = TextStyle(lineHeightStyle = CenteredLineHeight))
                 }
+            } else {
+                Spacer(Modifier.width(1.dp))
             }
-        },
-        confirmButton = {
-            TextButton(onClick = { if (title.isNotBlank()) onSave(title, due, effectiveParent) }) {
-                Text("保存", color = Accent)
+            val saveInteraction = remember { MutableInteractionSource() }
+            Box(
+                Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(if (title.isNotBlank()) Accent else colors.divider.copy(alpha = 0.5f))
+                    .clickableNoRipple(saveInteraction) {
+                        if (title.isNotBlank()) onSave(title, due, effectiveParent)
+                    }
+                    .padding(horizontal = 24.dp, vertical = 11.dp),
+            ) {
+                Text(
+                    "保存",
+                    fontSize = 13.5.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (title.isNotBlank()) colors.paper else colors.muted,
+                    style = TextStyle(lineHeightStyle = CenteredLineHeight),
+                )
             }
-        },
-        dismissButton = {
-            Row {
-                if (initial != null) {
-                    TextButton(onClick = onDelete) { Text("删除", color = Muted) }
-                }
-                TextButton(onClick = onDismiss) { Text("取消", color = Muted) }
-            }
-        },
-        containerColor = SurfaceFloat,
-        titleContentColor = Ink,
-        textContentColor = Muted,
-        shape = RoundedCornerShape(20.dp),
-        tonalElevation = 0.dp,
-    )
+        }
+    }
 
     if (showDatePicker) {
         val state = rememberDatePickerState(
@@ -1102,40 +1172,64 @@ private fun HistoryEditorDialog(
     onSave: (title: String, start: LocalDate, pinned: Boolean) -> Unit,
     onDelete: () -> Unit,
 ) {
+    val colors = LocalAstelleColors.current
     var title by remember { mutableStateOf(initial?.title.orEmpty()) }
     var start by remember { mutableStateOf(initial?.startDate ?: LocalDate.now()) }
     var pinned by remember { mutableStateOf(initial?.isPinned ?: false) }
     var showDatePicker by remember { mutableStateOf(false) }
 
-    androidx.compose.material3.AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(if (initial == null) "新建历史" else "编辑历史", fontSize = 16.sp) },
-        text = {
-            Column {
-                TaskTextField(value = title, onValueChange = { title = it }, hint = "标题…")
-                Spacer(Modifier.height(12.dp))
-                DateRow(label = "起始", date = start, onPick = { showDatePicker = true }, onClear = null)
-                Spacer(Modifier.height(10.dp))
-                PinRow(pinned = pinned, onToggle = { pinned = !pinned })
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = { if (title.isNotBlank()) onSave(title, start, pinned) }) { Text("保存", color = Accent) }
-        },
-        dismissButton = {
-            Row {
-                if (initial != null) {
-                    TextButton(onClick = onDelete) { Text("删除", color = Muted) }
+    TaskSheetShell(onDismiss = onDismiss) {
+        Text(
+            if (initial == null) "新建历史" else "编辑历史",
+            fontSize = 12.sp,
+            color = Muted,
+            style = TextStyle(letterSpacing = 0.2.sp),
+        )
+        Spacer(Modifier.height(12.dp))
+        TaskTextField(value = title, onValueChange = { title = it }, hint = "标题…")
+        Spacer(Modifier.height(12.dp))
+        DateRow(label = "起始", date = start, onPick = { showDatePicker = true }, onClear = null)
+        Spacer(Modifier.height(10.dp))
+        PinRow(pinned = pinned, onToggle = { pinned = !pinned })
+        Row(
+            Modifier.fillMaxWidth().padding(top = 20.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (initial != null) {
+                val delInteraction = remember { MutableInteractionSource() }
+                Box(
+                    Modifier
+                        .clip(RoundedCornerShape(999.dp))
+                        .border(1.dp, colors.divider, RoundedCornerShape(999.dp))
+                        .clickableNoRipple(delInteraction, onDelete)
+                        .padding(horizontal = 18.dp, vertical = 11.dp),
+                ) {
+                    Text("删除", fontSize = 13.5.sp, color = Muted, style = TextStyle(lineHeightStyle = CenteredLineHeight))
                 }
-                TextButton(onClick = onDismiss) { Text("取消", color = Muted) }
+            } else {
+                Spacer(Modifier.width(1.dp))
             }
-        },
-        containerColor = SurfaceFloat,
-        titleContentColor = Ink,
-        textContentColor = Muted,
-        shape = RoundedCornerShape(20.dp),
-        tonalElevation = 0.dp,
-    )
+            val saveInteraction = remember { MutableInteractionSource() }
+            Box(
+                Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(if (title.isNotBlank()) Accent else colors.divider.copy(alpha = 0.5f))
+                    .clickableNoRipple(saveInteraction) {
+                        if (title.isNotBlank()) onSave(title, start, pinned)
+                    }
+                    .padding(horizontal = 24.dp, vertical = 11.dp),
+            ) {
+                Text(
+                    "保存",
+                    fontSize = 13.5.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (title.isNotBlank()) colors.paper else colors.muted,
+                    style = TextStyle(lineHeightStyle = CenteredLineHeight),
+                )
+            }
+        }
+    }
 
     if (showDatePicker) {
         val state = rememberDatePickerState(
@@ -1281,6 +1375,33 @@ private fun ContextBanner(title: String, onDetach: () -> Unit) {
 }
 
 /**
+ * 表单共用外壳（P2/P5 统一：加待办/编待办/编历史同一张卡、同一套按钮位）。
+ * P6：imePadding 只让**对话框**给键盘让位 —— 背景页面纹丝不动。
+ */
+@Composable
+private fun TaskSheetShell(
+    onDismiss: () -> Unit,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val colors = LocalAstelleColors.current
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Column(
+            Modifier
+                .padding(horizontal = 16.dp)
+                .fillMaxWidth()
+                .imePadding()
+                .clip(RoundedCornerShape(26.dp))
+                .background(colors.paper)
+                .padding(horizontal = 18.dp, vertical = 18.dp),
+            content = content,
+        )
+    }
+}
+
+/**
  * 快记框（10-11 用户亲自设计的交互）：加号弹出 →
  * 每行「勾选框图标 + 输入栏」；**回车 = 换行继续打**（勾选框只是图标，无实际功能，
  * 提示"你正在添加待办"）；第二行出现的瞬间顶部弹「**待办清单**」（默认标题，可自定义，
@@ -1307,30 +1428,48 @@ private fun QuickAddDialog(
     ) {
         Column(
             Modifier
-                .padding(horizontal = 18.dp)
+                .padding(horizontal = 16.dp)
                 .fillMaxWidth()
+                .imePadding()
                 .clip(RoundedCornerShape(26.dp))
                 .background(colors.paper)
-                .padding(horizontal = 22.dp, vertical = 24.dp),
+                .padding(horizontal = 18.dp, vertical = 18.dp),
         ) {
-            // ── 待办清单标题（≥2 行时弹出；默认「待办清单」可自定义） ──
-            AnimatedVisibility(visible = rows.size > 1) {
+            // ── 待办清单标题（≥2 行弹簧展开；行首铅笔 = 可编辑暗示） ──
+            AnimatedVisibility(
+                visible = rows.size > 1,
+                enter = expandVertically(
+                    spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessMediumLow),
+                ) + fadeIn(tween(160)),
+                exit = shrinkVertically(
+                    spring(dampingRatio = 0.9f, stiffness = Spring.StiffnessMediumLow),
+                ) + fadeOut(tween(120)),
+            ) {
                 Column {
-                    BasicTextField(
-                        value = title,
-                        onValueChange = { title = it },
-                        singleLine = true,
-                        textStyle = TextStyle(
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Ink,
-                            fontFamily = FontFamily.Serif,
-                        ),
-                        cursorBrush = SolidColor(Accent),
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Outlined.Edit,
+                            contentDescription = "可编辑标题",
+                            tint = colors.muted,
+                            modifier = Modifier.size(15.dp),
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        BasicTextField(
+                            value = title,
+                            onValueChange = { title = it },
+                            singleLine = true,
+                            textStyle = TextStyle(
+                                fontSize = 19.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Ink,
+                                fontFamily = FontFamily.Serif,
+                            ),
+                            cursorBrush = SolidColor(Accent),
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+                        )
+                    }
                     Box(Modifier.fillMaxWidth().height(1.dp).background(colors.divider))
-                    Spacer(Modifier.height(14.dp))
+                    Spacer(Modifier.height(12.dp))
                 }
             }
 
@@ -1344,16 +1483,16 @@ private fun QuickAddDialog(
                         // 装饰性勾选框（无实际功能，提示"正在添加待办"）
                         Box(
                             Modifier
-                                .size(27.dp)
-                                .clip(RoundedCornerShape(9.dp))
-                                .border(2.dp, colors.muted, RoundedCornerShape(9.dp)),
+                                .size(22.dp)
+                                .clip(RoundedCornerShape(7.dp))
+                                .border(1.6.dp, colors.muted, RoundedCornerShape(7.dp)),
                         )
-                        Spacer(Modifier.width(16.dp))
+                        Spacer(Modifier.width(13.dp))
                         BasicTextField(
                             value = value,
                             onValueChange = { text -> rows = rows.toMutableList().also { it[index] = text } },
                             singleLine = true,
-                            textStyle = TextStyle(fontSize = 20.sp, color = Ink),
+                            textStyle = TextStyle(fontSize = 17.sp, color = Ink),
                             cursorBrush = SolidColor(Accent),
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                             keyboardActions = KeyboardActions(onDone = {
@@ -1386,7 +1525,7 @@ private fun QuickAddDialog(
                                     if (value.isEmpty()) {
                                         Text(
                                             "回车即可连续添加待办",
-                                            fontSize = 20.sp,
+                                            fontSize = 17.sp,
                                             color = Ghost.copy(alpha = 0.7f),
                                         )
                                     }
@@ -1410,14 +1549,20 @@ private fun QuickAddDialog(
                         .clip(RoundedCornerShape(999.dp))
                         .background(colors.accentMist)
                         .clickableNoRipple(dueInteraction) { showDatePicker = true }
-                        .padding(horizontal = 20.dp, vertical = 13.dp),
+                        .padding(horizontal = 18.dp, vertical = 11.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text("⏱", fontSize = 15.sp, color = Ink)
-                    Spacer(Modifier.width(10.dp))
+                    // SVG 闹钟（P9：emoji 各机型长相不一，不用）
+                    Icon(
+                        Icons.Outlined.Schedule,
+                        contentDescription = null,
+                        tint = Ink,
+                        modifier = Modifier.size(17.dp),
+                    )
+                    Spacer(Modifier.width(9.dp))
                     Text(
                         due?.format(DateFmt)?.let { "截止 $it" } ?: "设置截止",
-                        fontSize = 15.sp,
+                        fontSize = 13.5.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = Ink,
                         style = TextStyle(lineHeightStyle = CenteredLineHeight),
@@ -1437,11 +1582,11 @@ private fun QuickAddDialog(
                                 )
                             }
                         }
-                        .padding(horizontal = 26.dp, vertical = 13.dp),
+                        .padding(horizontal = 24.dp, vertical = 11.dp),
                 ) {
                     Text(
                         "完成",
-                        fontSize = 15.sp,
+                        fontSize = 13.5.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = if (anyText) colors.paper else colors.muted,
                         style = TextStyle(lineHeightStyle = CenteredLineHeight),
