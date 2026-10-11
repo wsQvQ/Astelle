@@ -59,10 +59,10 @@ class TaskViewModel @Inject constructor(
         }
     }
 
-    fun editTodo(id: String, title: String, dueDate: LocalDate?) {
+    fun editTodo(id: String, title: String, dueDate: LocalDate?, parentId: String?) {
         val old = todos.value.firstOrNull { it.id == id } ?: return
         viewModelScope.launch {
-            repo.upsertTodo(old.copy(title = title.trim(), dueDate = dueDate))
+            repo.upsertTodo(old.copy(title = title.trim(), dueDate = dueDate, parentId = parentId))
         }
     }
 

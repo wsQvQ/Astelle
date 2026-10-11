@@ -110,6 +110,7 @@ fun PlansScreen(
     // 编辑表单：null = 关；data = 编辑中的对象（null = 新建）
     var todoEditor by remember { mutableStateOf<Todo?>(null) }
     var showTodoEditor by remember { mutableStateOf(false) }
+    var childParent by remember { mutableStateOf<Todo?>(null) }
     var historyEditor by remember { mutableStateOf<History?>(null) }
     var showHistoryEditor by remember { mutableStateOf(false) }
     var doneExpanded by remember { mutableStateOf(false) }
@@ -198,8 +199,13 @@ fun PlansScreen(
                     onFilter = { viewModel.filter = it },
                     onToggleDoneExpanded = { doneExpanded = !doneExpanded },
                     onToggle = { id, done -> viewModel.toggleTodo(id, done) },
-                    onEdit = { todoEditor = it; showTodoEditor = true },
+                    onEdit = { todoEditor = it; childParent = null; showTodoEditor = true },
                     onDelete = { viewModel.deleteTodo(it) },
+                    onAddChild = { parent ->
+                        childParent = parent
+                        todoEditor = null
+                        showTodoEditor = true
+                    },
                 )
                 TaskPane.HISTORY -> HistoryPane(
                     histories = histories,
@@ -210,39 +216,51 @@ fun PlansScreen(
                 )
             }
 
-            // ── 底部双件套（首页工具栏语法：胶囊居中 + 加号球钉右） ──
-            TaskPill(
-                pane = viewModel.pane,
-                todoCount = todos.count { !it.isDone && it.parentId == null },
-                historyCount = histories.size,
-                onPane = { viewModel.pane = it },
-                modifier = Modifier
+            // ── 底部双件套（首页工具栏语法：胶囊 + 加号球**整组居中**，相对位置不变） ──
+            Row(
+                Modifier
                     .align(Alignment.BottomCenter)
                     .padding(bottom = 22.dp),
-            )
-            Ball(
-                onClick = {
-                    when (viewModel.pane) {
-                        TaskPane.TODO -> { todoEditor = null; showTodoEditor = true }
-                        TaskPane.HISTORY -> { historyEditor = null; showHistoryEditor = true }
-                    }
-                },
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(end = 22.dp, bottom = 21.dp),
-            )
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TaskPill(
+                    pane = viewModel.pane,
+                    todoCount = todos.count { !it.isDone && it.parentId == null },
+                    historyCount = histories.size,
+                    onPane = { viewModel.pane = it },
+                )
+                Spacer(Modifier.width(10.dp))
+                Ball(
+                    onClick = {
+                        when (viewModel.pane) {
+                            TaskPane.TODO -> {
+                                todoEditor = null
+                                childParent = null
+                                showTodoEditor = true
+                            }
+                            TaskPane.HISTORY -> {
+                                historyEditor = null
+                                showHistoryEditor = true
+                            }
+                        }
+                    },
+                )
+            }
         }
     }
 
     if (showTodoEditor) {
+        val parentId = todoEditor?.parentId ?: childParent?.id
+        val parentTitle = parentId?.let { pid -> todos.firstOrNull { it.id == pid }?.title }
         TodoEditorDialog(
             initial = todoEditor,
-            parents = todos.filter { it.parentId == null && !it.isDone },
+            parentId = parentId,
+            parentTitle = parentTitle,
             onDismiss = { showTodoEditor = false },
-            onSave = { title, due, parentId ->
+            onSave = { title, due, pid ->
                 val t = todoEditor
-                if (t == null) viewModel.addTodo(title, due, parentId)
-                else viewModel.editTodo(t.id, title, due)
+                if (t == null) viewModel.addTodo(title, due, pid)
+                else viewModel.editTodo(t.id, title, due, pid)
                 showTodoEditor = false
             },
             onDelete = {
@@ -284,6 +302,7 @@ private fun TodoPane(
     onToggle: (String, Boolean) -> Unit,
     onEdit: (Todo) -> Unit,
     onDelete: (String) -> Unit,
+    onAddChild: (Todo) -> Unit,
 ) {
     val colors = LocalAstelleColors.current
     val activeParents = todos.filter { it.parentId == null && !it.isDone }
@@ -302,7 +321,7 @@ private fun TodoPane(
     ) {
         // 筛选 chips（同侧栏筛选语言）
         Row(
-            Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 2.dp),
+            Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 14.dp),
             horizontalArrangement = Arrangement.spacedBy(9.dp),
         ) {
             FilterChip("全部", activeParents.size, filter == TaskLogic.Filter.ALL) { onFilter(TaskLogic.Filter.ALL) }
@@ -333,6 +352,7 @@ private fun TodoPane(
                 onToggle = { onToggle(item.id, it) },
                 onEdit = { onEdit(item) },
                 onDelete = { onDelete(item.id) },
+                onAddChild = if (isSub) null else ({ onAddChild(item) }),
             )
         }
 
@@ -441,6 +461,7 @@ private fun TodoRow(
     onToggle: (Boolean) -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
+    onAddChild: (() -> Unit)? = null,
 ) {
     val colors = LocalAstelleColors.current
     val overdue = TaskLogic.isOverdue(today, todo.dueDate)
@@ -453,7 +474,7 @@ private fun TodoRow(
                 .padding(
                     start = if (isSub) 34.dp else 14.dp,
                     end = 14.dp,
-                    top = 0.dp,
+                    top = 4.dp,
                     bottom = 8.dp,
                 )
                 .fillMaxWidth()
@@ -532,8 +553,8 @@ private fun TodoRow(
             val right = countdownText(today, todo.dueDate)
             Text(
                 right.first,
-                fontSize = if (isSub) 13.sp else 15.sp,
-                fontWeight = FontWeight.Normal,
+                fontSize = if (isSub) 15.sp else 20.sp,
+                fontWeight = FontWeight.Medium,
                 color = when {
                     todo.isDone -> colors.muted
                     right.second -> colors.danger
@@ -543,13 +564,16 @@ private fun TodoRow(
             )
             if (right.first != "今天" && right.first != "—") {
                 Spacer(Modifier.width(3.dp))
-                Text("天", fontSize = 10.sp, color = colors.muted, style = TextStyle(lineHeightStyle = CenteredLineHeight))
+                Text("天", fontSize = 10.5.sp, color = colors.muted, style = TextStyle(lineHeightStyle = CenteredLineHeight))
             }
         }
 
-        // 长按菜单（编辑 / 删除）
+        // 长按菜单（编辑 / 添加子项 / 删除 —— 子项从卡片派生，表单里零选择器）
         GlassMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
             MenuRow(label = "编辑", icon = Icons.Outlined.Add) { menuOpen = false; onEdit() }
+            if (onAddChild != null) {
+                MenuRow(label = "添加子项", icon = Icons.Outlined.Add) { menuOpen = false; onAddChild() }
+            }
             MenuRow(label = "删除", icon = Icons.Outlined.Add) { menuOpen = false; onDelete() }
         }
     }
@@ -901,15 +925,18 @@ private fun Ball(onClick: () -> Unit, modifier: Modifier = Modifier) {
 @Composable
 private fun TodoEditorDialog(
     initial: Todo?,
-    parents: List<Todo>,
+    parentId: String?,
+    parentTitle: String?,
     onDismiss: () -> Unit,
     onSave: (title: String, due: LocalDate?, parentId: String?) -> Unit,
     onDelete: () -> Unit,
 ) {
     var title by remember { mutableStateOf(initial?.title.orEmpty()) }
     var due by remember { mutableStateOf(initial?.dueDate) }
-    var parent by remember { mutableStateOf(initial?.parentId) }
+    // 子项不设下拉：从卡片派生（长按→添加子项），表单里只留上下文横幅，✕ 可脱离
+    var detached by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
+    val effectiveParent = if (detached) null else parentId
 
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
@@ -919,14 +946,14 @@ private fun TodoEditorDialog(
                 TaskTextField(value = title, onValueChange = { title = it }, hint = "标题…")
                 Spacer(Modifier.height(12.dp))
                 DateRow(label = "截止", date = due, onPick = { showDatePicker = true }, onClear = { due = null })
-                if (initial == null && parents.isNotEmpty()) {
+                if (parentTitle != null && !detached) {
                     Spacer(Modifier.height(10.dp))
-                    ParentRow(parents = parents, selectedId = parent, onSelect = { parent = it })
+                    ContextBanner(title = parentTitle, onDetach = { detached = true })
                 }
             }
         },
         confirmButton = {
-            TextButton(onClick = { if (title.isNotBlank()) onSave(title, due, if (initial == null) parent else initial.parentId) }) {
+            TextButton(onClick = { if (title.isNotBlank()) onSave(title, due, effectiveParent) }) {
                 Text("保存", color = Accent)
             }
         },
@@ -1089,31 +1116,38 @@ private fun DateRow(label: String, date: LocalDate?, onPick: () -> Unit, onClear
     }
 }
 
+/**
+ * 上下文横幅：「加入「冰岛行程准备」」+ ✕ 脱离。
+ * 子项从卡片派生（长按→添加子项），表单里**零选择器零行话**——
+ * 「母项」是我们的专业词，不上生产文案（10-11 用户点名）。
+ */
 @Composable
-private fun ParentRow(parents: List<Todo>, selectedId: String?, onSelect: (String?) -> Unit) {
+private fun ContextBanner(title: String, onDetach: () -> Unit) {
     val colors = LocalAstelleColors.current
-    var open by remember { mutableStateOf(false) }
-    val label = parents.firstOrNull { it.id == selectedId }?.title ?: "无（顶层）"
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Text("母项", fontSize = 12.sp, color = colors.muted, style = TextStyle(letterSpacing = 0.1.sp))
-        Spacer(Modifier.width(12.dp))
-        Box {
-            val interaction = remember { MutableInteractionSource() }
-            Box(
-                Modifier
-                    .clip(RoundedCornerShape(999.dp))
-                    .border(1.dp, colors.divider, RoundedCornerShape(999.dp))
-                    .clickableNoRipple(interaction) { open = true }
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-            ) {
-                Text(label, fontSize = 12.5.sp, color = if (selectedId == null) colors.muted else Ink)
-            }
-            GlassMenu(expanded = open, onDismissRequest = { open = false }) {
-                MenuRow(label = "无（顶层）", icon = Icons.Outlined.Add) { open = false; onSelect(null) }
-                parents.forEach { p ->
-                    MenuRow(label = p.title, icon = Icons.Outlined.Add) { open = false; onSelect(p.id) }
-                }
-            }
+        Box(
+            Modifier
+                .weight(1f)
+                .clip(RoundedCornerShape(10.dp))
+                .background(colors.accentMist.copy(alpha = 0.6f))
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+        ) {
+            Text(
+                "加入「$title」",
+                fontSize = 12.sp,
+                color = colors.inkSoft,
+                style = TextStyle(letterSpacing = 0.05.sp),
+            )
+        }
+        Spacer(Modifier.width(8.dp))
+        val interaction = remember { MutableInteractionSource() }
+        Box(
+            Modifier
+                .clip(RoundedCornerShape(999.dp))
+                .clickableNoRipple(interaction, onDetach)
+                .padding(6.dp),
+        ) {
+            Text("✕", fontSize = 12.sp, color = colors.muted)
         }
     }
 }
