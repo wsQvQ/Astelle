@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Astelle · 添加待办 快记框 v1</title>
+<style>
+  :root{
+    --paper:#F6F1E8; --card:#FFFCF7; --ink:#2B2620; --ink-soft:#6B6258;
+    --muted:#A29789; --accent:#B85C38; --accent-mist:#F3E2D8; --danger:#A33B2E;
+    --divider:rgba(43,38,32,.12);
+    --serif:"Noto Serif SC","Source Han Serif SC","Songti SC","SimSun",serif;
+    --sans:"PingFang SC","Microsoft YaHei","Noto Sans SC",sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#B9B3AA;font-family:var(--sans);color:var(--ink);-webkit-font-smoothing:antialiased;
+       min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 16px}
+  .note{font-size:11px;color:rgba(255,255,255,.75);letter-spacing:.12em;margin-bottom:18px;line-height:2;text-align:center}
+
+  /* ── 快记框 ── */
+  .dialog{width:min(640px,94vw);background:var(--card);border-radius:30px;padding:26px 26px 22px;
+          box-shadow:0 24px 70px rgba(43,38,32,.25);position:relative}
+
+  /* 待办总标题：回车出现 */
+  .master{overflow:hidden;max-height:0;opacity:0;transition:max-height .32s cubic-bezier(.22,1,.36,1),opacity .28s ease,margin .32s ease}
+  .master.show{max-height:90px;opacity:1;margin-bottom:10px}
+  .master input{width:100%;border:none;outline:none;background:transparent;font-family:var(--serif);
+                font-size:22px;font-weight:600;color:var(--ink);padding:2px 2px 12px}
+  .master input::placeholder{color:var(--muted);font-weight:500}
+  .master .line{height:1px;background:var(--divider);margin-bottom:14px}
+
+  /* 待办行 */
+  .rows{min-height:96px;max-height:270px;overflow-y:auto;padding-right:4px}
+  .row{display:flex;align-items:center;gap:16px;padding:6px 2px}
+  .c\boxed{width:27px;height:27px;border-radius:9px;border:2px solid var(--muted);flex:none;
+          display:flex;align-items:center;justify-content:center;cursor:pointer;
+          transition:background .15s ease,border-color .15s ease,transform .12s ease}
+  .cbox:active{transform:scale(.9)}
+  .cbox.done{background:var(--accent);border-color:var(--accent)}
+  .cbox svg{width:15px;height:15px;display:none}
+  .cbox.done svg{display:block}
+  .row input{flex:1;border:none;outline:none;background:transparent;font-family:var(--sans);
+             font-size:20px;color:var(--ink);padding:6px 0}
+  .row input::placeholder{color:var(--muted)}
+
+  /* 底部：设置截止 + 完成 */
+  .foot{display:flex;align-items:center;justify-content:space-between;margin-top:26px}
+  .due-btn{display:flex;align-items:center;gap:11px;background:var(--accent-mist);border:none;
+           border-radius:999px;padding:14px 22px;font-family:var(--sans);font-size:15px;
+           font-weight:600;color:var(--ink);cursor:pointer}
+  .due-btn svg{width:21px;height:21px}
+  .due-btn:active{transform:scale(.97)}
+  .done-btn{background:#EDE9E3;border:none;border-radius:999px;padding:14px 30px;font-family:var(--sans);
+            font-size:15px;font-weight:600;color:var(--muted);cursor:not-allowed;transition:.2s}
+  .done-btn.on{background:var(--accent);color:var(--card);cursor:pointer}
+
+  /* 日历浮层 */
+  .cal{position:absolute;left:26px;bottom:84px;background:var(--card);border:1px solid var(--divider);
+       border-radius:18px;padding:16px;width:262px;box-shadow:0 14px 40px rgba(43,38,32,.18);
+       display:none;z-index:5}
+  .cal.show{display:block}
+  .cal-head{display:flex;justify-content:space-between;align-items:center;font-family:var(--serif);
+            font-size:15px;margin-bottom:10px}
+  .cal-head button{background:none;border:none;font-size:16px;color:var(--muted);cursor:pointer}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+  .cal-grid .dow{font-size:10px;color:var(--muted);text-align:center;padding:4px 0;letter-spacing:.1em}
+  .cal-grid .day{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:12.5px;
+                 border-radius:50%;cursor:pointer}
+  .cal-grid .day:hover{background:var(--accent-mist)}
+  .cal-grid .day.today{border:1px solid var(--accent)}
+  .cal-grid .day.sel{background:var(--accent);color:var(--card)}
+  .cal-clear{width:100%;margin-top:10px;border:none;background:none;color:var(--muted);
+             font-size:11.5px;letter-spacing:.15em;padding:6px;cursor:pointer}
+</style>
+</head>
+<body>
+
+<div class="note">
+  点下方加号弹出的快记框 · <b>打字 → 回车 = 连续换行</b> · 第二行出现的瞬间顶部弹「待办总标题」<br>
+  （一行 = 单个待办；多行 = 总标题 + 子项）· 勾选框可先勾 · 左下设截止 · 右下完成
+</div>
+
+<div class="dialog">
+  <!-- 待办总标题（回车弹出） -->
+  <div class="master" id="master">
+    <input id="masterTitle" placeholder="待办总标题" />
+    <div class="line"></div>
+  </div>
+
+  <!-- 待办行 -->
+  <div class="rows" id="rows"></div>
+
+  <!-- 日历 -->
+  <div class="cal" id="cal">
+    <div class="cal-head">
+      <button onclick="shiftMonth(-1)">‹</button>
+      <span id="calLabel"></span>
+      <button onclick="shiftMonth(1)">›</button>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+    <button class="cal-clear" onclick="clearDue()">清 除 截 止</button>
+  </div>
+
+  <!-- 底部双键 -->
+  <div class="foot">
+    <button class="due-btn" onclick="toggleCal()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#2B2620" stroke-width="1.7" stroke-linecap="round">
+        <circle cx="12" cy="13" r="8"/><path d="M12 13V9M9.5 4h5"/>
+      </svg>
+      <span id="dueLabel">设置截止</span>
+    </button>
+    <button class="done-btn" id="doneBtn" onclick="finish()">完成</button>
+  </div>
+</div>
+
+<script>
+  const rowsEl = document.getElementById('rows');
+  const master = document.getElementById('master');
+  const doneBtn = document.getElementById('doneBtn');
+
+  function makeRow() {
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.innerHTML = `
+      <div class="cbox" onclick="this.classList.toggle('done')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#FFFCF7" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 12.5l3.6 3.6L18 8.5"/>
+        </svg>
+      </div>
+      <input placeholder="回车即可连续添加待办" />`;
+    const input = row.querySelector('input');
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        // 回车：下方新增一行勾选框 + 顶部弹出待办总标题
+        const nr = makeRow();
+        row.after(nr);
+        nr.querySelector('input').focus();
+        syncMaster();
+        refreshDone();
+      } else if (e.key === 'Backspace' && input.value === '' && rowsEl.children.length > 1) {
+        e.preventDefault();
+        const prev = row.previousElementSibling;
+        row.remove();
+        if (prev) prev.querySelector('input').focus();
+        syncMaster();
+        refreshDone();
+      }
+    });
+    input.addEventListener('input', refreshDone);
+    return row;
+  }
+
+  function syncMaster() {
+    master.classList.toggle('show', rowsEl.children.length > 1);
+    if (rowsEl.children.length > 1) {
+      const t = document.getElementById('masterTitle');
+      if (!t.value && !t.dataset.hinted) { t.dataset.hinted = '1'; }
+    }
+  }
+
+  function refreshDone() {
+    const anyText = [...rowsEl.querySelectorAll('input')].some(i => i.value.trim() !== '');
+    doneBtn.classList.toggle('on', anyText);
+    doneBtn.style.cursor = anyText ? 'pointer' : 'not-allowed';
+  }
+
+  function finish() {
+    if (!doneBtn.classList.contains('on')) return;
+    doneBtn.textContent = '已添加 ✓';
+    doneBtn.style.background = 'var(--accent)';
+    setTimeout(() => { doneBtn.textContent = '完成'; }, 1200);
+  }
+
+  // ── 日历 ──
+  let calDate = new Date();
+  let due = null;
+  const DOW = ['日','一','二','三','四','五','六'];
+
+  function toggleCal() {
+    document.getElementById('cal').classList.toggle('show');
+  }
+
+  function shiftMonth(d) {
+    calDate = new Date(calDate.getFullYear(), calDate.getMonth() + d, 1);
+    renderCal();
+  }
+
+  function renderCal() {
+    const grid = document.getElementById('calGrid');
+    document.getElementById('calLabel').textContent =
+      `${calDate.getFullYear()} 年 ${calDate.getMonth() + 1} 月`;
+    grid.innerHTML = DOW.map(d => `<div class="dow">${d}</div>`).join('');
+    const first = new Date(calDate.getFullYear(), calDate.getMonth(), 1).getDay();
+    const days = new Date(calDate.getFullYear(), calDate.getMonth() + 1, 0).getDate();
+    for (let i = 0; i < first; i++) grid.insertAdjacentHTML('beforeend', '<div class="day"></div>');
+    const today = new Date();
+    for (let d = 1; d <= days; d++) {
+      const cls = ['day'];
+      if (d === today.getDate() && calDate.getMonth() === today.getMonth() && calDate.getFullYear() === today.getFullYear()) cls.push('today');
+      if (due && d === due.getDate() && calDate.getMonth() === due.getMonth() && calDate.getFullYear() === due.getFullYear()) cls.push('sel');
+      grid.insertAdjacentHTML('beforeend',
+        `<div class="${cls.join(' ')}" onclick="pickDay(${d})">${d}</div>`);
+    }
+  }
+
+  function pickDay(d) {
+    due = new Date(calDate.getFullYear(), calDate.getMonth(), d);
+    document.getElementById('dueLabel').textContent =
+      `截止 ${due.getMonth() + 1}-${String(due.getDate()).padStart(2, '0')}`;
+    document.getElementById('cal').classList.remove('show');
+    renderCal();
+  }
+
+  function clearDue() {
+    due = null;
+    document.getElementById('dueLabel').textContent = '设置截止';
+    document.getElementById('cal').classList.remove('show');
+    renderCal();
+  }
+
+  // 初始：一行
+  const first = makeRow();
+  rowsEl.appendChild(first);
+  first.querySelector('input').focus();
+  renderCal();
+</script>
+</body>
+</html>
