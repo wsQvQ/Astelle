@@ -59,12 +59,15 @@ object TaskLogic {
                 .thenBy { it.createdAt }
         )
 
-    /** 历史排序：置顶 → 天数大者在前 → sortOrder */
+    /**
+     * 历史排序：置顶 → **手动顺序优先**（sortOrder，拖拽写入）→ 未拖过的按天数大者在前。
+     * 10-11：用户要拖拽排序 —— sortOrder 全员平手（默认 0）时退回天数序，原口径不丢。
+     */
     fun sortHistories(list: List<History>, today: LocalDate): List<History> =
         list.sortedWith(
             compareByDescending<History> { it.isPinned }
-                .thenByDescending { daysSince(today, it.startDate) }
                 .thenBy { it.sortOrder }
+                .thenByDescending { daysSince(today, it.startDate) }
         )
 
     // ── 母子结构 ──────────────────────────────────────────

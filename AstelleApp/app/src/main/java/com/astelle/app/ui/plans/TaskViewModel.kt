@@ -59,6 +59,45 @@ class TaskViewModel @Inject constructor(
         }
     }
 
+    /**
+     * 快记框批量落库（10-11 设计）：≥2 行 = 「待办清单」母项 + 子项；1 行 = 独立待办。
+     */
+    fun addTodoGroup(title: String, dueDate: LocalDate?, children: List<String>) {
+        if (children.isEmpty()) return
+        if (children.size == 1) {
+            addTodo(children.first(), dueDate, null)
+            return
+        }
+        val now = System.currentTimeMillis()
+        val parentId = UUID.randomUUID().toString()
+        viewModelScope.launch {
+            repo.upsertTodo(
+                Todo(id = parentId, title = title.trim().ifBlank { "待办清单" }, dueDate = dueDate, createdAt = now)
+            )
+            children.forEachIndexed { index, child ->
+                repo.upsertTodo(
+                    Todo(
+                        id = UUID.randomUUID().toString(),
+                        title = child.trim(),
+                        parentId = parentId,
+                        createdAt = now + index,
+                        sortOrder = index,
+                    )
+                )
+            }
+        }
+    }
+
+    /** 历史拖拽排序：按最终顺序重写 sortOrder */
+    fun reorderHistories(orderedIds: List<String>) {
+        val map = histories.value.associateBy { it.id }
+        viewModelScope.launch {
+            orderedIds.forEachIndexed { index, id ->
+                map[id]?.let { repo.upsertHistory(it.copy(sortOrder = index)) }
+            }
+        }
+    }
+
     fun editTodo(id: String, title: String, dueDate: LocalDate?, parentId: String?) {
         val old = todos.value.firstOrNull { it.id == id } ?: return
         viewModelScope.launch {
@@ -72,22 +111,23 @@ class TaskViewModel @Inject constructor(
 
     // ── 历史 ──
 
-    fun addHistory(title: String, startDate: LocalDate) {
+    fun addHistory(title: String, startDate: LocalDate, pinned: Boolean = false) {
         viewModelScope.launch {
             repo.upsertHistory(
                 History(
                     id = UUID.randomUUID().toString(),
                     title = title.trim(),
                     startDate = startDate,
+                    isPinned = pinned,
                 )
             )
         }
     }
 
-    fun editHistory(id: String, title: String, startDate: LocalDate) {
+    fun editHistory(id: String, title: String, startDate: LocalDate, pinned: Boolean) {
         val old = histories.value.firstOrNull { it.id == id } ?: return
         viewModelScope.launch {
-            repo.upsertHistory(old.copy(title = title.trim(), startDate = startDate))
+            repo.upsertHistory(old.copy(title = title.trim(), startDate = startDate, isPinned = pinned))
         }
     }
 

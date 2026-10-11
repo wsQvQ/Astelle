@@ -1,6 +1,30 @@
 package com.astelle.app.ui.plans
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material.icons.outlined.Menu
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.window.Dialog
+import kotlinx.coroutines.launch
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
@@ -39,6 +63,8 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -103,6 +129,7 @@ fun PlansScreen(
     val todos by viewModel.todos.collectAsStateWithLifecycle()
     val histories by viewModel.histories.collectAsStateWithLifecycle()
     val today = remember { LocalDate.now() }
+    val scope = rememberCoroutineScope()
 
     val scrollBehavior =
         TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
@@ -114,6 +141,7 @@ fun PlansScreen(
     var historyEditor by remember { mutableStateOf<History?>(null) }
     var showHistoryEditor by remember { mutableStateOf(false) }
     var doneExpanded by remember { mutableStateOf(false) }
+    var showQuickAdd by remember { mutableStateOf(false) }
 
     Column(
         Modifier
@@ -190,30 +218,41 @@ fun PlansScreen(
         }
 
         Box(Modifier.weight(1f)) {
-            when (viewModel.pane) {
-                TaskPane.TODO -> TodoPane(
-                    todos = todos,
-                    today = today,
-                    filter = viewModel.filter,
-                    doneExpanded = doneExpanded,
-                    onFilter = { viewModel.filter = it },
-                    onToggleDoneExpanded = { doneExpanded = !doneExpanded },
-                    onToggle = { id, done -> viewModel.toggleTodo(id, done) },
-                    onEdit = { todoEditor = it; childParent = null; showTodoEditor = true },
-                    onDelete = { viewModel.deleteTodo(it) },
-                    onAddChild = { parent ->
-                        childParent = parent
-                        todoEditor = null
-                        showTodoEditor = true
-                    },
-                )
-                TaskPane.HISTORY -> HistoryPane(
-                    histories = histories,
-                    today = today,
-                    onEdit = { historyEditor = it; showHistoryEditor = true },
-                    onTogglePin = { id, pinned -> viewModel.togglePinHistory(id, pinned) },
-                    onDelete = { viewModel.deleteHistory(it) },
-                )
+            // ── 左右滑切页（10-11）：两区一个 Pager，胶囊联动；边缘起滑让给系统返回手势 ──
+            val pagerState = rememberPagerState(
+                initialPage = if (viewModel.pane == TaskPane.TODO) 0 else 1,
+            ) { 2 }
+            LaunchedEffect(pagerState) {
+                snapshotFlow { pagerState.settledPage }.collect { page ->
+                    viewModel.pane = if (page == 0) TaskPane.TODO else TaskPane.HISTORY
+                }
+            }
+            HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
+                if (page == 0) {
+                    TodoPane(
+                        todos = todos,
+                        today = today,
+                        filter = viewModel.filter,
+                        doneExpanded = doneExpanded,
+                        onFilter = { viewModel.filter = it },
+                        onToggleDoneExpanded = { doneExpanded = !doneExpanded },
+                        onToggle = { id, done -> viewModel.toggleTodo(id, done) },
+                        onEdit = { todoEditor = it; childParent = null; showTodoEditor = true },
+                        onDelete = { viewModel.deleteTodo(it) },
+                        onAddChild = { parent ->
+                            childParent = parent
+                            todoEditor = null
+                            showTodoEditor = true
+                        },
+                    )
+                } else {
+                    HistoryPane(
+                        histories = histories,
+                        today = today,
+                        onEdit = { historyEditor = it; showHistoryEditor = true },
+                        onReorder = { viewModel.reorderHistories(it) },
+                    )
+                }
             }
 
             // ── 底部双件套（首页工具栏语法：胶囊 + 加号球**整组居中**，相对位置不变） ──
@@ -227,17 +266,17 @@ fun PlansScreen(
                     pane = viewModel.pane,
                     todoCount = todos.count { !it.isDone && it.parentId == null },
                     historyCount = histories.size,
-                    onPane = { viewModel.pane = it },
+                    onPane = { pane ->
+                        scope.launch {
+                            pagerState.animateScrollToPage(if (pane == TaskPane.TODO) 0 else 1)
+                        }
+                    },
                 )
                 Spacer(Modifier.width(10.dp))
                 Ball(
                     onClick = {
                         when (viewModel.pane) {
-                            TaskPane.TODO -> {
-                                todoEditor = null
-                                childParent = null
-                                showTodoEditor = true
-                            }
+                            TaskPane.TODO -> showQuickAdd = true
                             TaskPane.HISTORY -> {
                                 historyEditor = null
                                 showHistoryEditor = true
@@ -247,6 +286,16 @@ fun PlansScreen(
                 )
             }
         }
+    }
+
+    if (showQuickAdd) {
+        QuickAddDialog(
+            onDismiss = { showQuickAdd = false },
+            onDone = { title, dueDate, items ->
+                viewModel.addTodoGroup(title, dueDate, items)
+                showQuickAdd = false
+            },
+        )
     }
 
     if (showTodoEditor) {
@@ -274,10 +323,10 @@ fun PlansScreen(
         HistoryEditorDialog(
             initial = historyEditor,
             onDismiss = { showHistoryEditor = false },
-            onSave = { title, start ->
+            onSave = { title, start, pinned ->
                 val h = historyEditor
-                if (h == null) viewModel.addHistory(title, start)
-                else viewModel.editHistory(h.id, title, start)
+                if (h == null) viewModel.addHistory(title, start, pinned)
+                else viewModel.editHistory(h.id, title, start, pinned)
                 showHistoryEditor = false
             },
             onDelete = {
@@ -553,14 +602,12 @@ private fun TodoRow(
             val right = countdownText(today, todo.dueDate)
             Text(
                 right.first,
-                fontSize = if (isSub) 15.sp else 20.sp,
-                fontWeight = FontWeight.Medium,
+                style = numeralStyle(if (isSub) 17f else 24f, FontWeight.Medium),
                 color = when {
                     todo.isDone -> colors.muted
                     right.second -> colors.danger
                     else -> Accent
                 },
-                style = TextStyle(lineHeightStyle = CenteredLineHeight),
             )
             if (right.first != "今天" && right.first != "—") {
                 Spacer(Modifier.width(3.dp))
@@ -638,11 +685,19 @@ private fun HistoryPane(
     histories: List<History>,
     today: LocalDate,
     onEdit: (History) -> Unit,
-    onTogglePin: (String, Boolean) -> Unit,
-    onDelete: (String) -> Unit,
+    onReorder: (List<String>) -> Unit,
 ) {
-    val colors = LocalAstelleColors.current
-    val sorted = TaskLogic.sortHistories(histories, today)
+    // 排序模式（10-11：长按出汉堡手柄，拖动调序；松手落库退出）
+    var order by remember { mutableStateOf<List<String>?>(null) }
+    var draggingId by remember { mutableStateOf<String?>(null) }
+    var dragDelta by remember { mutableFloatStateOf(0f) }
+    val pitchPx = with(LocalDensity.current) { 76.dp.toPx() }
+
+    val shown = if (order != null) {
+        order.orEmpty().mapNotNull { id -> histories.firstOrNull { it.id == id } }
+    } else {
+        TaskLogic.sortHistories(histories, today)
+    }
 
     Column(
         Modifier
@@ -650,29 +705,71 @@ private fun HistoryPane(
             .verticalScroll(rememberScrollState())
             .padding(bottom = 96.dp),
     ) {
-        if (sorted.isEmpty()) {
+        if (shown.isEmpty()) {
             EmptyHint("暂无历史")
             return@Column
         }
 
-        // 头条：置顶项（无置顶则第一项）→ 64px 巨型数字卡
-        val hero = sorted.firstOrNull { it.isPinned } ?: sorted.first()
-        HeroHistoryCard(
-            history = hero,
-            today = today,
-            onEdit = { onEdit(hero) },
-            onTogglePin = { onTogglePin(hero.id, !hero.isPinned) },
-            onDelete = { onDelete(hero.id) },
-        )
-
-        sorted.filter { it.id != hero.id }.forEach { h ->
-            HistoryRow(
-                history = h,
+        if (order == null) {
+            // 正常态：置顶/第一项 → 头条巨型卡，其余为行；长按任意一条进入排序
+            val hero = shown.firstOrNull { it.isPinned } ?: shown.first()
+            HeroHistoryCard(
+                history = hero,
                 today = today,
-                onEdit = { onEdit(h) },
-                onTogglePin = { onTogglePin(h.id, !h.isPinned) },
-                onDelete = { onDelete(h.id) },
+                onEdit = { onEdit(hero) },
+                onStartReorder = { order = shown.map { it.id } },
             )
+            shown.filter { it.id != hero.id }.forEach { h ->
+                HistoryRow(
+                    history = h,
+                    today = today,
+                    reorder = false,
+                    dragging = false,
+                    dragDelta = 0f,
+                    onEdit = { onEdit(h) },
+                    onStartReorder = { order = shown.map { it.id } },
+                    onDragStart = {},
+                    onDrag = {},
+                    onDragEnd = {},
+                )
+            }
+        } else {
+            // 排序模式：全员统一行 + 左缘汉堡手柄（≈），拖动换位
+            shown.forEach { h ->
+                HistoryRow(
+                    history = h,
+                    today = today,
+                    reorder = true,
+                    dragging = draggingId == h.id,
+                    dragDelta = if (draggingId == h.id) dragDelta else 0f,
+                    onEdit = { order = null; onEdit(h) },
+                    onStartReorder = {},
+                    onDragStart = { draggingId = h.id; dragDelta = 0f },
+                    onDrag = { delta ->
+                        dragDelta += delta
+                        val current = order.orEmpty().toMutableList()
+                        val i = current.indexOf(h.id)
+                        if (i >= 0 && dragDelta > pitchPx && i < current.lastIndex) {
+                            current[i] = current[i + 1]
+                            current[i + 1] = h.id
+                            order = current
+                            dragDelta -= pitchPx
+                        } else if (i > 0 && dragDelta < -pitchPx) {
+                            current[i] = current[i - 1]
+                            current[i - 1] = h.id
+                            order = current
+                            dragDelta += pitchPx
+                        }
+                    },
+                    onDragEnd = {
+                        val finalOrder = order.orEmpty()
+                        draggingId = null
+                        dragDelta = 0f
+                        order = null
+                        onReorder(finalOrder)
+                    },
+                )
+            }
         }
     }
 }
@@ -683,72 +780,58 @@ private fun HeroHistoryCard(
     history: History,
     today: LocalDate,
     onEdit: () -> Unit,
-    onTogglePin: () -> Unit,
-    onDelete: () -> Unit,
+    onStartReorder: () -> Unit,
 ) {
     val colors = LocalAstelleColors.current
-    var menuOpen by remember { mutableStateOf(false) }
     val interaction = remember { MutableInteractionSource() }
-    Box {
-        Row(
-            Modifier
-                .padding(horizontal = 14.dp, vertical = 10.dp)
-                .fillMaxWidth()
-                .clip(HeroShape)
-                .background(colors.paper)
-                .border(1.dp, colors.divider, HeroShape)
-                .combinedClickable(
-                    interactionSource = interaction,
-                    indication = null,
-                    onClick = onEdit,
-                    onLongClick = { menuOpen = true },
-                )
-                .padding(20.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(Modifier.weight(1f)) {
-                if (history.isPinned) {
-                    Text("置顶", fontSize = 10.sp, color = colors.muted, style = TextStyle(letterSpacing = 0.25.sp))
-                }
-                Text(history.title, fontSize = 19.sp, fontWeight = FontWeight.Medium, color = colors.ink)
-                Text(
-                    "起始 ${history.startDate.format(DateFmt)}" +
-                        if (history.note.isNotEmpty()) " · ${history.note}" else "",
-                    fontSize = 11.sp,
-                    color = colors.muted,
-                    style = TextStyle(letterSpacing = 0.05.sp),
-                    modifier = Modifier.padding(top = 8.dp),
-                )
-                val anniv = TaskLogic.daysToNextAnniversary(today, history.startDate)
-                if (anniv in 1..365) {
-                    Text(
-                        "距下个周年 · $anniv 天",
-                        fontSize = 10.5.sp,
-                        color = Accent,
-                        style = TextStyle(letterSpacing = 0.08.sp),
-                        modifier = Modifier.padding(top = 2.dp),
-                    )
-                }
+    Row(
+        Modifier
+            .padding(horizontal = 14.dp, vertical = 10.dp)
+            .fillMaxWidth()
+            .clip(HeroShape)
+            .background(colors.paper)
+            .border(1.dp, colors.divider, HeroShape)
+            .combinedClickable(
+                interactionSource = interaction,
+                indication = null,
+                onClick = onEdit,
+                onLongClick = onStartReorder, // 长按 = 进入拖拽排序
+            )
+            .padding(20.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            if (history.isPinned) {
+                Text("置顶", fontSize = 10.sp, color = colors.muted, style = TextStyle(letterSpacing = 0.25.sp))
             }
-            Spacer(Modifier.width(16.dp))
-            Column(horizontalAlignment = Alignment.End) {
+            Text(history.title, fontSize = 19.sp, fontWeight = FontWeight.Medium, color = colors.ink)
+            Text(
+                "起始 ${history.startDate.format(DateFmt)}" +
+                    if (history.note.isNotEmpty()) " · ${history.note}" else "",
+                fontSize = 11.sp,
+                color = colors.muted,
+                style = TextStyle(letterSpacing = 0.05.sp),
+                modifier = Modifier.padding(top = 8.dp),
+            )
+            val anniv = TaskLogic.daysToNextAnniversary(today, history.startDate)
+            if (anniv in 1..365) {
                 Text(
-                    TaskLogic.daysSince(today, history.startDate).toString(),
-                    fontSize = 64.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = colors.inkSoft,
-                    style = TextStyle(letterSpacing = (-0.03).sp, lineHeightStyle = CenteredLineHeight),
+                    "距下个周年 · $anniv 天",
+                    fontSize = 10.5.sp,
+                    color = Accent,
+                    style = TextStyle(letterSpacing = 0.08.sp),
+                    modifier = Modifier.padding(top = 2.dp),
                 )
-                Text("天", fontSize = 10.sp, color = colors.muted, style = TextStyle(letterSpacing = 0.25.sp))
             }
         }
-        GlassMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-            MenuRow(label = "编辑", icon = Icons.Outlined.Add) { menuOpen = false; onEdit() }
-            MenuRow(
-                label = if (history.isPinned) "取消置顶" else "置顶",
-                icon = Icons.Outlined.Add,
-            ) { menuOpen = false; onTogglePin() }
-            MenuRow(label = "删除", icon = Icons.Outlined.Add) { menuOpen = false; onDelete() }
+        Spacer(Modifier.width(16.dp))
+        Column(horizontalAlignment = Alignment.End) {
+            Text(
+                TaskLogic.daysSince(today, history.startDate).toString(),
+                style = numeralStyle(68f, FontWeight.Light, tracking = -0.035f),
+                color = colors.inkSoft,
+            )
+            Text("天", fontSize = 10.sp, color = colors.muted, style = TextStyle(letterSpacing = 0.25.sp))
         }
     }
 }
@@ -758,67 +841,84 @@ private fun HeroHistoryCard(
 private fun HistoryRow(
     history: History,
     today: LocalDate,
+    reorder: Boolean,
+    dragging: Boolean,
+    dragDelta: Float,
     onEdit: () -> Unit,
-    onTogglePin: () -> Unit,
-    onDelete: () -> Unit,
+    onStartReorder: () -> Unit,
+    onDragStart: () -> Unit,
+    onDrag: (Float) -> Unit,
+    onDragEnd: () -> Unit,
 ) {
     val colors = LocalAstelleColors.current
-    var menuOpen by remember { mutableStateOf(false) }
     val interaction = remember { MutableInteractionSource() }
-    Box {
-        Row(
-            Modifier
-                .padding(horizontal = 14.dp, vertical = 0.dp)
-                .padding(bottom = 8.dp)
-                .fillMaxWidth()
-                .clip(CardShape)
-                .background(colors.paper)
-                .border(1.dp, colors.divider, CardShape)
-                .combinedClickable(
-                    interactionSource = interaction,
-                    indication = null,
-                    onClick = onEdit,
-                    onLongClick = { menuOpen = true },
-                )
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(history.title, fontSize = 16.5.sp, color = colors.ink)
-                    if (history.isPinned) {
-                        Spacer(Modifier.width(8.dp))
-                        Text("置顶", fontSize = 10.sp, color = colors.muted, style = TextStyle(letterSpacing = 0.2.sp))
-                    }
-                }
-                Text(
-                    "起始 ${history.startDate.format(DateFmt)}" +
-                        if (history.note.isNotEmpty()) " · ${history.note}" else "",
-                    fontSize = 11.sp,
-                    color = colors.muted,
-                    style = TextStyle(letterSpacing = 0.05.sp),
-                    modifier = Modifier.padding(top = 5.dp),
+    Row(
+        Modifier
+            .padding(horizontal = 14.dp, vertical = 0.dp)
+            .padding(bottom = 8.dp)
+            .fillMaxWidth()
+            .graphicsLayer { translationY = dragDelta }
+            .clip(CardShape)
+            .background(colors.paper)
+            .border(1.dp, colors.divider, CardShape)
+            .combinedClickable(
+                interactionSource = interaction,
+                indication = null,
+                onClick = onEdit,
+                onLongClick = onStartReorder,
+            )
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (reorder) {
+            // 汉堡手柄（≡）：只在排序模式出现，拖它换位
+            Box(
+                Modifier
+                    .size(36.dp)
+                    .pointerInput(history.id) {
+                        detectDragGestures(
+                            onDragStart = { onDragStart() },
+                            onDrag = { _, amount -> onDrag(amount.y) },
+                            onDragEnd = { onDragEnd() },
+                            onDragCancel = { onDragEnd() },
+                        )
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Outlined.Menu,
+                    contentDescription = "拖动排序",
+                    tint = colors.muted,
+                    modifier = Modifier.size(20.dp),
                 )
             }
-            Spacer(Modifier.width(13.dp))
-            Column(horizontalAlignment = Alignment.End, modifier = Modifier.width(86.dp)) {
-                Text(
-                    TaskLogic.daysSince(today, history.startDate).toString(),
-                    fontSize = 30.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = colors.inkSoft,
-                    style = TextStyle(letterSpacing = (-0.02).sp, lineHeightStyle = CenteredLineHeight),
-                )
-                Text("天", fontSize = 10.sp, color = colors.muted, style = TextStyle(letterSpacing = 0.22.sp), modifier = Modifier.padding(top = 5.dp))
-            }
+            Spacer(Modifier.width(10.dp))
         }
-        GlassMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-            MenuRow(label = "编辑", icon = Icons.Outlined.Add) { menuOpen = false; onEdit() }
-            MenuRow(
-                label = if (history.isPinned) "取消置顶" else "置顶",
-                icon = Icons.Outlined.Add,
-            ) { menuOpen = false; onTogglePin() }
-            MenuRow(label = "删除", icon = Icons.Outlined.Add) { menuOpen = false; onDelete() }
+        Column(Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(history.title, fontSize = 16.5.sp, color = colors.ink)
+                if (history.isPinned) {
+                    Spacer(Modifier.width(8.dp))
+                    Text("置顶", fontSize = 10.sp, color = colors.muted, style = TextStyle(letterSpacing = 0.2.sp))
+                }
+            }
+            Text(
+                "起始 ${history.startDate.format(DateFmt)}" +
+                    if (history.note.isNotEmpty()) " · ${history.note}" else "",
+                fontSize = 11.sp,
+                color = colors.muted,
+                style = TextStyle(letterSpacing = 0.05.sp),
+                modifier = Modifier.padding(top = 5.dp),
+            )
+        }
+        Spacer(Modifier.width(13.dp))
+        Column(horizontalAlignment = Alignment.End, modifier = Modifier.width(92.dp)) {
+            Text(
+                TaskLogic.daysSince(today, history.startDate).toString(),
+                style = numeralStyle(32f, FontWeight.Medium, tracking = -0.025f),
+                color = colors.inkSoft,
+            )
+            Text("天", fontSize = 10.sp, color = colors.muted, style = TextStyle(letterSpacing = 0.22.sp), modifier = Modifier.padding(top = 5.dp))
         }
     }
 }
@@ -999,11 +1099,12 @@ private fun TodoEditorDialog(
 private fun HistoryEditorDialog(
     initial: History?,
     onDismiss: () -> Unit,
-    onSave: (title: String, start: LocalDate) -> Unit,
+    onSave: (title: String, start: LocalDate, pinned: Boolean) -> Unit,
     onDelete: () -> Unit,
 ) {
     var title by remember { mutableStateOf(initial?.title.orEmpty()) }
     var start by remember { mutableStateOf(initial?.startDate ?: LocalDate.now()) }
+    var pinned by remember { mutableStateOf(initial?.isPinned ?: false) }
     var showDatePicker by remember { mutableStateOf(false) }
 
     androidx.compose.material3.AlertDialog(
@@ -1014,10 +1115,12 @@ private fun HistoryEditorDialog(
                 TaskTextField(value = title, onValueChange = { title = it }, hint = "标题…")
                 Spacer(Modifier.height(12.dp))
                 DateRow(label = "起始", date = start, onPick = { showDatePicker = true }, onClear = null)
+                Spacer(Modifier.height(10.dp))
+                PinRow(pinned = pinned, onToggle = { pinned = !pinned })
             }
         },
         confirmButton = {
-            TextButton(onClick = { if (title.isNotBlank()) onSave(title, start) }) { Text("保存", color = Accent) }
+            TextButton(onClick = { if (title.isNotBlank()) onSave(title, start, pinned) }) { Text("保存", color = Accent) }
         },
         dismissButton = {
             Row {
@@ -1116,6 +1219,31 @@ private fun DateRow(label: String, date: LocalDate?, onPick: () -> Unit, onClear
     }
 }
 
+/** 置顶切换（长按菜单退役后，编辑表单接管置顶/删除） */
+@Composable
+private fun PinRow(pinned: Boolean, onToggle: () -> Unit) {
+    val colors = LocalAstelleColors.current
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text("置顶", fontSize = 12.sp, color = colors.muted, style = TextStyle(letterSpacing = 0.1.sp))
+        Spacer(Modifier.width(12.dp))
+        val interaction = remember { MutableInteractionSource() }
+        Box(
+            Modifier
+                .clip(RoundedCornerShape(999.dp))
+                .background(if (pinned) colors.accentMist else Color.Transparent)
+                .border(1.dp, if (pinned) Accent.copy(alpha = 0.35f) else colors.divider, RoundedCornerShape(999.dp))
+                .clickableNoRipple(interaction, onToggle)
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+        ) {
+            Text(
+                if (pinned) "已置顶" else "未置顶",
+                fontSize = 12.5.sp,
+                color = if (pinned) Accent else colors.muted,
+            )
+        }
+    }
+}
+
 /**
  * 上下文横幅：「加入「冰岛行程准备」」+ ✕ 脱离。
  * 子项从卡片派生（长按→添加子项），表单里**零选择器零行话**——
@@ -1152,6 +1280,199 @@ private fun ContextBanner(title: String, onDetach: () -> Unit) {
     }
 }
 
+/**
+ * 快记框（10-11 用户亲自设计的交互）：加号弹出 →
+ * 每行「勾选框图标 + 输入栏」；**回车 = 换行继续打**（勾选框只是图标，无实际功能，
+ * 提示"你正在添加待办"）；第二行出现的瞬间顶部弹「**待办清单**」（默认标题，可自定义，
+ * 弹出不抢焦点）；左下「设置截止」开日历；右下「完成」封存。
+ * 一行 = 独立待办；多行 = 清单母项 + 子项。
+ */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@Composable
+private fun QuickAddDialog(
+    onDismiss: () -> Unit,
+    onDone: (title: String, due: LocalDate?, items: List<String>) -> Unit,
+) {
+    val colors = LocalAstelleColors.current
+    var rows by remember { mutableStateOf(listOf("")) }
+    var title by remember { mutableStateOf("待办清单") }
+    var due by remember { mutableStateOf<LocalDate?>(null) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    val lastFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+    val anyText = rows.any { it.isNotBlank() }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Column(
+            Modifier
+                .padding(horizontal = 18.dp)
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(26.dp))
+                .background(colors.paper)
+                .padding(horizontal = 22.dp, vertical = 24.dp),
+        ) {
+            // ── 待办清单标题（≥2 行时弹出；默认「待办清单」可自定义） ──
+            AnimatedVisibility(visible = rows.size > 1) {
+                Column {
+                    BasicTextField(
+                        value = title,
+                        onValueChange = { title = it },
+                        singleLine = true,
+                        textStyle = TextStyle(
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Ink,
+                            fontFamily = FontFamily.Serif,
+                        ),
+                        cursorBrush = SolidColor(Accent),
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                    )
+                    Box(Modifier.fillMaxWidth().height(1.dp).background(colors.divider))
+                    Spacer(Modifier.height(14.dp))
+                }
+            }
+
+            // ── 待办行（勾选框 = 纯图标） ──
+            Column(Modifier.heightIn(max = 270.dp).verticalScroll(rememberScrollState())) {
+                rows.forEachIndexed { index, value ->
+                    Row(
+                        Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        // 装饰性勾选框（无实际功能，提示"正在添加待办"）
+                        Box(
+                            Modifier
+                                .size(27.dp)
+                                .clip(RoundedCornerShape(9.dp))
+                                .border(2.dp, colors.muted, RoundedCornerShape(9.dp)),
+                        )
+                        Spacer(Modifier.width(16.dp))
+                        BasicTextField(
+                            value = value,
+                            onValueChange = { text -> rows = rows.toMutableList().also { it[index] = text } },
+                            singleLine = true,
+                            textStyle = TextStyle(fontSize = 20.sp, color = Ink),
+                            cursorBrush = SolidColor(Accent),
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                            keyboardActions = KeyboardActions(onDone = {
+                                rows = rows + ""
+                                lastFocus.requestFocus()
+                            }),
+                            modifier = Modifier
+                                .weight(1f)
+                                .then(
+                                    if (index == rows.lastIndex) {
+                                        Modifier.focusRequester(lastFocus)
+                                    } else {
+                                        Modifier
+                                    }
+                                )
+                                .onPreviewKeyEvent { e ->
+                                    if (e.type == KeyEventType.KeyDown &&
+                                        e.key == Key.Backspace &&
+                                        value.isEmpty() &&
+                                        rows.size > 1
+                                    ) {
+                                        rows = rows.toMutableList().also { it.removeAt(index) }
+                                        true
+                                    } else {
+                                        false
+                                    }
+                                },
+                            decorationBox = { inner ->
+                                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
+                                    if (value.isEmpty()) {
+                                        Text(
+                                            "回车即可连续添加待办",
+                                            fontSize = 20.sp,
+                                            color = Ghost.copy(alpha = 0.7f),
+                                        )
+                                    }
+                                    inner()
+                                }
+                            },
+                        )
+                    }
+                }
+            }
+
+            // ── 底部：设置截止 + 完成 ──
+            Row(
+                Modifier.fillMaxWidth().padding(top = 22.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                val dueInteraction = remember { MutableInteractionSource() }
+                Row(
+                    Modifier
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(colors.accentMist)
+                        .clickableNoRipple(dueInteraction) { showDatePicker = true }
+                        .padding(horizontal = 20.dp, vertical = 13.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("⏱", fontSize = 15.sp, color = Ink)
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        due?.format(DateFmt)?.let { "截止 $it" } ?: "设置截止",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Ink,
+                        style = TextStyle(lineHeightStyle = CenteredLineHeight),
+                    )
+                }
+                val doneInteraction = remember { MutableInteractionSource() }
+                Box(
+                    Modifier
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(if (anyText) Accent else colors.divider.copy(alpha = 0.5f))
+                        .clickableNoRipple(doneInteraction) {
+                            if (anyText) {
+                                onDone(
+                                    title,
+                                    due,
+                                    rows.map { it.trim() }.filter { it.isNotEmpty() },
+                                )
+                            }
+                        }
+                        .padding(horizontal = 26.dp, vertical = 13.dp),
+                ) {
+                    Text(
+                        "完成",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (anyText) colors.paper else colors.muted,
+                        style = TextStyle(lineHeightStyle = CenteredLineHeight),
+                    )
+                }
+            }
+        }
+    }
+
+    if (showDatePicker) {
+        val state = rememberDatePickerState(
+            initialSelectedDateMillis = due?.atStartOfDay(ZoneOffset.UTC)?.toInstant()?.toEpochMilli()
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    state.selectedDateMillis?.let {
+                        due = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()
+                    }
+                    showDatePicker = false
+                }) { Text("确定", color = Accent) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("取消", color = Muted) }
+            },
+            shape = RoundedCornerShape(20.dp),
+        ) { DatePicker(state = state) }
+    }
+}
+
 // ═════════════════════════ 小件 ═════════════════════════
 
 @Composable
@@ -1169,6 +1490,20 @@ private fun EmptyHint(text: String) {
         Text(text, fontSize = 12.5.sp, color = colors.muted, style = TextStyle(letterSpacing = 0.25.sp))
     }
 }
+
+/**
+ * 数字专用样式（10-11 用户定调）：衬线标题 × **轻量无衬线数字** + tabular 等宽 ——
+ * 编辑感对比，比一路衬线更高级。天数/倒计时全走这套。
+ */
+private fun numeralStyle(size: Float, weight: FontWeight, tracking: Float = -0.02f): TextStyle =
+    TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = weight,
+        fontSize = size.sp,
+        letterSpacing = tracking.sp,
+        fontFeatureSettings = "tnum",
+        lineHeightStyle = CenteredLineHeight,
+    )
 
 /** 右侧倒计时文字 + 是否告急（砖红） */
 private fun countdownText(today: LocalDate, due: LocalDate?): Pair<String, Boolean> {
