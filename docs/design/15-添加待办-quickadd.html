@@ -32,13 +32,7 @@
   /* 待办行 */
   .rows{min-height:96px;max-height:270px;overflow-y:auto;padding-right:4px}
   .row{display:flex;align-items:center;gap:16px;padding:6px 2px}
-  .c\boxed{width:27px;height:27px;border-radius:9px;border:2px solid var(--muted);flex:none;
-          display:flex;align-items:center;justify-content:center;cursor:pointer;
-          transition:background .15s ease,border-color .15s ease,transform .12s ease}
-  .cbox:active{transform:scale(.9)}
-  .cbox.done{background:var(--accent);border-color:var(--accent)}
-  .cbox svg{width:15px;height:15px;display:none}
-  .cbox.done svg{display:block}
+  .c\boxed{width:27px;height:27px;border-radius:9px;border:2px solid var(--muted);flex:none}
   .row input{flex:1;border:none;outline:none;background:transparent;font-family:var(--sans);
              font-size:20px;color:var(--ink);padding:6px 0}
   .row input::placeholder{color:var(--muted)}
@@ -81,9 +75,9 @@
 </div>
 
 <div class="dialog">
-  <!-- 待办总标题（回车弹出） -->
+  <!-- 待办清单（回车弹出，可自定义标题） -->
   <div class="master" id="master">
-    <input id="masterTitle" placeholder="待办总标题" />
+    <input id="masterTitle" value="待办清单" />
     <div class="line"></div>
   </div>
 
@@ -122,11 +116,7 @@
     const row = document.createElement('div');
     row.className = 'row';
     row.innerHTML = `
-      <div class="cbox" onclick="this.classList.toggle('done')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#FFFCF7" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M6 12.5l3.6 3.6L18 8.5"/>
-        </svg>
-      </div>
+      <div class="cbox"></div>
       <input placeholder="回车即可连续添加待办" />`;
     const input = row.querySelector('input');
     input.addEventListener('keydown', (e) => {
@@ -152,11 +142,8 @@
   }
 
   function syncMaster() {
+    // 「待办清单」= 默认标题（点它即可自定义）；弹出时不抢焦点——打字流不能断
     master.classList.toggle('show', rowsEl.children.length > 1);
-    if (rowsEl.children.length > 1) {
-      const t = document.getElementById('masterTitle');
-      if (!t.value && !t.dataset.hinted) { t.dataset.hinted = '1'; }
-    }
   }
 
   function refreshDone() {
